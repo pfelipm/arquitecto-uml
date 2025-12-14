@@ -1,3 +1,5 @@
+![Arquitecto Simple UML Banner](readme-archivos/banner.svg)
+
 # Arquitecto Simple UML
 
 **Arquitecto Simple UML (AS-UML)** es un editor de UML ligero, experimental y diseñado con fines didácticos para crear diagramas de manera sencilla. Es una Single Page Application (SPA) contenida en un único archivo HTML, lo que facilita su distribución y uso sin instalaciones complejas.
