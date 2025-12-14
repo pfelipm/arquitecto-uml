@@ -13,8 +13,14 @@ Puedes utilizar el editor sin limitaciones y directamente en tu navegador accedi
 
 *   **Tipos de Diagramas Soportados:**
     *   **DCU:** Diagramas de Casos de Uso (Actores, Casos de uso, Límites).
+        
+        ![Ejemplo DCU](readme-archivos/DCU.png)
     *   **DC:** Diagramas de Clases (Clases, Interfaces, Relaciones).
+        
+        ![Ejemplo DC](readme-archivos/DC.png)
     *   **DA:** Diagramas de Actividad (Inicio, Fin, Actividades, Decisiones, Carriles).
+        
+        ![Ejemplo DA](readme-archivos/DA.png)
 *   **Gestión de Proyectos:** Organización mediante carpetas y múltiples diagramas.
 *   **Persistencia Local:** Guardado automático en el navegador (`localStorage`).
 *   **Importar/Exportar:** Copias de seguridad completas en formato JSON y exportación de diagramas a imágenes PNG.
