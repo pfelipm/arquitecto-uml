@@ -35,3 +35,7 @@ Simplemente abre el archivo `index.html` en cualquier navegador web moderno. Aun
 ## Autor
 
 Desarrollado por [Pablo Felip Monferrer](https://www.linkedin.com/in/pfelipm) como herramienta de apoyo para la asignatura de Ingeniería del Software.
+
+## Licencia
+
+Este proyecto se distribuye bajo los términos del archivo [LICENSE](LICENSE).
