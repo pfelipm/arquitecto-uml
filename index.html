@@ -1,0 +1,1513 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arquitecto Simple UML</title>
+
+    <!-- 1. Cargar Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Configuración para modo oscuro de Tailwind -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+
+    <!-- 2. Import Map para gestionar las bibliotecas de React y Lucide -->
+    <!-- Esto le dice al navegador dónde buscar "react" y "lucide-react" -->
+    <script type="importmap">
+    {
+        "imports": {
+            "react": "https://esm.sh/react@18.2.0",
+            "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+            "lucide-react": "https://esm.sh/lucide-react@0.292.0"
+        }
+    }
+    </script>
+
+    <!-- 3. Cargar Babel para traducir TSX a JS en el navegador -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        /* Ajustes básicos para asegurar que ocupe el iframe de Google Sites */
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+        #root { height: 100%; }
+
+        /* Animaciones personalizadas del código original */
+        @keyframes bounce-in {
+            0% { transform: translate(-50%, 100%); opacity: 0; }
+            100% { transform: translate(-50%, 0); opacity: 1; }
+        }
+        .animate-bounce-in {
+            animation: bounce-in 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- 4. Tu código de la aplicación -->
+    <!-- data-type="module" permite usar imports -->
+    <!-- data-presets="react,typescript" permite usar código React y Typescript -->
+    <script type="text/babel" data-type="module" data-presets="react,typescript">
+        import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import {
+          MousePointer2, Move, Square, Circle, Diamond,
+          Minus, ArrowRight, Save, Download, Folder,
+          Trash2, Plus, GripVertical, ZoomIn, ZoomOut,
+          Undo, Redo, Moon, Sun, ChevronRight, ChevronDown,
+          Maximize2, Copy, User, Edit2, ArrowDownAZ,
+          AlertTriangle, X, Link2, ArrowLeftRight, Italic,
+          FolderPlus, FilePlus, Layout, Upload, Image as ImageIcon,
+          Info, Github, Linkedin
+        } from 'lucide-react';
+
+        // --- CÓDIGO ORIGINAL DE LA APP (Sin modificaciones lógicas) ---
+
+        /**
+         * ARQUITECTO SIMPLE UML - SUITE DE MODELADO
+         * Versión 7.4 "Icon Refresh"
+         */
+
+        // --- TIPOS Y CONSTANTES ---
+
+        type DiagramType = 'dcu' | 'dc' | 'da';
+        type NodeType =
+          | 'actor' | 'usecase' | 'boundary' // DCU
+          | 'class' | 'interface' // DC
+          | 'start' | 'end' | 'activity' | 'decision' | 'fork' | 'swimlane'; // DA
+        type EdgeType = 'association' | 'directed_association' | 'generalization' | 'implementation' | 'include' | 'extend' | 'aggregation' | 'composition' | 'dependency' | 'control';
+        type PathType = 'straight' | 'orthogonal';
+        type ResizeHandleType = 'nw' | 'ne' | 'sw' | 'se' | 'n' | 's' | 'e' | 'w';
+
+        interface Point { x: number; y: number; }
+        interface NodeData {
+          id: string;
+          type: NodeType;
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+          text: string;
+          attributes?: string[];
+          methods?: string[];
+          isAbstract?: boolean;
+          zIndex: number;
+          selected?: boolean;
+        }
+
+        interface EdgeData {
+          id: string;
+          source: string;
+          target: string;
+          type: EdgeType;
+          pathType: PathType;
+          label?: string;
+          sourceLabel?: string;
+          targetLabel?: string;
+          waypoints?: Point[];
+          selected?: boolean;
+        }
+
+        interface Diagram {
+          id: string;
+          name: string;
+          type: DiagramType;
+          nodes: NodeData[];
+          edges: EdgeData[];
+          createdAt: number;
+        }
+
+        interface FolderData {
+          id: string;
+          name: string;
+          diagrams: Diagram[];
+          isOpen: boolean;
+        }
+
+        // Colores y Estilos
+        const COLORS = {
+          primary: '#3b82f6',
+          selection: '#3b82f6',
+          grid: '#e5e7eb',
+          gridDark: '#374151',
+          nodeBg: '#ffffff',
+          nodeBgDark: '#1f2937',
+          nodeBorder: '#000000',
+          nodeBorderDark: '#e5e7eb',
+          text: '#000000',
+          textDark: '#ffffff'
+        };
+
+        // --- ICONOS PERSONALIZADOS ---
+
+        const DiagramIcon = ({ type, size = 16, className = "" }: { type: DiagramType, size?: number, className?: string }) => {
+            if (type === 'dcu') {
+                return (
+                    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                        <circle cx="12" cy="7" r="4" />
+                        <path d="M5.5 21v-2a4 4 0 0 1 4-4h5a4 4 0 0 1 4 4v2" />
+                    </svg>
+                );
+            } else if (type === 'dc') {
+                return (
+                    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                        <line x1="3" y1="9" x2="21" y2="9" />
+                        <line x1="3" y1="15" x2="21" y2="15" />
+                    </svg>
+                );
+            } else {
+                return (
+                    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                        <circle cx="6" cy="6" r="3" />
+                        <path d="M6 9v3a6 6 0 0 0 6 6h3" />
+                        <path d="M16 22l4-4-4-4" />
+                    </svg>
+                );
+            }
+        };
+
+        const InterfaceToolIcon = ({ size = 20 }: { size?: number }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <circle cx="16" cy="6" r="1.5" fill="currentColor" stroke="none" />
+            </svg>
+        );
+
+        const ClassToolIcon = ({ size = 20 }: { size?: number }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <line x1="3" y1="9" x2="21" y2="9" />
+                <line x1="3" y1="15" x2="21" y2="15" />
+            </svg>
+        );
+
+
+        // --- COMPONENTES AUXILIARES Y MATEMÁTICAS ---
+
+        const generateId = () => Math.random().toString(36).substr(2, 9);
+
+        const calculatePerimeterPoint = (targetNode: NodeData, referencePoint: Point): Point => {
+            const targetCenter = { x: targetNode.x + targetNode.width / 2, y: targetNode.y + targetNode.height / 2 };
+            const dx = referencePoint.x - targetCenter.x;
+            const dy = referencePoint.y - targetCenter.y;
+            const angle = Math.atan2(dy, dx);
+            const padding = 2;
+
+            if (targetNode.type === 'actor') {
+                const isBelow = referencePoint.y > targetCenter.y + (targetNode.height / 4);
+                const radiusX = (targetNode.width / 2) + padding;
+                let radiusY = (targetNode.height / 2) + padding;
+                if (isBelow) radiusY += 25;
+                return { x: targetCenter.x + radiusX * Math.cos(angle), y: targetCenter.y + radiusY * Math.sin(angle) };
+            }
+            else if (['usecase', 'start', 'end'].includes(targetNode.type)) {
+                const radiusX = (targetNode.width / 2) + padding;
+                const radiusY = (targetNode.height / 2) + padding;
+                return { x: targetCenter.x + radiusX * Math.cos(angle), y: targetCenter.y + radiusY * Math.sin(angle) };
+            } else if (targetNode.type === 'decision') {
+                const w = (targetNode.width / 2) + padding;
+                const h = (targetNode.height / 2) + padding;
+                const tan = Math.tan(angle);
+                const x = (w * h) / Math.sqrt(h * h + w * w * tan * tan);
+                const y = x * Math.abs(tan);
+                return { x: targetCenter.x + Math.sign(Math.cos(angle)) * x, y: targetCenter.y + Math.sign(Math.sin(angle)) * y };
+            } else {
+                const w = (targetNode.width / 2) + padding;
+                const h = (targetNode.height / 2) + padding;
+                const absCos = Math.abs(Math.cos(angle));
+                const absSin = Math.abs(Math.sin(angle));
+                const xDist = w / absCos;
+                const yDist = h / absSin;
+                const dist = Math.min(xDist, yDist);
+                return { x: targetCenter.x + dist * Math.cos(angle), y: targetCenter.y + dist * Math.sin(angle) };
+            }
+        };
+
+        const getMultiplicityPos = (start: Point, end: Point, distance = 15, offset = 8): Point => {
+            const dx = end.x - start.x;
+            const dy = end.y - start.y;
+            const angle = Math.atan2(dy, dx);
+            const xBase = start.x + distance * Math.cos(angle);
+            const yBase = start.y + distance * Math.sin(angle);
+            const xOffset = xBase + offset * Math.cos(angle - Math.PI / 2);
+            const yOffset = yBase + offset * Math.sin(angle - Math.PI / 2);
+            return { x: xOffset, y: yOffset };
+        };
+
+        const getValidConnectionTypes = (source: NodeData, target: NodeData, diagramType: DiagramType): EdgeType[] => {
+            // Restricción reflexiva en DC: Solo permitir Clases
+            if (source.id === target.id) {
+                if (diagramType === 'dc') {
+                    if (source.type === 'class') {
+                        return ['association', 'directed_association', 'dependency', 'aggregation', 'composition'];
+                    }
+                    return []; // Interfaces u otros no pueden tener reflexiva en este editor simple
+                }
+                return [];
+            }
+
+            if (diagramType === 'dcu') {
+                if (source.type === 'boundary' || target.type === 'boundary') return [];
+                if (source.type === 'actor' && target.type === 'actor') return ['generalization'];
+                if ((source.type === 'actor' && target.type === 'usecase') || (source.type === 'usecase' && target.type === 'actor')) return ['association'];
+                if (source.type === 'usecase' && target.type === 'usecase') return ['include', 'extend', 'generalization'];
+                return [];
+            }
+            if (diagramType === 'dc') {
+                if (source.type === 'interface' && target.type === 'interface') return ['generalization', 'dependency'];
+                if (source.type === 'class' && target.type === 'interface') return ['implementation', 'dependency', 'directed_association', 'association'];
+                if (source.type === 'interface' && target.type === 'class') return [];
+                return ['association', 'directed_association', 'generalization', 'composition', 'aggregation', 'dependency'];
+            }
+            if (diagramType === 'da') return ['control'];
+            return ['association'];
+        };
+
+        const getEdgeLabel = (type) => {
+            if (type === 'association') return 'Asociación simple';
+            if (type === 'directed_association') return 'Asociación dirigida';
+            if (type === 'generalization') return 'Generalización';
+            if (type === 'implementation') return 'Implementación';
+            if (type === 'include') return 'Inclusión';
+            if (type === 'extend') return 'Extensión';
+            if (type === 'composition') return 'Composición';
+            if (type === 'aggregation') return 'Agregación';
+            if (type === 'dependency') return 'Dependencia';
+            if (type === 'control') return 'Flujo de control';
+            return type.charAt(0).toUpperCase() + type.slice(1);
+        }
+
+        // --- COMPONENTES MODALES ---
+
+        const DiagramOptionButton = ({ type, title, desc, onClick, isDarkMode }) => (
+            <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onClick(); }}
+                className={`flex flex-col items-center p-6 rounded-lg border-2 transition-all hover:scale-105 ${isDarkMode ? 'border-gray-600 hover:border-blue-500 bg-gray-800' : 'border-gray-200 hover:border-blue-500 bg-white hover:shadow-lg'}`}
+            >
+                <div className={`mb-4 p-4 rounded-full ${isDarkMode ? 'bg-gray-700 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
+                    <DiagramIcon type={type} size={48} />
+                </div>
+                <h4 className="font-bold text-lg mb-1">{title}</h4>
+                <p className="text-xs opacity-60 text-center">{desc}</p>
+            </button>
+        );
+
+        const RenameModal = ({ isOpen, initialText, title, onSave, onClose, isDarkMode }) => {
+            const [text, setText] = useState(initialText);
+            const inputRef = useRef(null);
+
+            useEffect(() => {
+                if (isOpen) {
+                    setText(initialText);
+                    setTimeout(() => {
+                        if (inputRef.current) {
+                            inputRef.current.focus();
+                            inputRef.current.select();
+                        }
+                    }, 50);
+                }
+            }, [isOpen, initialText]);
+
+            if (!isOpen) return null;
+
+            return (
+                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onMouseDown={e => e.stopPropagation()}>
+                    <div className={`p-6 rounded-lg shadow-xl border w-96 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
+                        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                            <Edit2 size={18} className="text-blue-500"/>
+                            {title}
+                        </h3>
+                        <input
+                            ref={inputRef}
+                            type="text"
+                            className={`w-full p-2 rounded border mb-4 focus:ring-2 focus:ring-blue-500 outline-none ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-black'}`}
+                            value={text}
+                            onChange={e => setText(e.target.value)}
+                            onKeyDown={e => {
+                                if (e.key === 'Enter') onSave(text);
+                                if (e.key === 'Escape') onClose();
+                            }}
+                        />
+                        <div className="flex justify-end space-x-2">
+                            <button
+                                onClick={onClose}
+                                className={`px-4 py-2 rounded font-medium ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={() => onSave(text)}
+                                className="px-4 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 shadow-sm"
+                            >
+                                Guardar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const NewDiagramModal = ({ isOpen, onClose, onCreate, isDarkMode }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm" onMouseDown={(e) => e.stopPropagation()}>
+                    <div className={`p-8 rounded-xl shadow-2xl max-w-4xl w-full mx-4 ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}`}>
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-2xl font-bold">Crear nuevo diagrama</h2>
+                            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"><X size={20}/></button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <DiagramOptionButton type="dcu" title="Casos de Uso" desc="Actores, sistemas y relaciones para modelar requisitos funcionales." onClick={() => onCreate('dcu')} isDarkMode={isDarkMode} />
+                            <DiagramOptionButton type="dc" title="Clases" desc="Estructura estática, atributos, métodos y relaciones entre objetos." onClick={() => onCreate('dc')} isDarkMode={isDarkMode} />
+                            <DiagramOptionButton type="da" title="Actividades" desc="Flujos de control, decisiones y procesos de negocio concurrentes." onClick={() => onCreate('da')} isDarkMode={isDarkMode} />
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const ConnectionModal = ({ pendingConnection, onConfirm, onCancel, isDarkMode }) => {
+            if (!pendingConnection) return null;
+            const { validTypes } = pendingConnection;
+            const [selectedType, setSelectedType] = useState(validTypes[0]);
+
+            useEffect(() => {
+                setSelectedType(validTypes[0]);
+            }, [pendingConnection, validTypes]);
+
+            return (
+                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-20 backdrop-blur-sm" onMouseDown={(e) => e.stopPropagation()}>
+                    {/* ... existing code ... */}
+                </div>
+            );
+        };
+
+        const InfoModal = ({ isOpen, onClose, isDarkMode }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm" onClick={onClose}>
+                    <div className={`p-8 rounded-xl shadow-2xl max-w-lg w-full mx-4 relative ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-white text-gray-800'}`} onClick={e => e.stopPropagation()}>
+                        <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"><X size={20}/></button>
+
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className={`p-3 rounded-full ${isDarkMode ? 'bg-blue-900/50 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
+                                <Info size={32} />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold">Arquitecto Simple UML</h2>
+                                <p className="text-xs opacity-60 font-mono">Versión 7.4 "Icon Refresh"</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 text-sm leading-relaxed opacity-90">
+                            {/* Imagen de perfil flotante a la derecha */}
+                            <img
+                                src="https://drive.google.com/thumbnail?id=1pbNyTrnZeZvfWLu2Lm66f9tVQ3OqTKHx&sz=w500-h500"
+                                alt="Pablo Felip Monferrer"
+                                className="float-right w-24 h-24 rounded-full ml-4 mb-2 border-4 border-white dark:border-gray-800 shadow-md object-cover"
+                            />
+
+                            <p>
+                                <strong>Arquitecto Simple UML (AS-UML)</strong> es un editor de UML <em>experimental y en desarrollo</em> para crear diagramas sencillos (DCU, DC y DA). Ha sido creado por <a href="https://www.linkedin.com/in/pfelipm" target="_blank" rel="noreferrer" className="text-blue-500 hover:underline font-medium">Pablo Felip Monferrer</a> y se distribuye bajo licencia libre.
+                            </p>
+                            <p>
+                                Esta herramienta surge tras mi primer curso impartiendo la asignatura de <em>Ingeniería del Software</em> en el Grado de Diseño y Desarrollo de Videojuegos de la <strong>Universitat Jaume I</strong>.
+                            </p>
+                            <p>
+                                En esta asignatura utilizamos herramientas UML profesionales muy potentes, pero también complejas. Por ello, un editor sencillo como este resulta más didáctico para introducir los conceptos básicos del diseño sin barreras de entrada.
+                            </p>
+                        </div>
+
+                        <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center text-xs opacity-60">
+                            <span>© {new Date().getFullYear()} Pablo Felip</span>
+                            <div className="flex gap-4">
+                                <a href="https://github.com/pfelipm/arquitecto-uml" target="_blank" rel="noreferrer" className="hover:text-blue-500 flex items-center gap-1"><Github size={14}/> GitHub</a>
+                                <a href="https://www.linkedin.com/in/pfelipm" target="_blank" rel="noreferrer" className="hover:text-blue-500 flex items-center gap-1"><Linkedin size={14}/> LinkedIn</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- COMPONENTE PRINCIPAL ---
+
+        function ArquitectoUML() {
+          // --- ESTADO ---
+          const [isDarkMode, setIsDarkMode] = useState(false);
+          const [folders, setFolders] = useState([{ id: 'root', name: 'Mi proyecto UML', isOpen: true, diagrams: [] }]);
+          const [activeDiagramId, setActiveDiagramId] = useState(null);
+
+          const [showInfoModal, setShowInfoModal] = useState(false);
+
+          const [creatingDiagramInFolderId, setCreatingDiagramInFolderId] = useState(null);
+
+          // Renombrado (Diagramas y Carpetas)
+          const [renamingId, setRenamingId] = useState(null);
+
+          // Eliminación (Diagramas y Carpetas)
+          const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+          const [toastMessage, setToastMessage] = useState(null);
+
+          const [nodes, setNodes] = useState([]);
+          const [edges, setEdges] = useState([]);
+          const [scale, setScale] = useState(1);
+          const [pan, setPan] = useState({ x: 0, y: 0 });
+
+          const [tool, setTool] = useState('select');
+          const [connectingNodeId, setConnectingNodeId] = useState(null);
+          const [pendingConnection, setPendingConnection] = useState(null);
+
+          const [editingLabelId, setEditingLabelId] = useState(null);
+          const [editingLabelText, setEditingLabelText] = useState("");
+
+          const [selectionBox, setSelectionBox] = useState(null);
+          const [isDragging, setIsDragging] = useState(false);
+          const [isResizing, setIsResizing] = useState(false);
+          const [resizeHandle, setResizeHandle] = useState(null);
+          const [activeNodeId, setActiveNodeId] = useState(null);
+
+          const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+          const [initialNodeGeom, setInitialNodeGeom] = useState(null);
+          const [smartGuides, setSmartGuides] = useState([]);
+          const [showProperties, setShowProperties] = useState(true);
+
+          const [draggedDiagramId, setDraggedDiagramId] = useState(null);
+          const [dragOverId, setDragOverId] = useState(null);
+          const [history, setHistory] = useState({ past: [], future: [] });
+
+          const canvasRef = useRef(null);
+          const svgRef = useRef(null);
+          const fileInputRef = useRef(null);
+
+          const lastClickRef = useRef({id: '', time: 0});
+
+          // --- EFECTOS ---
+          useEffect(() => {
+            const saved = localStorage.getItem('arquitecto_data');
+            if (saved) { try { const parsed = JSON.parse(saved); setFolders(parsed.folders || []); setIsDarkMode(parsed.darkMode || false); } catch (e) { console.error(e); } }
+          }, []);
+          useEffect(() => { localStorage.setItem('arquitecto_data', JSON.stringify({ folders, darkMode: isDarkMode })); }, [folders, isDarkMode]);
+          useEffect(() => { if (isDarkMode) document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark'); }, [isDarkMode]);
+
+          const activeDiagram = useMemo(() => folders.flatMap(f => f.diagrams).find(d => d.id === activeDiagramId) || null, [folders, activeDiagramId]);
+
+          useEffect(() => {
+            if (activeDiagram) {
+              setNodes(activeDiagram.nodes);
+              setEdges(activeDiagram.edges);
+              setHistory({ past: [], future: [] });
+              setConnectingNodeId(null);
+              setPendingConnection(null);
+            }
+          }, [activeDiagramId]);
+
+          const showToast = (msg) => { setToastMessage(msg); setTimeout(() => setToastMessage(null), 3000); };
+
+          // --- PERSISTENCIA JSON (Importar/Exportar) ---
+          const handleExportJSON = () => {
+            const dataStr = JSON.stringify({ version: "7.2", folders, darkMode: isDarkMode }, null, 2);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `arquitecto_uml_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast("Copia de seguridad descargada correctamente");
+          };
+
+          const handleImportClick = () => fileInputRef.current?.click();
+
+          const handleImportFile = (event) => {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const content = e.target?.result;
+                    const parsed = JSON.parse(content);
+                    if (parsed.folders && Array.isArray(parsed.folders)) {
+                        setFolders(parsed.folders);
+                        if (parsed.darkMode !== undefined) setIsDarkMode(parsed.darkMode);
+                        setCreatingDiagramInFolderId(null)
+                        showToast("Copia de seguridad restaurada");
+                        setActiveDiagramId(null);
+                    } else {
+                        showToast("Error: Formato de archivo inválido");
+                    }
+                } catch (err) {
+                    showToast("Error al leer el archivo");
+                    console.error(err);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+          };
+
+          // --- EXPORTAR PNG ---
+          const handleExportPNG = () => {
+              if (!svgRef.current || nodes.length === 0) {
+                  showToast("El diagrama está vacío");
+                  return;
+              }
+
+              // 1. Calcular Bounding Box de todos los nodos
+              let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+              nodes.forEach(n => {
+                  minX = Math.min(minX, n.x);
+                  minY = Math.min(minY, n.y);
+                  maxX = Math.max(maxX, n.x + n.width);
+                  maxY = Math.max(maxY, n.y + n.height);
+              });
+
+              // Añadir margen
+              const padding = 50;
+              minX -= padding; minY -= padding;
+              maxX += padding; maxY += padding;
+
+              const width = maxX - minX;
+              const height = maxY - minY;
+
+              // 2. Clonar el SVG para manipularlo sin afectar la vista actual
+              const svgClone = svgRef.current.cloneNode(true);
+
+              // Ajustar viewBox del clon para enfocar solo el contenido
+              svgClone.setAttribute('viewBox', `${minX} ${minY} ${width} ${height}`);
+              svgClone.setAttribute('width', width.toString());
+              svgClone.setAttribute('height', height.toString());
+
+              // Eliminar transformaciones del grupo principal del clon (el pan/zoom del usuario)
+              const mainGroup = svgClone.querySelector('g');
+              if (mainGroup) {
+                  mainGroup.setAttribute('transform', ''); // Reset transform
+              }
+
+              // Añadir fondo (rect) porque el SVG es transparente por defecto
+              const bgRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+              bgRect.setAttribute('x', minX.toString());
+              bgRect.setAttribute('y', minY.toString());
+              bgRect.setAttribute('width', width.toString());
+              bgRect.setAttribute('height', height.toString());
+              bgRect.setAttribute('fill', isDarkMode ? '#1f2937' : '#ffffff');
+              if (svgClone.firstChild) {
+                  svgClone.insertBefore(bgRect, svgClone.firstChild);
+              } else {
+                  svgClone.appendChild(bgRect);
+              }
+
+              // 3. Serializar y Renderizar a Canvas
+              const serializer = new XMLSerializer();
+              const svgString = serializer.serializeToString(svgClone);
+              const img = new Image();
+              const svgBlob = new Blob([svgString], {type: 'image/svg+xml;charset=utf-8'});
+              const url = URL.createObjectURL(svgBlob);
+
+              img.onload = () => {
+                  const canvas = document.createElement('canvas');
+                  canvas.width = width;
+                  canvas.height = height;
+                  const ctx = canvas.getContext('2d');
+                  if (ctx) {
+                      ctx.drawImage(img, 0, 0);
+                      const pngUrl = canvas.toDataURL('image/png');
+
+                      // Descargar
+                      const link = document.createElement('a');
+                      link.href = pngUrl;
+                      link.download = `${activeDiagram?.name || 'diagrama'}.png`;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      URL.revokeObjectURL(url);
+                      showToast("Imagen exportada correctamente");
+                  }
+              };
+              img.src = url;
+          };
+
+          // --- FUNCIONES CRÍTICAS ---
+
+          const saveCurrentDiagram = (newNodes, newEdges) => {
+            if (!activeDiagramId) return;
+            setFolders(prev => prev.map(f => ({ ...f, diagrams: f.diagrams.map(d => d.id === activeDiagramId ? { ...d, nodes: newNodes, edges: newEdges } : d) })));
+          };
+
+          const pushHistory = () => { setHistory(prev => ({ past: [...prev.past, { nodes, edges }], future: [] })); };
+
+          const updateDiagramState = (newNodes, newEdges, saveHistory = true) => {
+            if (saveHistory) pushHistory();
+            setNodes(newNodes); setEdges(newEdges); saveCurrentDiagram(newNodes, newEdges);
+          };
+
+          // --- ACTIONS ---
+
+          // Folders
+          const handleCreateFolder = () => {
+              const newFolder = { id: generateId(), name: 'Nueva carpeta', diagrams: [], isOpen: true };
+              setFolders([...folders, newFolder]);
+              setRenamingId({ type: 'folder', id: newFolder.id, initialText: newFolder.name });
+          };
+
+          const handleDeleteFolderRequest = (folder) => {
+              if (folders.length <= 1) { showToast("Debe existir al menos una carpeta."); return; }
+              setDeleteConfirm({ type: 'folder', folderId: folder.id, name: folder.name });
+          };
+
+          const handleRenameFolderRequest = (folder) => {
+              setRenamingId({ type: 'folder', id: folder.id, initialText: folder.name });
+          };
+
+          // Diagrams
+          const openNewDiagramModal = (folderId) => { setCreatingDiagramInFolderId(folderId); };
+
+          const handleCreateDiagram = (type) => {
+              if (!creatingDiagramInFolderId) return;
+
+              const defaultNames = { dcu: 'Nuevo DCU', dc: 'Nuevo DC', da: 'Nuevo DA' };
+              const name = defaultNames[type] || 'Nuevo Diagrama';
+
+              const newDiag = { id: generateId(), name: name, type: type, nodes: [], edges: [], createdAt: Date.now() };
+              setFolders(prev => prev.map(f => f.id === creatingDiagramInFolderId ? { ...f, diagrams: [...f.diagrams, newDiag], isOpen: true } : f));
+              setActiveDiagramId(newDiag.id);
+              setCreatingDiagramInFolderId(null);
+          };
+
+          const handleDeleteDiagramRequest = (folderId, diagram) => {
+              setDeleteConfirm({ type: 'diagram', folderId, diagramId: diagram.id, name: diagram.name });
+          };
+
+          const handleRenameDiagramRequest = (diagram) => {
+              setRenamingId({ type: 'diagram', id: diagram.id, initialText: diagram.name });
+          };
+
+          // Generic Confirm/Save Handlers
+          const confirmDelete = () => {
+            if (!deleteConfirm) return;
+
+            if (deleteConfirm.type === 'folder') {
+                const folderToDelete = folders.find(f => f.id === deleteConfirm.folderId);
+                if (folderToDelete?.diagrams.some(d => d.id === activeDiagramId)) {
+                    setActiveDiagramId(null); setNodes([]); setEdges([]);
+                }
+                setFolders(prev => prev.filter(f => f.id !== deleteConfirm.folderId));
+            } else if (deleteConfirm.type === 'diagram' && deleteConfirm.diagramId) {
+                setFolders(prev => prev.map(f => f.id === deleteConfirm.folderId ? { ...f, diagrams: f.diagrams.filter(d => d.id !== deleteConfirm.diagramId) } : f));
+                if (activeDiagramId === deleteConfirm.diagramId) { setActiveDiagramId(null); setNodes([]); setEdges([]); }
+            }
+            setDeleteConfirm(null);
+          };
+
+          const saveRename = (newText) => {
+              if (!newText.trim() || !renamingId) return;
+
+              if (renamingId.type === 'folder') {
+                  setFolders(prev => prev.map(f => f.id === renamingId.id ? { ...f, name: newText } : f));
+              } else {
+                  setFolders(prev => prev.map(f => ({
+                      ...f,
+                      diagrams: f.diagrams.map(d => d.id === renamingId.id ? { ...d, name: newText } : d)
+                  })));
+              }
+              setRenamingId(null);
+          };
+
+          const sortDiagrams = (folderId) => { setFolders(prev => prev.map(f => f.id === folderId ? { ...f, diagrams: [...f.diagrams].sort((a, b) => a.name.localeCompare(b.name)) } : f)); };
+
+          // Drag & Drop
+          const handleDragStartDiagram = (e, id) => { setDraggedDiagramId(id); e.dataTransfer.effectAllowed = 'move'; };
+          const handleDragOverDiagram = (e, id) => { e.preventDefault(); if (draggedDiagramId && draggedDiagramId !== id) setDragOverId(id); };
+
+          const handleDropDiagram = (e, targetFolderId, targetDiagramId) => {
+              e.preventDefault();
+              setDragOverId(null);
+              if (!draggedDiagramId) return;
+
+              setFolders(prev => {
+                  const newFolders = [...prev];
+                  let sourceFolderIndex = -1, sourceDiagramIndex = -1, diag = null;
+
+                  newFolders.forEach((f, fi) => {
+                      const di = f.diagrams.findIndex(d => d.id === draggedDiagramId);
+                      if (di !== -1) { sourceFolderIndex = fi; sourceDiagramIndex = di; diag = f.diagrams[di]; }
+                  });
+
+                  if (sourceFolderIndex === -1 || !diag) return prev;
+
+                  newFolders[sourceFolderIndex].diagrams.splice(sourceDiagramIndex, 1);
+
+                  const targetFolderIndex = newFolders.findIndex(f => f.id === targetFolderId);
+                  if (targetFolderIndex !== -1) {
+                      let targetIndex = newFolders[targetFolderIndex].diagrams.length;
+
+                      if (targetDiagramId) {
+                          const tdi = newFolders[targetFolderIndex].diagrams.findIndex(d => d.id === targetDiagramId);
+                          if (tdi !== -1) targetIndex = tdi;
+                      }
+                      newFolders[targetFolderIndex].diagrams.splice(targetIndex, 0, diag);
+                      newFolders[targetFolderIndex].isOpen = true;
+                  }
+                  return newFolders;
+              });
+              setDraggedDiagramId(null);
+          };
+
+          // --- DUPLICACIÓN & EDICIÓN ---
+          const duplicateSelection = useCallback(() => {
+            const selectedNodes = nodes.filter(n => n.selected);
+            if (selectedNodes.length === 0) return;
+            const newNodes = selectedNodes.map(node => ({ ...node, id: generateId(), x: node.x + 20, y: node.y + 20, selected: true }));
+            const currentNodesDeselected = nodes.map(n => ({ ...n, selected: false }));
+            updateDiagramState([...currentNodesDeselected, ...newNodes], edges);
+            showToast(`${selectedNodes.length} elemento(s) duplicado(s)`);
+          }, [nodes, edges]);
+
+          const deleteSelection = useCallback(() => {
+              const newNodes = nodes.filter(n => !n.selected);
+              const newEdges = edges.filter(ed => !ed.selected && newNodes.some(n => n.id === ed.source) && newNodes.some(n => n.id === ed.target));
+              updateDiagramState(newNodes, newEdges);
+          }, [nodes, edges]);
+
+          const handleUndo = () => { if (history.past.length === 0) return; const prev = history.past[history.past.length - 1]; setHistory({ past: history.past.slice(0, -1), future: [{ nodes, edges }, ...history.future] }); setNodes(prev.nodes); setEdges(prev.edges); updateDiagramState(prev.nodes, prev.edges, false); };
+          const handleRedo = () => { if (history.future.length === 0) return; const next = history.future[0]; setHistory({ past: [...history.past, { nodes, edges }], future: history.future.slice(1) }); setNodes(next.nodes); setEdges(next.edges); updateDiagramState(next.nodes, next.edges, false); };
+
+          const handleFitToScreen = () => {
+              if (nodes.length === 0 || !canvasRef.current) { setScale(1); setPan({ x: 0, y: 0 }); return; }
+              let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+              nodes.forEach(n => { minX = Math.min(minX, n.x); minY = Math.min(minY, n.y); maxX = Math.max(maxX, n.x + n.width); maxY = Math.max(maxY, n.y + n.height); });
+              const p = 50, w = maxX - minX + p * 2, h = maxY - minY + p * 2, cW = canvasRef.current.clientWidth, cH = canvasRef.current.clientHeight;
+              const s = Math.min(Math.max(Math.min(cW / w, cH / h), 0.1), 2);
+              setScale(s); setPan({ x: (cW - w * s) / 2 - (minX - p) * s, y: (cH - h * s) / 2 - (minY - p) * s });
+          };
+
+          const getMousePos = (e) => {
+            if (!svgRef.current) return { x: 0, y: 0 };
+            const CTM = svgRef.current.getScreenCTM(); if (!CTM) return { x: 0, y: 0 };
+            return { x: ((e.clientX - CTM.e) / CTM.a - pan.x) / scale, y: ((e.clientY - CTM.f) / CTM.d - pan.y) / scale };
+          };
+
+          const addNode = (pos) => {
+            if (tool === 'select' || tool === 'pan') return;
+            let w = 120, h = 80, z = 2, txt = "Elemento";
+
+            if (tool === 'class') { w = 160; h = 100; txt = "Clase"; }
+            else if (tool === 'interface') { w = 160; h = 100; txt = "Interfaz"; }
+            else if (['boundary', 'swimlane'].includes(tool)) { w = 300; h = 400; z = 0; txt = tool === 'boundary' ? "Sistema" : "Carril"; }
+            else if (['start', 'end', 'decision', 'fork', 'join'].includes(tool)) {
+                if (tool === 'fork' || tool === 'join') { w = 10; h = 60; txt = ""; }
+                else if (tool === 'start' || tool === 'end') { w = 30; h = 30; txt = ""; }
+                else { w = 40; h = 40; txt = ""; }
+            }
+            else if (tool === 'actor') { w = 40; h = 80; txt = "Actor"; }
+
+            const newNode = { id: generateId(), type: tool, x: pos.x - w / 2, y: pos.y - h / 2, width: w, height: h, text: txt, attributes: tool === 'class' ? ['- atributo: tipo'] : [], methods: tool === 'class' ? ['+ metodo(): void'] : [], zIndex: z, selected: true };
+            const updatedNodes = nodes.map(n => ({ ...n, selected: false }));
+            const updatedEdges = edges.map(e => ({ ...e, selected: false }));
+            updateDiagramState([...updatedNodes, newNode], updatedEdges);
+            setTool('select');
+          };
+
+          // --- MOUSE HANDLERS ---
+          const handleMouseDown = (e) => {
+            if (e.button === 1 || (e.button === 0 && e.altKey) || tool === 'pan') { setIsDragging(true); setDragStart({ x: e.clientX, y: e.clientY }); return; }
+            if (tool !== 'select' && tool !== 'pan') { addNode(getMousePos(e)); return; }
+            if (e.target === svgRef.current) {
+                if (connectingNodeId) { setConnectingNodeId(null); setPendingConnection(null); return; }
+                setSelectionBox({ start: getMousePos(e), end: getMousePos(e) });
+                if (!e.shiftKey) {
+                    setNodes(nodes.map(n => ({ ...n, selected: false })));
+                    setEdges(edges.map(ed => ({ ...ed, selected: false })));
+                }
+            }
+          };
+
+          const handleMouseMove = (e) => {
+            if (isDragging && (tool === 'pan' || e.buttons === 4 || e.altKey)) { const dx = e.clientX - dragStart.x, dy = e.clientY - dragStart.y; setPan(prev => ({ x: prev.x + dx, y: prev.y + dy })); setDragStart({ x: e.clientX, y: e.clientY }); return; }
+            const pos = getMousePos(e);
+
+            if (isResizing && activeNodeId && resizeHandle && initialNodeGeom) {
+                let dx = pos.x - dragStart.x;
+                let dy = pos.y - dragStart.y;
+                const node = nodes.find(n => n.id === activeNodeId);
+
+                if (node) {
+                    let nX = initialNodeGeom.x, nY = initialNodeGeom.y, nW = initialNodeGeom.w, nH = initialNodeGeom.h;
+                    let proposedW = nW, proposedH = nH, proposedX = nX, proposedY = nY;
+                    if (resizeHandle.includes('e')) proposedW = Math.max(20, initialNodeGeom.w + dx);
+                    if (resizeHandle.includes('w')) { proposedW = Math.max(20, initialNodeGeom.w - dx); proposedX = initialNodeGeom.x + (initialNodeGeom.w - proposedW); }
+                    if (resizeHandle.includes('s')) proposedH = Math.max(20, initialNodeGeom.h + dy);
+                    if (resizeHandle.includes('n')) { proposedH = Math.max(20, initialNodeGeom.h - dy); proposedY = initialNodeGeom.y + (initialNodeGeom.h - proposedH); }
+
+                    const otherNodes = nodes.filter(n => n.id !== activeNodeId);
+                    const threshold = 5;
+                    const newGuides = [];
+
+                    if (resizeHandle.includes('e') || resizeHandle.includes('w')) {
+                         const edgeToCheck = resizeHandle.includes('e') ? (proposedX + proposedW) : proposedX;
+                         let snapped = false;
+
+                         for (const t of otherNodes) {
+                             const tL = t.x, tR = t.x + t.width, tCx = t.x + t.width/2;
+                             const targets = [tL, tR, tCx];
+                             for (const target of targets) {
+                                 if (Math.abs(edgeToCheck - target) < threshold) {
+                                     if (resizeHandle.includes('e')) { proposedW = target - proposedX; }
+                                     else { const diff = target - proposedX; proposedX = target; proposedW -= diff; }
+                                     newGuides.push({ type: 'x', pos: target }); snapped = true; break;
+                                 }
+                             }
+                             if (snapped) break;
+                         }
+                    }
+
+                    if (resizeHandle.includes('s') || resizeHandle.includes('n')) {
+                         const edgeToCheck = resizeHandle.includes('s') ? (proposedY + proposedH) : proposedY;
+                         let snapped = false;
+                         for (const t of otherNodes) {
+                             const tT = t.y, tB = t.y + t.height, tCy = t.y + t.height/2;
+                             const targets = [tT, tB, tCy];
+                             for (const target of targets) {
+                                 if (Math.abs(edgeToCheck - target) < threshold) {
+                                     if (resizeHandle.includes('s')) { proposedH = target - proposedY; }
+                                     else { const diff = target - proposedY; proposedY = target; proposedH -= diff; }
+                                     newGuides.push({ type: 'y', pos: target }); snapped = true; break;
+                                 }
+                             }
+                             if (snapped) break;
+                         }
+                    }
+
+                    proposedW = Math.max(20, proposedW);
+                    proposedH = Math.max(20, proposedH);
+
+                    setSmartGuides(newGuides);
+                    setNodes(nodes.map(n => n.id === activeNodeId ? { ...n, x: proposedX, y: proposedY, width: proposedW, height: proposedH } : n));
+                }
+                return;
+            }
+
+            if (selectionBox) { setSelectionBox(prev => ({ ...prev, end: pos })); const x1 = Math.min(selectionBox.start.x, pos.x), y1 = Math.min(selectionBox.start.y, pos.y), x2 = Math.max(selectionBox.start.x, pos.x), y2 = Math.max(selectionBox.start.y, pos.y); setNodes(nodes.map(n => ({ ...n, selected: (n.x + n.width > x1 && n.x < x2 && n.y + n.height > y1 && n.y < y2) }))); return; }
+
+            if (isDragging && !selectionBox && tool === 'select' && !isResizing) {
+                let dx = pos.x - dragStart.x;
+                let dy = pos.y - dragStart.y;
+                const selectedNodes = nodes.filter(n => n.selected);
+                const otherNodes = nodes.filter(n => !n.selected);
+                const newGuides = [];
+
+                if (selectedNodes.length === 1) {
+                    const s = selectedNodes[0];
+                    const proposedX = s.x + dx;
+                    const proposedY = s.y + dy;
+                    const threshold = 5;
+
+                    const sL = proposedX, sR = proposedX + s.width, sCx = proposedX + s.width / 2;
+                    const sT = proposedY, sB = proposedY + s.height, sCy = proposedY + s.height / 2;
+
+                    let snappedX = false;
+                    let snappedY = false;
+
+                    for (const t of otherNodes) {
+                         if (!snappedX) {
+                             const tL = t.x, tR = t.x + t.width, tCx = t.x + t.width / 2;
+                             if (Math.abs(sCx - tCx) < threshold) { dx += (tCx - sCx); newGuides.push({ type: 'x', pos: tCx }); snappedX = true; }
+                             else if (Math.abs(sL - tL) < threshold) { dx += (tL - sL); newGuides.push({ type: 'x', pos: tL }); snappedX = true; }
+                             else if (Math.abs(sR - tR) < threshold) { dx += (tR - sR); newGuides.push({ type: 'x', pos: tR }); snappedX = true; }
+                             else if (Math.abs(sL - tR) < threshold) { dx += (tR - sL); newGuides.push({ type: 'x', pos: tR }); snappedX = true; }
+                             else if (Math.abs(sR - tL) < threshold) { dx += (tL - sR); newGuides.push({ type: 'x', pos: tL }); snappedX = true; }
+                         }
+
+                         if (!snappedY) {
+                             const tT = t.y, tB = t.y + t.height, tCy = t.y + t.height / 2;
+                             if (Math.abs(sCy - tCy) < threshold) { dy += (tCy - sCy); newGuides.push({ type: 'y', pos: tCy }); snappedY = true; }
+                             else if (Math.abs(sT - tT) < threshold) { dy += (tT - sT); newGuides.push({ type: 'y', pos: tT }); snappedY = true; }
+                             else if (Math.abs(sB - tB) < threshold) { dy += (tB - sB); newGuides.push({ type: 'y', pos: tB }); snappedY = true; }
+                             else if (Math.abs(sT - tB) < threshold) { dy += (tB - sT); newGuides.push({ type: 'y', pos: tB }); snappedY = true; }
+                             else if (Math.abs(sB - tT) < threshold) { dy += (tT - sB); newGuides.push({ type: 'y', pos: tT }); snappedY = true; }
+                         }
+
+                         if (snappedX && snappedY) break;
+                    }
+                }
+
+                setSmartGuides(newGuides);
+                setNodes(nodes.map(n => n.selected ? { ...n, x: n.x + dx, y: n.y + dy } : n));
+                setDragStart(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+            }
+          };
+
+          const handleMouseUp = () => { setIsDragging(false); setIsResizing(false); setResizeHandle(null); setActiveNodeId(null); setInitialNodeGeom(null); setSelectionBox(null); setSmartGuides([]); if (isDragging || isResizing) saveCurrentDiagram(nodes, edges); };
+          const handleWheel = (e) => { if (e.ctrlKey || e.metaKey || e.shiftKey) { e.preventDefault(); e.stopPropagation(); const d = -e.deltaY * 0.001; setScale(Math.min(Math.max(0.1, scale + d), 5)); } else { setPan(prev => ({ x: prev.x - e.deltaX, y: prev.y - e.deltaY })); } };
+
+          // --- KEYBOARD ---
+          useEffect(() => {
+            const handleKeyDown = (e) => {
+                if (e.key === 'Delete' || e.key === 'Backspace') { if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return; deleteSelection(); }
+
+                if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+                    e.preventDefault();
+                    duplicateSelection();
+                }
+
+                if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); e.shiftKey ? handleRedo() : handleUndo(); }
+                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                    if (document.activeElement?.tagName === 'INPUT') return;
+                    e.preventDefault();
+                    const step = (e.shiftKey || e.ctrlKey) ? 10 : 1;
+                    const dx = (e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0) * step;
+                    const dy = (e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0) * step;
+                    setNodes(nodes.map(n => n.selected ? { ...n, x: n.x + dx, y: n.y + dy } : n));
+                }
+            };
+            window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown);
+          }, [nodes, edges, history, editingLabelId, editingLabelText, duplicateSelection, deleteSelection]);
+
+          // --- RENDERIZADO NODOS ---
+          const renderResizeHandles = (node) => {
+              const s = 8;
+              const h = [
+                  { id: 'nw', x: -4, y: -4, cursor: 'nw-resize' },
+                  { id: 'ne', x: node.width - 4, y: -4, cursor: 'ne-resize' },
+                  { id: 'sw', x: -4, y: node.height - 4, cursor: 'sw-resize' },
+                  { id: 'se', x: node.width - 4, y: node.height - 4, cursor: 'se-resize' },
+                  { id: 'n', x: node.width / 2 - 4, y: -4, cursor: 'n-resize' },
+                  { id: 's', x: node.width / 2 - 4, y: node.height - 4, cursor: 's-resize' },
+                  { id: 'e', x: node.width - 4, y: node.height / 2 - 4, cursor: 'e-resize' },
+                  { id: 'w', x: -4, y: node.height / 2 - 4, cursor: 'w-resize' }
+              ];
+
+              return ( <g> {h.map((pos) => ( <rect key={pos.id} x={pos.x} y={pos.y} width={s} height={s} fill="white" stroke={COLORS.selection} strokeWidth={1} style={{ cursor: pos.cursor }} onMouseDown={(e) => { e.stopPropagation(); setIsResizing(true); setResizeHandle(pos.id); setActiveNodeId(node.id); setDragStart(getMousePos(e)); setInitialNodeGeom({ x: node.x, y: node.y, w: node.width, h: node.height }); }} /> ))} </g> );
+          };
+
+          const renderNode = (node) => {
+            const isSelected = node.selected;
+            const strokeColor = isSelected ? COLORS.selection : (isDarkMode ? COLORS.nodeBorderDark : COLORS.nodeBorder);
+            const strokeWidth = isSelected ? 2 : 1;
+            const fill = isDarkMode ? COLORS.nodeBgDark : COLORS.nodeBg;
+            const textFill = isDarkMode ? COLORS.textDark : COLORS.text;
+
+            const commonProps = { key: node.id, onMouseDown: (e) => {
+                    if (tool !== 'select' && tool !== 'pan' && !connectingNodeId) return;
+                    e.stopPropagation();
+
+                    const now = Date.now();
+                    if (lastClickRef.current.id === node.id && (now - lastClickRef.current.time) < 300) {
+                        setEditingLabelId(node.id);
+                        setEditingLabelText(node.text);
+                        lastClickRef.current = { id: '', time: 0 };
+                        return;
+                    }
+                    lastClickRef.current = { id: node.id, time: now };
+
+                    if (connectingNodeId) {
+                        if (connectingNodeId === node.id && activeDiagram?.type === 'dc' && node.type !== 'class') return;
+                        const src = nodes.find(n => n.id === connectingNodeId);
+                        if (!src) return;
+                        const validTypes = getValidConnectionTypes(src, node, activeDiagram?.type || 'dcu');
+                        if (validTypes.length === 0) { showToast("Conexión no válida"); return; }
+                        const exists = edges.find(ed => (ed.source === src.id && ed.target === node.id) || (ed.source === node.id && ed.target === src.id));
+                        if (exists) { showToast("Relación ya existente"); return; }
+
+                        if (validTypes.length > 1) {
+                            setPendingConnection({ source: src, target: node, validTypes });
+                            setConnectingNodeId(null); setTool('select');
+                            return;
+                        }
+                        const defaultType = validTypes[0];
+                        let label = '';
+                        if (defaultType === 'include') label = '<<include>>';
+                        if (defaultType === 'extend') label = '<<extend>>';
+                        if (activeDiagram?.type === 'dcu' && (defaultType === 'association' || defaultType === 'generalization')) label = '';
+
+                        const defaultPathType = activeDiagram?.type === 'da' ? 'orthogonal' : 'straight';
+
+                        updateDiagramState(nodes, [...edges, { id: generateId(), source: connectingNodeId, target: node.id, type: defaultType, pathType: defaultPathType, label }]);
+                        setConnectingNodeId(null); setTool('select');
+                        return;
+                    }
+                    if (tool === 'select') {
+                        if (e.shiftKey) {
+                            setNodes(nodes.map(n => n.id === node.id ? { ...n, selected: !n.selected } : n));
+                        } else {
+                            if (node.selected) { } else {
+                                setNodes(nodes.map(n => ({ ...n, selected: n.id === node.id })));
+                                setEdges(edges.map(ed => ({ ...ed, selected: false })));
+                            }
+                        }
+                        setIsDragging(true);
+                        setDragStart(getMousePos(e));
+                    }
+                },
+                className: "cursor-move select-none"
+            };
+
+            const NodeContent = () => {
+                switch (node.type) {
+                    case 'actor': const sx = node.width/40, sy = node.height/80; return (<g><g transform={`scale(${sx},${sy})`}><circle cx={20} cy={15} r={10} fill={fill} stroke={strokeColor} strokeWidth={strokeWidth/Math.min(sx,sy)} vectorEffect="non-scaling-stroke"/><path d="M20,25 L20,55 M5,35 L35,35 M20,55 L5,80 M20,55 L35,80" stroke={strokeColor} strokeWidth={strokeWidth/Math.min(sx,sy)} vectorEffect="non-scaling-stroke"/></g><text x={node.width/2} y={node.height+20} textAnchor="middle" fill={textFill} fontSize={12}>{node.text}</text><rect width={node.width} height={node.height} fill="transparent"/></g>);
+                    case 'usecase': return (<g><ellipse cx={node.width/2} cy={node.height/2} rx={node.width/2} ry={node.height/2} fill={fill} stroke={strokeColor} strokeWidth={strokeWidth}/><text x={node.width/2} y={node.height/2+4} textAnchor="middle" fill={textFill} fontSize={12}>{node.text}</text></g>);
+                    case 'class': case 'interface': return (<g><rect width={node.width} height={node.height} fill={fill} stroke={strokeColor} strokeWidth={strokeWidth}/><line x1={0} y1={30} x2={node.width} y2={30} stroke={strokeColor}/><text x={node.width/2} y={node.type==='interface'?15:25} textAnchor="middle" fill={textFill} fontSize={12} fontWeight="bold" fontStyle={node.isAbstract ? 'italic' : 'normal'}>{node.text}</text>{node.type==='interface'&&<text x={node.width/2} y={25} textAnchor="middle" fill={textFill} fontSize={10}>&lt;&lt;interface&gt;&gt;</text>}
+                        {node.type !== 'interface' && (<>
+                            <line x1={0} y1={node.height*0.6} x2={node.width} y2={node.height*0.6} stroke={strokeColor}/>
+                            <foreignObject x={5} y={35} width={node.width-10} height={node.height*0.6-35}><div className={`text-xs overflow-hidden ${isDarkMode?'text-gray-300':'text-gray-700'}`}>{node.attributes?.map((a,i)=><div key={i}>{a}</div>)}</div></foreignObject>
+                        </>)}
+                        <foreignObject x={5} y={node.type==='interface' ? 35 : node.height*0.6+5} width={node.width-10} height={node.type==='interface' ? node.height-40 : node.height*0.4-10}><div className={`text-xs overflow-hidden ${isDarkMode?'text-gray-300':'text-gray-700'}`}>{node.methods?.map((m,i)=><div key={i}>{m}</div>)}</div></foreignObject></g>);
+                    case 'boundary': return (<g><rect width={node.width} height={node.height} fill={isDarkMode?'#111827':'#f9fafb'} stroke={strokeColor} strokeWidth={strokeWidth} strokeDasharray="5,5"/><path d="M0,30 L100,30 L100,0" fill="none" stroke={strokeColor}/><text x={5} y={20} fill={textFill} fontSize={12} fontWeight="bold">{node.text}</text></g>);
+                    case 'swimlane': return (<g><rect width={node.width} height={node.height} fill={isDarkMode?'#111827':'#f9fafb'} stroke={strokeColor} strokeWidth={strokeWidth}/><line x1={0} y1={30} x2={node.width} y2={30} stroke={strokeColor}/><text x={5} y={20} fill={textFill} fontSize={12} fontWeight="bold">{node.text}</text></g>);
+                    case 'start': return <circle cx={node.width/2} cy={node.height/2} r={15} fill="black" />;
+                    case 'end': return (<g><circle cx={node.width/2} cy={node.height/2} r={15} fill="transparent" stroke={strokeColor} strokeWidth={2}/><circle cx={node.width/2} cy={node.height/2} r={10} fill="black"/></g>);
+                    case 'decision': return (<g><polygon points={`${node.width/2},0 ${node.width},${node.height/2} ${node.width/2},${node.height} 0,${node.height/2}`} fill={fill} stroke={strokeColor} strokeWidth={strokeWidth}/><text x={node.width/2} y={node.height/2+4} textAnchor="middle" fill={textFill} fontSize={10}>{node.text}</text></g>);
+                    case 'fork': return (<g>
+                        <rect width={node.width} height={node.height} fill="black" stroke="none" />
+                        <text x={node.width/2} y={-10} textAnchor="middle" fill={textFill} fontSize={12}>{node.text}</text>
+                    </g>);
+                    default: return (<g><rect width={node.width} height={node.height} rx={15} fill={fill} stroke={strokeColor} strokeWidth={strokeWidth}/><text x={node.width/2} y={node.height/2+4} textAnchor="middle" fill={textFill} fontSize={12}>{node.text}</text></g>);
+                }
+            };
+
+            return ( <g transform={`translate(${node.x},${node.y})`} {...commonProps}> <NodeContent /> {isSelected && tool === 'select' && renderResizeHandles(node)} </g> );
+          };
+
+          const renderEdges = () => {
+            return edges.map(edge => {
+                const s = nodes.find(n => n.id === edge.source), t = nodes.find(n => n.id === edge.target);
+                if (!s || !t) return null;
+
+                const sCenter = { x: s.x + s.width / 2, y: s.y + s.height / 2 };
+                const tCenter = { x: t.x + t.width / 2, y: t.y + t.height / 2 };
+
+                if (s.id === t.id) {
+                     const p1 = { x: s.x + s.width, y: s.y + s.height / 2 - 15 };
+                     const p2 = { x: s.x + s.width, y: s.y + s.height / 2 + 15 };
+                     const cp1 = { x: p1.x + 50, y: p1.y };
+                     const cp2 = { x: p2.x + 50, y: p2.y };
+
+                     const d = `M ${p1.x} ${p1.y} C ${cp1.x} ${cp1.y}, ${cp2.x} ${cp2.y}, ${p2.x} ${p2.y}`;
+
+                     let markerId = `arrow-${edge.type}`;
+                     if (edge.selected) markerId += '-selected';
+                     let marker = `url(#${markerId})`;
+                     if (edge.type === 'association') marker = '';
+                     const strokeColor = edge.selected ? COLORS.selection : (isDarkMode ? '#9ca3af' : '#4b5563');
+
+                     const dashed = edge.type === 'implementation' ? "5,5" : "";
+
+                     return (
+                        <g key={edge.id} onClick={(e) => { e.stopPropagation(); setNodes(nodes.map(n => ({...n, selected: false}))); setEdges(edges.map(ed => ({...ed, selected: ed.id === edge.id}))); }} className="cursor-pointer">
+                            <path d={d} fill="none" stroke="transparent" strokeWidth={15} />
+                            <path d={d} fill="none" stroke={strokeColor} strokeWidth={2} markerEnd={marker} />
+                            {edge.label && <text x={p1.x + 40} y={sCenter.y} textAnchor="start" fill={strokeColor} fontSize={11} paintOrder="stroke" stroke={isDarkMode ? COLORS.nodeBgDark : COLORS.nodeBg} strokeWidth="3px">{edge.label}</text>}
+                        </g>
+                     );
+                }
+
+                const dx = tCenter.x - sCenter.x;
+                const dy = tCenter.y - sCenter.y;
+                const isVertical = Math.abs(dy) > Math.abs(dx);
+
+                let refStart = tCenter;
+                let refEnd = sCenter;
+
+                if (edge.pathType === 'orthogonal') {
+                     if (isVertical) {
+                         refStart = { x: sCenter.x, y: sCenter.y + dy/2 };
+                         refEnd = { x: tCenter.x, y: tCenter.y - dy/2 };
+                     } else {
+                         refStart = { x: sCenter.x + dx/2, y: sCenter.y };
+                         refEnd = { x: tCenter.x - dx/2, y: tCenter.y };
+                     }
+                }
+
+                const start = calculatePerimeterPoint(s, refStart);
+                const end = calculatePerimeterPoint(t, refEnd);
+
+                let d = '';
+                let mid1, mid2;
+
+                if (edge.pathType === 'straight') {
+                    d = `M ${start.x} ${start.y} L ${end.x} ${end.y}`;
+                    mid1 = start;
+                    mid2 = end;
+                } else {
+                    if (isVertical) {
+                        const midY = (start.y + end.y) / 2;
+                        d = `M ${start.x} ${start.y} L ${start.x} ${midY} L ${end.x} ${midY} L ${end.x} ${end.y}`;
+                        mid1 = {x: start.x, y: midY};
+                        mid2 = {x: end.x, y: midY};
+                    } else {
+                        const midX = (start.x + end.x) / 2;
+                        d = `M ${start.x} ${start.y} L ${midX} ${start.y} L ${midX} ${end.y} L ${end.x} ${end.y}`;
+                        mid1 = {x: midX, y: start.y};
+                        mid2 = {x: midX, y: end.y};
+                    }
+                }
+
+                let markerId = `arrow-${edge.type}`;
+                if (edge.selected) markerId += '-selected';
+
+                let marker = `url(#${markerId})`;
+                if (edge.type === 'association') marker = '';
+                if (edge.type === 'include' || edge.type === 'extend') marker = `url(#arrow-dependency${edge.selected ? '-selected' : ''})`;
+                if (edge.type === 'implementation') marker = `url(#arrow-generalization${edge.selected ? '-selected' : ''})`;
+                if (edge.type === 'control') marker = `url(#arrow-directed_association${edge.selected ? '-selected' : ''})`;
+
+                const dashed = ['include', 'extend', 'dependency', 'implementation'].includes(edge.type) ? "5,5" : "";
+                const showLabel = activeDiagram?.type === 'dcu' ? (edge.type === 'include' || edge.type === 'extend') : (edge.label || edge.type === 'include' || edge.type === 'extend');
+
+                const strokeColor = edge.selected ? COLORS.selection : (isDarkMode ? '#9ca3af' : '#4b5563');
+
+                // Multiplicity Positions
+                const nextPoint = (edge.pathType === 'straight') ? end : mid1;
+                const prevPoint = (edge.pathType === 'straight') ? start : mid2;
+
+                const startLabelPos = getMultiplicityPos(start, nextPoint, 15, 10);
+                const endLabelPos = getMultiplicityPos(end, prevPoint, 15, -10);
+
+                const textStyle = {
+                    paintOrder: 'stroke',
+                    stroke: isDarkMode ? COLORS.nodeBgDark : COLORS.nodeBg,
+                    strokeWidth: '3px',
+                    fill: strokeColor,
+                    fontSize: 11,
+                    fontWeight: 500
+                };
+
+                return (
+                    <g key={edge.id} onClick={(e) => {
+                        e.stopPropagation();
+                        setNodes(nodes.map(n => ({...n, selected: false})));
+                        setEdges(edges.map(ed => ({...ed, selected: ed.id === edge.id})));
+                    }} className="cursor-pointer">
+                        <path d={d} fill="none" stroke="transparent" strokeWidth={15} />
+                        <path d={d} fill="none" stroke={strokeColor} strokeWidth={2} markerEnd={marker} strokeDasharray={dashed} />
+                        {showLabel && <text x={(start.x+end.x)/2} y={(start.y+end.y)/2 - 10} textAnchor="middle" {...textStyle} strokeWidth="4px" style={{}}>{edge.label}</text>}
+
+                        {/* Etiquetas de Multiplicidad */}
+                        {activeDiagram?.type === 'dc' && edge.sourceLabel && ['association', 'directed_association', 'aggregation', 'composition'].includes(edge.type) && (
+                            <text x={startLabelPos.x} y={startLabelPos.y} textAnchor="middle" dominantBaseline="middle" {...textStyle}>{edge.sourceLabel}</text>
+                        )}
+                        {activeDiagram?.type === 'dc' && edge.targetLabel && ['association', 'directed_association', 'aggregation', 'composition'].includes(edge.type) && (
+                            <text x={endLabelPos.x} y={endLabelPos.y} textAnchor="middle" dominantBaseline="middle" {...textStyle}>{edge.targetLabel}</text>
+                        )}
+                    </g>
+                );
+            });
+          };
+
+          // --- RENDER COMPONENTES UI ---
+          const renderToolbar = () => (
+            <div className={`h-12 border-b flex items-center px-4 justify-between select-none ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
+              <div className="flex items-center space-x-2">
+                <span className="font-bold text-lg mr-4 bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">Arquitecto Simple UML</span>
+                {/* ... existing code ... */}
+              </div>
+              <div className="flex items-center space-x-3">
+                <span className="text-xs opacity-50">{activeDiagram?.name || 'Sin diagrama abierto'}</span>
+                <button onClick={() => setShowInfoModal(true)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400" title="Acerca de..."><Info size={18} /></button>
+                <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">{isDarkMode ? <Sun size={18} /> : <Moon size={18} />}</button>
+                <button className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium opacity-50 cursor-not-allowed">Compartir</button>
+              </div>
+            </div>
+          );
+
+          const ToolBtn = ({ icon, label, onClick, active }) => ( <button onClick={onClick} className={`p-2 rounded flex flex-col items-center justify-center border transition-all ${active ? 'bg-blue-50 border-blue-500 text-blue-600 dark:bg-blue-900 dark:text-blue-200' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800'}`}> {icon} <span className="text-[10px] mt-1">{label}</span> </button> );
+
+          const renderSidebar = () => (
+            <div className={`w-64 border-r flex flex-col ${isDarkMode ? 'bg-gray-900 border-gray-700 text-gray-200' : 'bg-gray-50 border-gray-200 text-gray-800'}`}>
+                <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider opacity-70 flex items-center gap-2">
+                        <Layout size={14}/> Mis Carpetas
+                    </h3>
+                    <button onClick={handleCreateFolder} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-blue-500" title="Nueva Carpeta">
+                        <Plus size={16}/>
+                    </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto">
+                    {folders.map(f => (
+                        <div key={f.id} className="mb-1">
+                            <div
+                                className={`flex items-center px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer group select-none ${dragOverId === f.id ? 'bg-blue-50 dark:bg-blue-900/30 ring-2 ring-inset ring-blue-400' : ''}`}
+                                onClick={() => setFolders(folders.map(fo => fo.id === f.id ? { ...fo, isOpen: !fo.isOpen } : fo))}
+                                onDragOver={(e) => { e.preventDefault(); setDragOverId(f.id); }}
+                                onDrop={(e) => handleDropDiagram(e, f.id)}
+                            >
+                                {f.isOpen ? <ChevronDown size={14} className="mr-1 opacity-50"/> : <ChevronRight size={14} className="mr-1 opacity-50"/>}
+                                <Folder size={16} className={`mr-2 ${dragOverId === f.id ? 'text-blue-600' : 'text-blue-500'}`}/>
+                                <span className="text-sm font-medium truncate flex-1">{f.name}</span>
+
+                                <div className="flex opacity-0 group-hover:opacity-100 gap-1">
+                                    <button className="p-1 hover:text-blue-600" onClick={(e) => { e.stopPropagation(); openNewDiagramModal(f.id); }} title="Nuevo Diagrama aquí"><Plus size={12}/></button>
+                                    <button className="p-1 hover:text-orange-600" onClick={(e) => { e.stopPropagation(); handleRenameFolderRequest(f); }} title="Renombrar Carpeta"><Edit2 size={12}/></button>
+                                    <button className="p-1 hover:text-red-600" onClick={(e) => { e.stopPropagation(); handleDeleteFolderRequest(f); }} title="Eliminar Carpeta"><Trash2 size={12}/></button>
+                                </div>
+                            </div>
+
+                            {f.isOpen && (
+                                <div className="ml-5 border-l border-gray-300 dark:border-gray-700 pl-1 mt-1 space-y-0.5">
+                                    {f.diagrams.map(d => (
+                                        <div
+                                            key={d.id}
+                                            draggable
+                                            onDragStart={(e) => handleDragStartDiagram(e, d.id)}
+                                            onDragOver={(e) => handleDragOverDiagram(e, d.id)}
+                                            onDrop={(e) => handleDropDiagram(e, f.id, d.id)}
+                                            className={`flex items-center px-2 py-1.5 rounded cursor-pointer text-sm group transition-all border-l-2 border-transparent ${activeDiagramId === d.id ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 border-l-blue-500' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'} ${dragOverId === d.id ? 'border-t-2 border-t-blue-500' : ''}`}
+                                            onClick={() => setActiveDiagramId(d.id)}
+                                        >
+                                            <GripVertical size={12} className="mr-1 opacity-0 group-hover:opacity-30 cursor-grab" />
+                                            <DiagramIcon type={d.type} className="mr-2 opacity-70 flex-shrink-0" />
+                                            <span className="truncate flex-1">{d.name}</span>
+
+                                            <div className="flex opacity-0 group-hover:opacity-100 ml-2 space-x-1">
+                                                <button className="hover:text-blue-500" onClick={(e) => { e.stopPropagation(); handleRenameDiagramRequest(d); }}><Edit2 size={12}/></button>
+                                                <button className="hover:text-red-500" onClick={(e) => { e.stopPropagation(); handleDeleteDiagramRequest(f.id, d); }}><Trash2 size={12}/></button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {f.diagrams.length === 0 && (
+                                        <div className="text-xs opacity-40 px-3 py-1 italic">Carpeta vacía</div>
+                                    )}
+                                    <div className={`h-2 w-full transition-all ${dragOverId === f.id ? 'bg-blue-100 dark:bg-blue-900/50' : ''}`} onDragOver={(e) => { e.preventDefault(); setDragOverId(f.id); }} onDrop={(e) => handleDropDiagram(e, f.id)} />
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+
+                <div className="flex-1 p-2 overflow-y-auto border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"> <h3 className="text-xs font-semibold uppercase tracking-wider mb-2 opacity-50 ml-2">Herramientas</h3> <div className="grid grid-cols-2 gap-2"> <button onClick={() => setTool('select')} className={`p-2 rounded flex flex-col items-center justify-center border ${tool === 'select' ? 'bg-blue-50 border-blue-500 text-blue-600' : 'border-transparent hover:bg-gray-200 dark:hover:bg-gray-800'}`}> <MousePointer2 size={20} /> <span className="text-[10px] mt-1">Seleccionar</span> </button> <button onClick={() => setTool('pan')} className={`p-2 rounded flex flex-col items-center justify-center border ${tool === 'pan' ? 'bg-blue-50 border-blue-500 text-blue-600' : 'border-transparent hover:bg-gray-200 dark:hover:bg-gray-800'}`}> <Move size={20} /> <span className="text-[10px] mt-1">Mover Lienzo</span> </button> </div> <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4"> {activeDiagram ? ( <> <p className="text-xs text-center mb-2 font-mono opacity-50">{activeDiagram.type === 'dcu' ? 'Casos de Uso' : activeDiagram.type === 'dc' ? 'Clases' : 'Actividad'}</p> <div className="grid grid-cols-2 gap-2"> {activeDiagram.type === 'dcu' && ( <> <ToolBtn icon={<User/>} label="Actor" onClick={() => setTool('actor')} active={tool === 'actor'} /> <ToolBtn icon={<Circle/>} label="Caso Uso" onClick={() => setTool('usecase')} active={tool === 'usecase'} /> <ToolBtn icon={<Square/>} label="Límite" onClick={() => setTool('boundary')} active={tool === 'boundary'} /> </> )} {activeDiagram.type === 'dc' && ( <> <ToolBtn icon={<ClassToolIcon/>} label="Clase" onClick={() => setTool('class')} active={tool === 'class'} /> <ToolBtn icon={<InterfaceToolIcon/>} label="Interfaz" onClick={() => setTool('interface')} active={tool === 'interface'} /> </> )} {activeDiagram.type === 'da' && ( <> <ToolBtn icon={<Circle className="fill-current"/>} label="Inicio" onClick={() => setTool('start')} active={tool === 'start'} /> <ToolBtn icon={<Circle className="border-2"/>} label="Fin" onClick={() => setTool('end')} active={tool === 'end'} /> <ToolBtn icon={<Square className="rounded-lg"/>} label="Actividad" onClick={() => setTool('activity')} active={tool === 'activity'} /> <ToolBtn icon={<Diamond/>} label="Decisión" onClick={() => setTool('decision')} active={tool === 'decision'} /> <ToolBtn icon={<Minus className="rotate-90"/>} label="Bifurcación / Unión" onClick={() => setTool('fork')} active={tool === 'fork'} /> <ToolBtn icon={<GripVertical/>} label="Carril" onClick={() => setTool('swimlane')} active={tool === 'swimlane'} /> </> )} </div> </> ) : ( <p className="text-sm text-center opacity-50 mt-10">Selecciona o crea un diagrama para ver las herramientas.</p> )} </div> </div>
+            </div>
+          );
+
+          const renderPropertiesPanel = () => {
+            const sN = nodes.filter(n => n.selected), sE = edges.filter(e => e.selected);
+            if (sN.length === 0 && sE.length === 0) return null;
+
+            let allowed = [{ value: 'association', label: 'Asociación simple' }, { value: 'directed_association', label: 'Asociación dirigida' }, { value: 'generalization', label: 'Generalización' }, { value: 'include', label: 'Inclusión' }, { value: 'extend', label: 'Extensión' }, { value: 'dependency', label: 'Dependencia' }, { value: 'aggregation', label: 'Agregación' }, { value: 'composition', label: 'Composición' }];
+            if (sE.length === 1 && activeDiagram?.type === 'dcu') {
+                const edge = sE[0], s = nodes.find(n => n.id === edge.source), t = nodes.find(n => n.id === edge.target);
+                if (s && t) allowed = getValidConnectionTypes(s, t, 'dcu').map(type => ({ value: type, label: getEdgeLabel(type) }));
+            } else if (sE.length === 1 && activeDiagram?.type === 'dc') {
+                const edge = sE[0], s = nodes.find(n => n.id === edge.source), t = nodes.find(n => n.id === edge.target);
+                if (s && t) allowed = getValidConnectionTypes(s, t, 'dc').map(type => ({ value: type, label: getEdgeLabel(type) }));
+            }
+
+            const currentEdge = sE[0];
+            const isReflexive = currentEdge ? currentEdge.source === currentEdge.target : false;
+
+            const showMultiplicity = currentEdge && ['association', 'directed_association', 'aggregation', 'composition'].includes(currentEdge.type) && !(currentEdge.type === 'association' && isReflexive);
+
+            const sourceNode = currentEdge ? nodes.find(n => n.id === currentEdge.source) : null;
+            const targetNode = currentEdge ? nodes.find(n => n.id === currentEdge.target) : null;
+            const isClassToInterface = (sourceNode?.type === 'class' && targetNode?.type === 'interface');
+
+            const enableInvert = currentEdge && !isClassToInterface && ['generalization', 'directed_association', 'aggregation', 'composition', 'dependency', 'include', 'extend', 'implementation'].includes(currentEdge.type);
+
+            return (
+                <div className={`w-64 border-l p-4 overflow-y-auto ${isDarkMode ? 'bg-gray-900 border-gray-700 text-gray-200' : 'bg-white border-gray-200 text-gray-800'}`}>
+                    <h3 className="font-bold mb-4 text-sm uppercase tracking-wide">Propiedades</h3>
+
+                    {sN.length > 1 && (
+                        <div className="space-y-4">
+                            <div className={`p-4 rounded-lg text-center ${isDarkMode ? 'bg-blue-900/30 text-blue-200' : 'bg-blue-50 text-blue-800'}`}>
+                                <span className="text-2xl font-bold block">{sN.length}</span>
+                                <span className="text-xs opacity-75">elementos seleccionados</span>
+                            </div>
+
+                            <button onClick={duplicateSelection} className={`w-full py-2 rounded text-sm font-medium flex items-center justify-center gap-2 transition-all ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'}`}>
+                                <Copy size={14}/> Duplicar Selección
+                            </button>
+
+                            <button onClick={deleteSelection} className="w-full py-2 bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200 rounded text-sm font-medium hover:opacity-80 flex items-center justify-center gap-2">
+                                <Trash2 size={14}/> Eliminar Todo
+                            </button>
+
+                            <div className="text-xs text-center mt-4 opacity-50">
+                                Tip: Usa Ctrl+D para duplicar
+                            </div>
+                        </div>
+                    )}
+
+                    {sN.length === 1 && (
+                        <div className="space-y-4">
+                            <div> <label className="block text-xs font-medium mb-1">Texto / Nombre</label> <input type="text" value={sN[0].text} onChange={(e) => { updateDiagramState(nodes.map(n => n.id === sN[0].id ? { ...n, text: e.target.value } : n), edges, false); }} onBlur={() => pushHistory()} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/> </div>
+                            {(sN[0].type === 'class' || sN[0].type === 'interface') && ( <>
+                                {sN[0].type === 'class' && (
+                                    <div className="flex items-center space-x-2">
+                                        <input type="checkbox" id="isAbstract" checked={sN[0].isAbstract || false} onChange={(e) => updateDiagramState(nodes.map(n => n.id === sN[0].id ? { ...n, isAbstract: e.target.checked } : n), edges)} className="text-blue-600 focus:ring-blue-500 rounded"/>
+                                        <label htmlFor="isAbstract" className="text-xs font-medium flex items-center gap-1"><Italic size={12}/> Es Abstracta</label>
+                                    </div>
+                                )}
+                                {sN[0].type !== 'interface' && (
+                                    <div><label className="block text-xs font-medium mb-1">Atributos</label><textarea rows={3} value={sN[0].attributes?.join('\n')} onChange={(e) => updateDiagramState(nodes.map(n => n.id === sN[0].id ? { ...n, attributes: e.target.value.split('\n') } : n), edges, false)} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`} /></div>
+                                )}
+                                <div><label className="block text-xs font-medium mb-1">Métodos</label><textarea rows={3} value={sN[0].methods?.join('\n')} onChange={(e) => updateDiagramState(nodes.map(n => n.id === sN[0].id ? { ...n, methods: e.target.value.split('\n') } : n), edges, false)} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`} /></div> </>
+                            )}
+                            {sN[0].type !== 'boundary' && sN[0].type !== 'swimlane' && (
+                                <button
+                                    onClick={() => setConnectingNodeId(sN[0].id)}
+                                    className="w-full py-2 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200 rounded text-sm font-medium hover:opacity-80 flex items-center justify-center gap-2"
+                                >
+                                    <ArrowRight size={14}/> Conectar con...
+                                </button>
+                            )}
+
+                             <div className="border-t pt-4 mt-4 border-gray-200 dark:border-gray-700 space-y-2">
+                                <button onClick={duplicateSelection} className={`w-full py-2 rounded text-sm font-medium flex items-center justify-center gap-2 transition-all ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'}`}>
+                                    <Copy size={14}/> Duplicar
+                                </button>
+                                <button onClick={() => deleteSelection()} className="w-full py-2 bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200 rounded text-sm font-medium hover:opacity-80 flex items-center justify-center gap-2">
+                                    <Trash2 size={14}/> Eliminar
+                                </button>
+                             </div>
+                        </div>
+                    )}
+
+                    {sE.length === 1 && (
+                        <div className="space-y-4">
+                            {activeDiagram?.type === 'da' ? (
+                                <div className={`p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600 text-gray-400' : 'bg-gray-50 border-gray-300 text-gray-600'}`}>
+                                    Tipo: <span className="font-semibold">Flujo de control</span>
+                                </div>
+                            ) : (
+                                <div> <label className="block text-xs font-medium mb-1">Tipo de conexión</label> <select value={sE[0].type} onChange={(e) => { const nt = e.target.value; let nl = sE[0].label; if (nt === 'include') nl = '<<include>>'; else if (nt === 'extend') nl = '<<extend>>'; else if (activeDiagram?.type === 'dcu' && (nt === 'association' || nt === 'generalization')) nl = ''; else if (sE[0].type === 'include' || sE[0].type === 'extend') nl = ''; updateDiagramState(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, type: nt, label: nl } : ed)) }} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}> {allowed.map(t => ( <option key={t.value} value={t.value}>{t.label}</option> ))} </select> </div>
+                            )}
+
+                            <div> <label className="block text-xs font-medium mb-1">Estilo de línea</label> <select value={sE[0].pathType} onChange={(e) => updateDiagramState(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, pathType: e.target.value } : ed))} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}> <option value="straight">Recta</option> <option value="orthogonal">Ortogonal</option> </select> </div>
+
+                            {!(activeDiagram?.type === 'dcu' && (sE[0].type === 'association' || sE[0].type === 'generalization')) && ( <div> <label className="block text-xs font-medium mb-1">Etiqueta</label> <input type="text" disabled={sE[0].type === 'include' || sE[0].type === 'extend'} value={sE[0].label || ''} onChange={(e) => updateDiagramState(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, label: e.target.value } : ed), false)} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'} disabled:opacity-50`}/> </div> )}
+
+                            {activeDiagram?.type === 'dc' && showMultiplicity && (
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div><label className="block text-xs font-medium mb-1">Mult. origen</label><input type="text" placeholder="1" value={sE[0].sourceLabel || ''} onChange={(e) => updateDiagramState(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, sourceLabel: e.target.value } : ed), false)} className={`w-full p-1 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/></div>
+                                    <div><label className="block text-xs font-medium mb-1">Mult. destino</label><input type="text" placeholder="*" value={sE[0].targetLabel || ''} onChange={(e) => updateDiagramState(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, targetLabel: e.target.value } : ed), false)} className={`w-full p-1 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/></div>
+                                </div>
+                            )}
+
+                            {enableInvert && (
+                                 <button onClick={() => updateDiagramState(nodes, edges.map(e => e.id === sE[0].id ? { ...e, source: e.target, target: e.source } : e))} className={`w-full py-2 rounded text-sm font-medium flex items-center justify-center gap-2 transition-all bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 cursor-pointer`}> <ArrowLeftRight size={14}/> Invertir dirección </button>
+                            )}
+                             <button onClick={() => updateDiagramState(nodes, edges.filter(ed => ed.id !== sE[0].id))} className="w-full py-2 bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200 rounded text-sm font-medium hover:opacity-80 flex items-center justify-center gap-2"> <Trash2 size={14}/> Eliminar Conexión </button>
+                        </div>
+                    )}
+                </div>
+            );
+          };
+
+          return (
+            <div className={`flex flex-col h-screen w-full overflow-hidden select-none ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-black'}`}>
+              {renderToolbar()}
+              <div className="flex flex-1 overflow-hidden relative">
+                {renderSidebar()}
+                <div ref={canvasRef} className={`flex-1 relative overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} ${connectingNodeId ? 'cursor-crosshair' : (tool === 'pan' || (isDragging && tool === 'pan')) ? 'cursor-grab' : 'default'}`} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onWheel={handleWheel}>
+                    <div className="absolute inset-0 pointer-events-none opacity-20" style={{ backgroundImage: `radial-gradient(${isDarkMode ? '#6b7280' : '#9ca3af'} 1px, transparent 1px)`, backgroundSize: `${20 * scale}px ${20 * scale}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }} />
+                    <svg ref={svgRef} className="w-full h-full block touch-none" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            {/* Marcadores SVG (Flechas) */}
+                            <marker id="arrow-association" markerWidth="9" markerHeight="9" refX="9" refY="4.5" orient="auto"><path d="M0,0 L0,9 L9,4.5 z" fill={isDarkMode ? '#9ca3af' : '#4b5563'} opacity="0"/></marker>
+                            <marker id="arrow-directed_association" markerWidth="9" markerHeight="9" refX="9" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill={isDarkMode ? '#9ca3af' : '#4b5563'} stroke={isDarkMode ? '#9ca3af' : '#4b5563'} strokeWidth={1} /></marker>
+                            <marker id="arrow-generalization" markerWidth="9" markerHeight="9" refX="9" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill={isDarkMode ? '#1f2937' : '#ffffff'} stroke={isDarkMode ? '#9ca3af' : '#4b5563'} strokeWidth={1.5} /></marker>
+                            <marker id="arrow-composition" markerWidth="9" markerHeight="9" refX="9" refY="4.5" orient="auto"><path d="M0,4.5 L4.5,0 L9,4.5 L4.5,9 z" fill={isDarkMode ? '#9ca3af' : '#4b5563'} stroke={isDarkMode ? '#9ca3af' : '#4b5563'} /></marker>
+                            <marker id="arrow-aggregation" markerWidth="9" markerHeight="9" refX="9" refY="4.5" orient="auto"><path d="M0,4.5 L4.5,0 L9,4.5 L4.5,9 z" fill={isDarkMode ? '#1f2937' : '#ffffff'} stroke={isDarkMode ? '#9ca3af' : '#4b5563'} strokeWidth={1.5} /></marker>
+                            <marker id="arrow-dependency" markerWidth="9" markerHeight="9" refX="9" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9" fill="none" stroke={isDarkMode ? '#9ca3af' : '#4b5563'} strokeWidth={1.5} /></marker>
+                            <marker id="arrow-include" markerWidth="9" markerHeight="9" refX="9" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9" fill="none" stroke={isDarkMode ? '#9ca3af' : '#4b5563'} strokeWidth={1.5} /></marker>
+                            <marker id="arrow-extend" markerWidth="9" markerHeight="9" refX="9" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9" fill="none" stroke={isDarkMode ? '#9ca3af' : '#4b5563'} strokeWidth={1.5} /></marker>
+                            <marker id="arrow-implementation" markerWidth="9" markerHeight="9" refX="9" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill={isDarkMode ? '#1f2937' : '#ffffff'} stroke={isDarkMode ? '#9ca3af' : '#4b5563'} strokeWidth={1.5} strokeDasharray="5,5"/></marker>
+
+                            <marker id="arrow-association-selected" markerWidth="9" markerHeight="9" refX="9" refY="4.5" orient="auto"><path d="M0,0 L0,9 L9,4.5 z" fill={COLORS.selection} opacity="0"/></marker>
+                            <marker id="arrow-directed_association-selected" markerWidth="9" markerHeight="9" refX="9" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill={COLORS.selection} stroke={COLORS.selection} strokeWidth={1} /></marker>
+                            <marker id="arrow-generalization-selected" markerWidth="9" markerHeight="9" refX="9" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill={isDarkMode ? '#1f2937' : '#ffffff'} stroke={COLORS.selection} strokeWidth={1.5} /></marker>
+                            <marker id="arrow-composition-selected" markerWidth="9" markerHeight="9" refX="9" refY="4.5" orient="auto"><path d="M0,4.5 L4.5,0 L9,4.5 L4.5,9 z" fill={COLORS.selection} stroke={COLORS.selection} /></marker>
+                            <marker id="arrow-aggregation-selected" markerWidth="9" markerHeight="9" refX="9" refY="4.5" orient="auto"><path d="M0,4.5 L4.5,0 L9,4.5 L4.5,9 z" fill={isDarkMode ? '#1f2937' : '#ffffff'} stroke={COLORS.selection} strokeWidth={1.5} /></marker>
+                            <marker id="arrow-dependency-selected" markerWidth="9" markerHeight="9" refX="9" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9" fill="none" stroke={COLORS.selection} strokeWidth={1.5} /></marker>
+                            <marker id="arrow-include-selected" markerWidth="9" markerHeight="9" refX="9" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9" fill="none" stroke={COLORS.selection} strokeWidth={1.5} /></marker>
+                            <marker id="arrow-extend-selected" markerWidth="9" markerHeight="9" refX="9" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9" fill="none" stroke={COLORS.selection} strokeWidth={1.5} /></marker>
+                            <marker id="arrow-implementation-selected" markerWidth="9" markerHeight="9" refX="9" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill={isDarkMode ? '#1f2937' : '#ffffff'} stroke={COLORS.selection} strokeWidth={1.5} strokeDasharray="5,5"/></marker>
+
+                            <marker id="arrow-control" markerWidth="9" markerHeight="9" refX="9" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill={isDarkMode ? '#9ca3af' : '#4b5563'} stroke="none" /></marker>
+                            <marker id="arrow-control-selected" markerWidth="9" markerHeight="9" refX="9" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill={COLORS.selection} stroke="none" /></marker>
+                        </defs>
+                        <g transform={`translate(${pan.x}, ${pan.y}) scale(${scale})`}>
+                            {nodes.filter(n => n.zIndex === 0).map(renderNode)}
+                            {renderEdges()}
+                            {nodes.filter(n => n.zIndex > 0).map(renderNode)}
+                            {smartGuides.map((guide, i) => ( guide.type === 'x' ? <line key={i} x1={guide.pos} y1={-10000} x2={guide.pos} y2={10000} stroke="#ef4444" strokeWidth={1} strokeDasharray="4,2"/> : <line key={i} x1={-10000} y1={guide.pos} x2={10000} y2={guide.pos} stroke="#ef4444" strokeWidth={1} strokeDasharray="4,2"/> ))}
+                            {selectionBox && ( <rect x={Math.min(selectionBox.start.x, selectionBox.end.x)} y={Math.min(selectionBox.start.y, selectionBox.end.y)} width={Math.abs(selectionBox.end.x - selectionBox.start.x)} height={Math.abs(selectionBox.end.y - selectionBox.start.y)} fill={COLORS.selection} fillOpacity={0.1} stroke={COLORS.selection} /> )}
+                        </g>
+                    </svg>
+                    {connectingNodeId && ( <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center space-x-3 z-50 animate-bounce-in"> <Link2 size={18} className="animate-pulse"/> <span className="text-sm font-medium">Modo Conexión: Selecciona el destino</span> <button onClick={() => setConnectingNodeId(null)} className="ml-2 bg-blue-700 p-1 rounded-full hover:bg-blue-800"><X size={14}/></button> </div> )}
+                    {toastMessage && ( <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50 text-sm font-medium"> {toastMessage} </div> )}
+                    {!activeDiagram && ( <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 text-white z-50"> <div className="bg-gray-800 p-8 rounded shadow-2xl text-center"> <h2 className="text-2xl font-bold mb-4">Bienvenido a Arquitecto Simple UML</h2> <p className="mb-4">Selecciona un diagrama a la izquierda o crea uno nuevo.</p> <button onClick={() => openNewDiagramModal(folders[0]?.id || 'root')} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-bold">Crear nuevo diagrama</button> </div> </div> )}
+
+                    <RenameModal
+                        isOpen={editingLabelId !== null}
+                        initialText={editingLabelText}
+                        title="Editar Texto"
+                        onClose={() => setEditingLabelId(null)}
+                        onSave={(newText) => {
+                            if (editingLabelId) {
+                                setNodes(nodes.map(n => n.id === editingLabelId ? { ...n, text: newText } : n));
+                                pushHistory();
+                                setEditingLabelId(null);
+                            }
+                        }}
+                        isDarkMode={isDarkMode}
+                    />
+
+                    <ConnectionModal pendingConnection={pendingConnection} onConfirm={(type) => {
+                        if (!pendingConnection) return;
+                        const { source, target } = pendingConnection;
+                        let label = '';
+                        if (type === 'include') label = '<<include>>';
+                        if (type === 'extend') label = '<<extend>>';
+                        const defaultPathType = activeDiagram?.type === 'da' ? 'orthogonal' : 'straight';
+                        updateDiagramState(nodes, [...edges, { id: generateId(), source: source.id, target: target.id, type, pathType: defaultPathType, label }]);
+                        setPendingConnection(null); setTool('select');
+                    }} onCancel={() => { setPendingConnection(null); setTool('select'); }} isDarkMode={isDarkMode} />
+                    <NewDiagramModal isOpen={creatingDiagramInFolderId !== null} onClose={() => setCreatingDiagramInFolderId(null)} onCreate={handleCreateDiagram} isDarkMode={isDarkMode} />
+
+                    <RenameModal
+                        isOpen={renamingId !== null}
+                        initialText={renamingId?.initialText || ''}
+                        title={renamingId?.type === 'folder' ? 'Renombrar Carpeta' : 'Renombrar Diagrama'}
+                        onSave={saveRename}
+                        onClose={() => setRenamingId(null)}
+                        isDarkMode={isDarkMode}
+                    />
+
+                    <InfoModal isOpen={showInfoModal} onClose={() => setShowInfoModal(false)} isDarkMode={isDarkMode} />
+                </div>
+                {showProperties && renderPropertiesPanel()}
+
+                {deleteConfirm && (
+                    <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm" onMouseDown={(e)=>e.stopPropagation()}>
+                        <div className={`p-6 rounded-lg shadow-xl border w-80 text-center transform transition-all scale-100 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
+                            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4"><AlertTriangle className="h-6 w-6 text-red-600" /></div>
+                            <h3 className="text-lg leading-6 font-medium mb-2">¿Eliminar {deleteConfirm.type === 'folder' ? 'carpeta' : 'diagrama'}?</h3>
+                            <p className="text-sm opacity-70 mb-4">Vas a eliminar "{deleteConfirm.name}". {deleteConfirm.type === 'folder' && 'Esto borrará todos los diagramas que contiene.'} Esta acción no se puede deshacer.</p>
+                            <div className="flex justify-center space-x-3 mt-4">
+                                <button onClick={() => setDeleteConfirm(null)} className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:text-sm">Cancelar</button>
+                                <button onClick={confirmDelete} className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none sm:text-sm">Eliminar</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        // --- RENDERIZAR LA APLICACIÓN ---
+        const root = createRoot(document.getElementById('root'));
+        root.render(<ArquitectoUML />);
+    </script>
+</body>
+</html>
