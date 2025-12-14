@@ -25,7 +25,7 @@ Puedes utilizar el editor sin limitaciones y directamente en tu navegador accedi
 *   **Gestión de Proyectos:** Organización mediante carpetas y múltiples diagramas.
 *   **Persistencia Local:** Guardado automático en el navegador (`localStorage`).
 *   **Importar/Exportar:** Copias de seguridad completas en formato JSON y exportación de diagramas a imágenes PNG.
-*   **Interfaz Moderna:** Diseño limpio con soporte para **Modo Oscuro**, zoom, guías de alineación inteligentes y atajos de teclado.
+*   **Interfaz Moderna:** Diseño limpio con soporte para **modo oscuro**, zoom, guías de alineación inteligentes y atajos de teclado.
 
 ## Tecnologías Utilizadas
 
@@ -37,11 +37,11 @@ Esta herramienta funciona directamente en el navegador sin backend ("serverless"
 
 ## Uso
 
-Simplemente abre el archivo `index.html` en cualquier navegador web moderno. Aunque no se requiere instalar dependencias locales (Node.js, npm, etc.), **se necesita conexión a internet** para descargar las librerías y estilos a través de CDN.
+Simplemente abre el archivo `index.html` en cualquier navegador web moderno. Aunque no se requiere instalar dependencias locales (Node.js, npm, etc.), **se necesita conexión a Internet** para descargar las librerías y estilos a través de CDN.
 
 ## Autor
 
-Desarrollado por [Pablo Felip Monferrer](https://www.linkedin.com/in/pfelipm) como herramienta de apoyo para la asignatura de Ingeniería del Software.
+Desarrollado por [Pablo Felip Monferrer](https://www.linkedin.com/in/pfelipm) como herramienta de apoyo para la asignatura de Ingeniería del Software en el grado de Diseño y Desarrollo de Videojuegos de la Universitat Jaume I (UJI).
 
 ## Licencia
 
