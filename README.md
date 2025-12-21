@@ -8,7 +8,7 @@
 
 Puedes utilizar el editor sin limitaciones y directamente en tu navegador accediendo a:
 
-👉 **[https://umlsimple.tictools.tk](https://umlsimple.tictools.tk)**
+👉 **[https://umlsimple.pablofelip.online](https://umlsimple.pablofelip.online)**
 
 ## Características Principales
 
