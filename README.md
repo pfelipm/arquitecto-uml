@@ -24,7 +24,7 @@ Puedes utilizar el editor sin limitaciones y directamente en tu navegador accedi
         ![Ejemplo DA](readme-archivos/DA.png)
 *   **Gestión de Proyectos:** Organización mediante carpetas y múltiples diagramas.
 *   **Persistencia Local:** Guardado automático en el navegador (`localStorage`).
-*   **Importar/Exportar:** Copias de seguridad completas en formato JSON y exportación de diagramas a imágenes PNG.
+*   **Importar/Exportar:** Copias de seguridad completas en formato JSON (incluye un [kit de demostración](readme-archivos/kit-demo.json) para pruebas) y exportación de diagramas a imágenes PNG con fidelidad tipográfica mejorada.
 *   **Interfaz Moderna:** Diseño limpio con soporte para **modo oscuro**, zoom, guías de alineación inteligentes y atajos de teclado.
 
 ## Tecnologías Utilizadas

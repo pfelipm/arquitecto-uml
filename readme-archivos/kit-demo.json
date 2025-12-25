@@ -1,0 +1,358 @@
+{
+  "version": "7.2",
+  "darkMode": false,
+  "folders": [
+    {
+      "id": "folder_demo_kit",
+      "name": "Kit de Demostración",
+      "isOpen": true,
+      "diagrams": [
+        {
+          "id": "diag_dcu_demo",
+          "name": "DCU - Gestión Biblioteca",
+          "type": "dcu",
+          "createdAt": 1765715100000,
+          "nodes": [
+            {
+              "id": "node_actor_socio",
+              "type": "actor",
+              "x": 100,
+              "y": 200,
+              "width": 40,
+              "height": 80,
+              "text": "Socio",
+              "zIndex": 2,
+              "selected": false
+            },
+            {
+              "id": "node_actor_biblio",
+              "type": "actor",
+              "x": 700,
+              "y": 200,
+              "width": 40,
+              "height": 80,
+              "text": "Bibliotecario",
+              "zIndex": 2,
+              "selected": false
+            },
+            {
+              "id": "node_boundary",
+              "type": "boundary",
+              "x": 250,
+              "y": 50,
+              "width": 350,
+              "height": 400,
+              "text": "Sistema de Biblioteca",
+              "zIndex": 0,
+              "selected": false
+            },
+            {
+              "id": "node_uc_buscar",
+              "type": "usecase",
+              "x": 365,
+              "y": 120,
+              "width": 120,
+              "height": 80,
+              "text": "Buscar Libro",
+              "zIndex": 2,
+              "selected": false
+            },
+            {
+              "id": "node_uc_reservar",
+              "type": "usecase",
+              "x": 365,
+              "y": 250,
+              "width": 120,
+              "height": 80,
+              "text": "Reservar Libro",
+              "zIndex": 2,
+              "selected": false
+            },
+            {
+              "id": "node_uc_login",
+              "type": "usecase",
+              "x": 365,
+              "y": 380,
+              "width": 120,
+              "height": 80,
+              "text": "Autenticarse",
+              "zIndex": 2,
+              "selected": false
+            }
+          ],
+          "edges": [
+            {
+              "id": "edge_socio_buscar",
+              "source": "node_actor_socio",
+              "target": "node_uc_buscar",
+              "type": "association",
+              "pathType": "straight",
+              "label": ""
+            },
+            {
+              "id": "edge_socio_reservar",
+              "source": "node_actor_socio",
+              "target": "node_uc_reservar",
+              "type": "association",
+              "pathType": "straight",
+              "label": ""
+            },
+            {
+              "id": "edge_biblio_reservar",
+              "source": "node_actor_biblio",
+              "target": "node_uc_reservar",
+              "type": "association",
+              "pathType": "straight",
+              "label": ""
+            },
+            {
+              "id": "edge_include_reservar_login",
+              "source": "node_uc_reservar",
+              "target": "node_uc_login",
+              "type": "include",
+              "pathType": "straight",
+              "label": "<<include>>"
+            }
+          ]
+        },
+        {
+          "id": "diag_dc_demo",
+          "name": "DC - Sistema E-Commerce",
+          "type": "dc",
+          "createdAt": 1765715200000,
+          "nodes": [
+            {
+              "id": "class_cliente",
+              "type": "class",
+              "x": 100,
+              "y": 150,
+              "width": 160,
+              "height": 120,
+              "text": "Cliente",
+              "attributes": [
+                "- id: int",
+                "- nombre: string",
+                "- email: string"
+              ],
+              "methods": [
+                "+ registrarse(): void",
+                "+ actualizarPerfil(): void"
+              ],
+              "zIndex": 2,
+              "selected": false
+            },
+            {
+              "id": "class_orden",
+              "type": "class",
+              "x": 400,
+              "y": 150,
+              "width": 160,
+              "height": 120,
+              "text": "Orden",
+              "attributes": [
+                "- numero: string",
+                "- fecha: Date",
+                "- total: double"
+              ],
+              "methods": [
+                "+ calcularTotal(): double",
+                "+ confirmar(): bool"
+              ],
+              "zIndex": 2,
+              "selected": false
+            },
+            {
+              "id": "class_producto",
+              "type": "class",
+              "x": 400,
+              "y": 350,
+              "width": 160,
+              "height": 120,
+              "text": "Producto",
+              "attributes": [
+                "- sku: string",
+                "- precio: double",
+                "- stock: int"
+              ],
+              "methods": [
+                "+ actualizarStock(n): void"
+              ],
+              "zIndex": 2,
+              "selected": false
+            },
+            {
+              "id": "interface_pago",
+              "type": "interface",
+              "x": 650,
+              "y": 150,
+              "width": 160,
+              "height": 100,
+              "text": "IPasarelaPago",
+              "attributes": [],
+              "methods": [
+                "+ procesarPago(): bool"
+              ],
+              "isAbstract": true,
+              "zIndex": 2,
+              "selected": false
+            }
+          ],
+          "edges": [
+            {
+              "id": "edge_cliente_orden",
+              "source": "class_cliente",
+              "target": "class_orden",
+              "type": "composition",
+              "pathType": "straight",
+              "sourceLabel": "1",
+              "targetLabel": "0..*",
+              "label": "realiza"
+            },
+            {
+              "id": "edge_orden_producto",
+              "source": "class_orden",
+              "target": "class_producto",
+              "type": "aggregation",
+              "pathType": "straight",
+              "sourceLabel": "0..*",
+              "targetLabel": "1..*",
+              "label": "contiene"
+            },
+            {
+              "id": "edge_orden_pago",
+              "source": "class_orden",
+              "target": "interface_pago",
+              "type": "dependency",
+              "pathType": "straight",
+              "label": ""
+            }
+          ]
+        },
+        {
+          "id": "diag_da_demo",
+          "name": "DA - Proceso de Login",
+          "type": "da",
+          "createdAt": 1765715300000,
+          "nodes": [
+            {
+              "id": "node_start",
+              "type": "start",
+              "x": 400,
+              "y": 50,
+              "width": 30,
+              "height": 30,
+              "text": "",
+              "zIndex": 2,
+              "selected": false
+            },
+            {
+              "id": "act_ingresar",
+              "type": "activity",
+              "x": 355,
+              "y": 120,
+              "width": 120,
+              "height": 60,
+              "text": "Ingresar Datos",
+              "zIndex": 2,
+              "selected": false
+            },
+            {
+              "id": "node_decision",
+              "type": "decision",
+              "x": 395,
+              "y": 220,
+              "width": 40,
+              "height": 40,
+              "text": "¿Validos?",
+              "zIndex": 2,
+              "selected": false
+            },
+            {
+              "id": "act_error",
+              "type": "activity",
+              "x": 550,
+              "y": 210,
+              "width": 120,
+              "height": 60,
+              "text": "Mostrar Error",
+              "zIndex": 2,
+              "selected": false
+            },
+            {
+              "id": "act_home",
+              "type": "activity",
+              "x": 355,
+              "y": 320,
+              "width": 120,
+              "height": 60,
+              "text": "Ir a Inicio",
+              "zIndex": 2,
+              "selected": false
+            },
+            {
+              "id": "node_end_success",
+              "type": "end",
+              "x": 400,
+              "y": 420,
+              "width": 30,
+              "height": 30,
+              "text": "",
+              "zIndex": 2,
+              "selected": false
+            }
+          ],
+          "edges": [
+            {
+              "id": "edge_start_ingresar",
+              "source": "node_start",
+              "target": "act_ingresar",
+              "type": "control",
+              "pathType": "orthogonal",
+              "label": ""
+            },
+            {
+              "id": "edge_ingresar_decision",
+              "source": "act_ingresar",
+              "target": "node_decision",
+              "type": "control",
+              "pathType": "orthogonal",
+              "label": ""
+            },
+            {
+              "id": "edge_decision_home",
+              "source": "node_decision",
+              "target": "act_home",
+              "type": "control",
+              "pathType": "orthogonal",
+              "label": "[Si]"
+            },
+            {
+              "id": "edge_decision_error",
+              "source": "node_decision",
+              "target": "act_error",
+              "type": "control",
+              "pathType": "orthogonal",
+              "label": "[No]"
+            },
+            {
+              "id": "edge_error_ingresar",
+              "source": "act_error",
+              "target": "act_ingresar",
+              "type": "control",
+              "pathType": "orthogonal",
+              "label": ""
+            },
+            {
+              "id": "edge_home_end",
+              "source": "act_home",
+              "target": "node_end_success",
+              "type": "control",
+              "pathType": "orthogonal",
+              "label": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
