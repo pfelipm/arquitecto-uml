@@ -37,7 +37,7 @@ Esta herramienta funciona directamente en el navegador sin backend ("serverless"
 
 ## Uso
 
-Simplemente abre el archivo `index.html` en cualquier navegador web moderno. Aunque no se requiere instalar dependencias locales (Node.js, npm, etc.), **se necesita conexión a Internet** para descargar las librerías y estilos a través de CDN.
+Simplemente abre el archivo `index.html` en cualquier navegador web moderno. Aunque no se requiere instalar dependencias locales (Node.js, npm, etc.), **se necesita conexión a Internet** para descargar las bibliotecas y estilos a través de CDN.
 
 ## Autor
 
