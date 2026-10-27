@@ -543,9 +543,16 @@
           // --- EFECTOS ---
           useEffect(() => {
             const saved = localStorage.getItem('arquitecto_data');
-            if (saved) { try { const parsed = JSON.parse(saved); setFolders(ensureFolders(parsed.folders)); setIsDarkMode(parsed.darkMode || false); } catch (e) { console.error(e); } }
+            if (saved) { try {
+                const parsed = JSON.parse(saved);
+                const loadedFolders = ensureFolders(parsed.folders);
+                setFolders(loadedFolders); setIsDarkMode(parsed.darkMode || false);
+                // Reabrir el último diagrama abierto, si sigue existiendo
+                if (loadedFolders.some(f => f.diagrams.some(d => d.id === parsed.activeDiagramId))) setActiveDiagramId(parsed.activeDiagramId);
+            } catch (e) { console.error(e); } }
           }, []);
-          useEffect(() => { localStorage.setItem('arquitecto_data', JSON.stringify({ folders, darkMode: isDarkMode })); }, [folders, isDarkMode]);
+          // activeDiagramId solo se guarda en el navegador; no forma parte de las copias JSON exportadas
+          useEffect(() => { localStorage.setItem('arquitecto_data', JSON.stringify({ folders, darkMode: isDarkMode, activeDiagramId })); }, [folders, isDarkMode, activeDiagramId]);
           useEffect(() => { if (isDarkMode) document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark'); }, [isDarkMode]);
 
           const activeDiagram = useMemo(() => folders.flatMap(f => f.diagrams).find(d => d.id === activeDiagramId) || null, [folders, activeDiagramId]);
@@ -597,11 +604,18 @@
                     const content = e.target?.result;
                     const parsed = JSON.parse(content);
                     if (parsed.folders && Array.isArray(parsed.folders)) {
-                        setFolders(ensureFolders(parsed.folders));
+                        // Se abre el primer diagrama importado (y su carpeta); si no hay ninguno, se muestra la bienvenida
+                        const importedFolders = ensureFolders(parsed.folders);
+                        const firstFolder = importedFolders.find(f => f.diagrams.length > 0);
+                        const firstDiagram = firstFolder?.diagrams[0] || null;
+                        setFolders(importedFolders.map(f => f === firstFolder ? { ...f, isOpen: true } : f));
                         if (parsed.darkMode !== undefined) setIsDarkMode(parsed.darkMode);
                         setCreatingDiagramInFolderId(null)
                         showToast("Copia de seguridad restaurada");
-                        setActiveDiagramId(null);
+                        setActiveDiagramId(firstDiagram?.id || null);
+                        // Carga directa: si el id coincide con el diagrama ya abierto, el efecto de cambio de diagrama no se dispararía
+                        setNodes(firstDiagram?.nodes || []); setEdges(firstDiagram?.edges || []);
+                        setHistory({ past: [], future: [] }); setConnectingNodeId(null); setPendingConnection(null);
                     } else {
                         showToast("Error: Formato de archivo inválido");
                     }
@@ -1732,7 +1746,16 @@
                     </svg>
                     {connectingNodeId && ( <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center space-x-3 z-50 animate-bounce-in"> <Link2 size={18} className="animate-pulse"/> <span className="text-sm font-medium">Modo Conexión: Selecciona el destino</span> <button onClick={() => setConnectingNodeId(null)} className="ml-2 bg-blue-700 p-1 rounded-full hover:bg-blue-800"><X size={14}/></button> </div> )}
                     {toastMessage && ( <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50 text-sm font-medium"> {toastMessage} </div> )}
-                    {!activeDiagram && ( <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 text-white z-50"> <div className="bg-gray-800 p-8 rounded shadow-2xl text-center"> <h2 className="text-2xl font-bold mb-4">Bienvenido a Arquitecto Simple UML</h2> <p className="mb-4">Selecciona un diagrama a la izquierda o crea uno nuevo.</p> <button onClick={() => openNewDiagramModal(folders[0]?.id || 'root')} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-bold">Crear nuevo diagrama</button> </div> </div> )}
+                    {!activeDiagram && ( <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 text-white z-50"> <div className="bg-gray-800 p-8 rounded shadow-2xl text-center"> <h2 className="text-2xl font-bold mb-4">Bienvenido a Arquitecto Simple UML</h2>
+                        {folders.some(f => f.diagrams.length > 0) ? (<>
+                            <p className="mb-4">Selecciona un diagrama a la izquierda o crea uno nuevo.</p>
+                            <button onClick={() => openNewDiagramModal(folders[0]?.id || 'root')} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-bold">Crear nuevo diagrama</button>
+                        </>) : (<>
+                            <p className="mb-4">Todavía no tienes ningún diagrama. Empieza creando el primero.</p>
+                            <button onClick={() => openNewDiagramModal(folders[0]?.id || 'root')} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-bold">Crear mi primer diagrama</button>
+                            <button onClick={handleImportClick} className="block mx-auto mt-3 text-sm text-blue-300 hover:text-blue-200 hover:underline">o importa una copia de seguridad (JSON)</button>
+                        </>)}
+                    </div> </div> )}
 
                     <RenameModal
                         isOpen={editingLabelId !== null}
