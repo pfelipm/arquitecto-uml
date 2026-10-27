@@ -194,6 +194,15 @@
 
         const generateId = () => Math.random().toString(36).substr(2, 9);
 
+        // Dirección pública de la aplicación (botón Compartir)
+        const APP_URL = 'https://umlsimple.pablofelip.online';
+
+        // Pasos máximos que se conservan en el historial de deshacer
+        const MAX_HISTORY = 100;
+
+        // Garantiza al menos una carpeta (p. ej. tras importar un JSON sin carpetas)
+        const ensureFolders = (list) => (Array.isArray(list) && list.length > 0) ? list : [{ id: 'root', name: 'Mi proyecto UML', isOpen: true, diagrams: [] }];
+
         const calculatePerimeterPoint = (targetNode: NodeData, referencePoint: Point): Point => {
             const targetCenter = { x: targetNode.x + targetNode.width / 2, y: targetNode.y + targetNode.height / 2 };
             const dx = referencePoint.x - targetCenter.x;
@@ -430,9 +439,9 @@
                         </div>
 
                         <div className="space-y-4 text-sm leading-relaxed opacity-90">
-                            {/* Imagen de perfil flotante a la derecha */}
+                            {/* Imagen de perfil flotante a la derecha (incrustada, 192x192 WebP, para no depender de Drive) */}
                             <img
-                                src="https://drive.google.com/thumbnail?id=1pbNyTrnZeZvfWLu2Lm66f9tVQ3OqTKHx&sz=w500-h500"
+                                src="data:image/webp;base64,UklGRjQYAABXRUJQVlA4WAoAAAAQAAAAvwAAvwAAQUxQSEUGAAABCj/Ptj1us23bwdEUFB2IEyIFqjhzDoKGatwZtPozyhAg4EzqziCAhQA6VQQlQAAd4X8gn0mqVcph6isIPvPpSANnpgwQgmmNCQ6PQomcOY693rjvETEBMLAzmHkhP/HBTPHMwtlLl6V/duFMcQYT+Rcyg46ibmrEe3u2+s219Xt/N5pBqx12AITSD5oNvrd+7Zvq7NveSIoo7pA3VV75z++P2rqngt95pTzlDbnESI9+ePH6g8c6sozrFz8cTVPBGS6cXq0FOvJS49OFYcd+mWMVvx7qmKLuVzhjtdR4aW1Dx3xjjcdhq9zk0v22NqDw0iQs5LxcvLGpjckoimMXd6x8s6WN2hKMufYQb/FWqI0LXvTEDok35m91+kYGz0vCAk/PfR/2jY3v55423eFp/4k2OnwWkzlHrjS08Rtgx1i50m1tRWGYaaCwGmhLChcGDJQt1bRFhbPGyS9vaavKct4syenvtXXBSYNky3Vt4Tqyxnjt60BbWfg1MySO+h1tafiSMIB7/BdtcbDELvnZ732ry2ccs0MnH/YtzzgUq3RlU1ufK4jRU9WmJmATHBs+u6VJKGc5JumqaCIK0rE4VGlqMjYrHIPkyU1NSEYycu5nD/ukZHEjljj+e5+YwojW0V/65IRE6jVfE9R/LULZrzsUAWcjkywHmqQCjsp0XRO1zhHJf6/JinwkssuasMvZCAyUtigjPNC7Qk2TVgo9y61q4jJ65JQC6gg7vTlyW5NXuCeHr/QJDOnFdINCDe7B074msY+uJeae0AhziW698X2fyJAuufMhlcDSHe9Wn8yMrshih05g6cbYrT6hWbrglENKoezs7+WbmtTy8v6KLVq1ivvK3dDERm4/k5vU4sl9pJY0uQV7G79PLx7fW6lNL+E9ZdY0wdewl2MbFNvgPTgVTfKKs9uwTzOfdyvUaVYv7HY6pBl4l/Rqn+iMnUZrVJPRnT4MqCYf7uBe1GSHbBu6TjfINu8B3eBtm3pMN8a2cp/wUEBqhXIMhZH/UI6h4P1OOYHC248oh7cVZtuUE4ZT1aSHM/gN7WQwc412ghfWabeO/D3acX7ib9qxfNCgXQMzTdo1Z4oB7aR4pkW7liy0aScLZ0Pa4eylDu1w6TL1hH6XqHfpbEg7nF1o004WzrRo15JiQDspzjRp15z5oEG7BiaYdiz5e7Tj/AvrtFtH5hrtBIPf0E4GnSrt4KjZNuWEgbcfUQ5vK3i/U06gMPIfyjEUUiuUYyigTDkoAFOP6cbY5j2gG7xtQ9fpBtnmXqQbZBs+DKgmH2LH0RrVZHSn9CrVGDvhdEgzsNq1UKdZvbDbsE8zn3dzKjSrOLvh2AbFNhh7zKxRbA17QalNL2Hsefw+vXh8b6klegn2hslNavEk9pm7QS3k9oNii1atIvb98k1aycv7c8ohpVB29oexW5RiQRfdxQ6dwNINeLfoxFBdlfmQSmDpDt74nkoQ1eXE3BMaYS7RLTzt08iH6v50g0INRg8PX6EQpBc4cps+wuipUwqoI+z0BrlV6jBUrws12kgBPR8obVFGeKB3yC5TZjmLKOa/pwvyKprTdarUGRFNlgOaCDgqyH7doQg4q6L7mk8R/zVE+egv9ICoSCeO/04NYUQL7mcPacHiIurJk5uUYCRV9A9VmnRoVhhxTFe3qCBIq3g+dVZoIGcZceVqkwJNsIpvurJpP65AxfnQyYe2YxxS8U5+9rvd5DNG3N3jv9gMLCr+iaN+x1bwJaGM+NrXgZ2EX4Mps+W6jerIKnMmp7+3DzipjJpf3rKLLOdh2mypZhPhLMw7UFgNbCFcGICRc6XbdhCGMrVz5ErDfA2wowx+eNp/Yjb4LMrwT899H5oL3889rcyfeGP+VsdM4HlJKCu63uKt0DzgRU+UNWWsfLNllpZgzFVWdV4u3tg0B6MojrJvbnLpftsEwkuTUJZOjZfWNuK2scbjUDbPHKv49TAuqPsVzijrO8OF06u1IHpS49OFYQdETI9+ePH6g8fRYVy/+OFoWtHSHfKmyiv/+f1RuzeC33mlPOUNuYqmqRHv7dnqN9fW7/3daAatdtgBEEo/aDb43vq1b6qzb3sjKUVdZzDzQn7ig5nimYWzly5L/+zCmeIMJvIvZAYdZWAAVlA4IMgRAAAQWACdASrAAMAAPmEqkEWkIqGWe1X0QAYEsbbkYAAxZ7k11y1r0/qeO5Oj3O5SvXXuDPNh5tPpf3on0JembvDP3P2WW5dbxEH8d4q6fL6Z0xXg0/bTuuHAePeQ6Iu8y7K47j8HL/jyC++av8RtBzIUpeThusbb40lkyegswMQXYocjhrVQEShpknjR/926XeM+7EXMh7wwY8nfIhOnVgLD/ckbbx/ksPIUj1etQkyj3i/mRMXeFnUjcGsuMNsIxv85Zl552QpaYenNvbhn/kVyjRmPogQndS3IB69TrstmY6rHPW5flMd7nsE/+Hjn/52jNwIEwjcjN+MJ4AYLvnvQkZsEhyA3r9VcoOB70MZOUxV4Wtf2wxlnK+1oLSbIYYWMfQOs+Ugg/kHJZE9j8st7oKlE8PrGCSbOraF6wHsr/NBnm6MPPMmbpwCxUuAvWkoMiKAC/VHzTHKNT8rXh0TxV9cPqsW/Qrq6OLuCxZftdQwJNWW5jPCfHVyJEFi+96YQIJA/CoB2wa1b4fwDGO9N2wYf7HcbJnzRBg8c0ORtFmuA3pe8Bv7umFaBJYG7sN/PewWaCziDSat9Yf93JHLN9NLzZoiESo7B6yXdI9BlOwgq7qUkHoUrNwRn0uagDYwEHA8W7qoa6oZXj3wsvs0zn33sJmR9hd32FBv2koNmJvYHcc7gRO8V2r0Ab5o2feaU/T1onj380tuc1XtTU95vsTC9tZkMYQRUOey0QV6naedtaHKfdi/zO7U7eckAkTd477dMuH4KTZa4DCGSE0P6FSshnpjGVUInSyZJuLNhr9ObrRv3YjPkqu3+hmZQYJO/Rgq8/oIizS2K2iisa7hs4cNofvhf2KZaFus1b7oBmKPba9waSNBk8Pw22TzGKnqt/v6fDI9ZrXX1/7qlh36WO4BtiV9Kdan208hIDENxbqzPRZ+Q5RNSQAD+3+gC+9h2FIhW51eQY4zhWGDyDxfOoB5Ff1hCa2JAP0dM+ro9Xdi9Ji06AKM5A8FdtA04lmqeXFqKT/KWF16oqzwgg036NMNtW75B8aKwj7LYSiRA2pDcl8iWBCfwKfTstZao8gSKpWYxdfl6slpgka1qIWJBH3jnxfjSJ83gbkMeAZobcwGtWfL8i4w9GGOLR9DlITG5oZdvTPLsq0YBGHUldzGfbb+wtfKPrZhtPrRlQaScVTUGuja+b3ssV0cOSzQs8AanNRLburY4lggEQMFuYqSEMapmcGHJvblpgfJQ62VjXEMuCquXSdgEPwH+doFTUngPBG9t0b+aNf0AIAAH75qv43fhJDf1I13NyFEv0bBimsxqDhfyrCvyDjnTvRqPCRlTEKEqlZZWXnD7aasjNL6RjY+BAn2IVM6R6RZkAp4FczbAs24Bh8cc7oIO+aRADIRlulzFb/viOiCoUaXx/wTI+ezz8Wcmq6cqpjLSYqaF1sSK0ZNFJHKEEnuZjfSz7fiiABhgP7FEwjMwmwiP1iqj7uNs/XU3P9pTFk3+0mjXt47FJ5VW+AlwRcl04TOTIYrZ7+8+C4tO4qJfPJIIOHfVof/bERlKSANVZgvf7AKH3sD/8BXSOKF47HBNsEW9gjS6iHcEEo7G15ZAhvX3rPfBAlt9RpzDnvbJ0JUzfLOwtPs3dGBa7yjH/wv6S+i9Q1EVlhPfPivLUpaSv3ofBEz6H4UhZTTOidsBqhuQqMFmC2MxxL3v/JTekkZPsyZVGRqnzx51D2WUiZLNq4dnKR8Ws0vSiMdxoi7VJzl3uSkWx0ne7cWlzI9B2QhlZBG/AxIL9wgE+d7H/cOPHV3CxKaKmfPaCrN5PqR+zZfdITDoKSLxxJcUfIEtMUsXvqn7MBLoZrhpzdd/HxC1hae8hlEG3xG8SPeteJJMfLa64RQXyS133GR1BjAem4IU6UhSfRmlRo0ISddRM1Fihre89lVRSufHQojObLKoIwiJBLrr3C4PBUbkj3AO889wlGgTrRYz8tgya3HaEqjHlJY6ZURctuziSL6SY7yKXtaaUtUKQqSZ5slbZYhrIH40A9KedtpfnbYmKD1vBmF2o4S7bVAfKqgONF5rgLpUW/SPPgJDtn2Xsqb8VSyPJnx9SgixA0JW6e0D5D4LhUsCydq5Ta3c+0/Sgw0+4OEK6KPNFL97LA2xuWoRkYXHxJ8ve1Gli3/sbooCIbjgcjF2cvVKKNti1QHquy2ujO1KUwvXPuYPUOQGOwGW/maiIeV+Yzx/vE69OMLFS1yzyjdqxXNl5Fea9So5Oz0r4t5X55ugXlzq0qypwiwoyTkE5R60l4bPCtHLBeG+H65Be7ArTc2WVHiwLz6HvjPbVy0zPYg39gV2U344oZzdIml/kaHnAmy6Q45GuvZU2SVmm/yWIQwskUN2gbUXeqilvSL7HoRbIsw0nJ0WUSdDrBoCz5qtq9tjF9rDjBzabY22omkV1dWQZXiAHjh6IEfn/d0avx33ecp/AV6YSDHufUEsMp1S6DHwpaqfDEaXVK5orTZDY9lAHyEVXwtLNF10SQT75tlehJlsrlJRMtIMyFdSwKhR9rG2vwxan6IT3+trkh5M9HlLA/xdpZrNkcReSqoqCBSxaFVQiIk/8hojd7EfBAw6wf6JVoqVSsNA3xesqq9qoBnk9fMMEfsOv5Q+F1Qot/WMLvV+zLwerkm7MZ0rr3Gy09oTcJynjI4EdrDn0tqdNtbJIkYHjEmFs6ZJMdbMsMAMhtJDOr0W1RpdKbjq6ocbYj83B47skPza7ab13WRKGO4KSXVzqaEziIezvI7gvMWI1lALxxEyjWh6dbEDrQJDX6Nj29Wh010+4KQpVhohjbyT2G8H5e/fjNT6j3m9zHpefvHeSaxako0eCou766fbUgfaemtcCS9a9HZLNcEpFv3cFwAUDnghCMNj8sKXLOMh0yCNqT9MU8f1vevjAs/rquQSXAiziZGEqZc5D3BeFiMRW8xDzRx3ooyEQMfyjFVxeIZ9nhV8Lbxt8vgfxIn7p96AwVfEWVy1yB/HL2pEL9lKr8g8aKYrYi554j3+nY7EtantxXclpLkGnyPEH52DkctSwupA/plRy8jWAoNtQOyp2bMBeqncfllVtfHr0OThvk/e7WJOpCbeJ+1xRQM9iLCCmF0Jaba+UV3JQl/xZr9X+67xkfbHo7M4UU84YN6icy6wBtOVJE+7KMntGy9g2vNLGVyrznuv7D7CgoxMqrV2Gq3F9c6tKpPzXZnQ7/TckG0DS7yfjuZKMEL/GuOWpczsUcWPHe84ujycXDDuw3jiFUT9lzs1Cl83uzswEABs8KmXtJw5gTqvYnQfP0cTKD5SdAk1pDxANHeZyCy693109Ni4GMqgEmomSuKPZF8Fv+Aevd1Q8CXl0nRda2iSS6Gm5w3R54zzi7XZUTlrSnj/IUgVBCOWDbI6vX4SQSLDcWT8PxysQ26MqkJny3k+3i/pVyxHB5XUucOWTKAEwX0RYPGncmZ9BUHqB9oiNYOyRSbPRI//zFkpUPUU1YNqec2cPA2aft3wpbRjKtqEoEfSP303PLn9ukB/v74csy2FF7I6dIy+iwdfLOgvEoLXppzj+uXjOg9u2FFhhdzZel0v/Ep71EmqMN9yTGXjT+6saFnzHZQ9V/M+8OJdoQDxWHBpa4JKdUa/d3PMeFskmCIiOAtTIa0CZ/0I63sTi3KzJAkM82OZ5esAMSOnl3lamozdP8d0/KkrTCTSoVDEK0Tc2b7dKAgHHLrkQO6cFNMnBTvM+o6bS2jgfSfFLXv6s0rxTFUkzYvMzJyP7lssTVSvZXBEn7l/dXfWds9738maZxqQ5dZYUgwVQnIQ/arCFWInOYfjqZwOIaDSMHJUihwqYxXYeeaaOrnzEiwkkuGoVkeRXiR3hyfJjqahZwvYi0pylTQkPCo+BlkenyXVeLsgmvlVgPGhE2upZY5XkAKjTphsMqrafzLsRUMD+aYCW+k1uV/VFSn2/3k5/JQe2XzxX+pryeeDLM8/2TpypEUWyce2a8fxcZppZwcFfrUrnGGssmwhfeqKtkLP+tC8gtQTyw/E+SU/Oc3uS3ZGFg5j1YDCLNUOvdLISqwUhjOwO+Uv1g3QTRyEaVyjVleFhol82U6AVw7Y+JFgUhcNB7OC8GE3i7M1vzrBAxtLgOgOX6pb8q1lQIdLsomwLt2iKnMKxKXf/rtR13fhW4sgDZfvh0f2ztA4VQd88IXbD0IwnM57PA+2dDm8jTkfwgwJPh1LIUQ/uMD5ktjKc2N7t5fZ3/RqRy2TV0FG6YZPePwfur4/Hsd8BtEySAR+fxyOlZTgcxLiesgiDf1XEtsN+YG2hnwebys9WG5ESovMDrcMuY4+ggpKdfTZYob7AEycG1nKyWV1xyrrdXdtXCsLtjU2HR1dIXcZHpc+1qhr866PRzgISvTJrMNVrlROPIWQsh5tg1CznSTxOaNzVoKbzr30zw5fi9tMUk3c/wvFPV6hsx3UFd8LUA4ciATJfmPr8PEZ8Gzlu9kypecohIuaLEuqMeV6lCRLk37gyVTS1OPHNAE7Va1rWYPHqyjgryLPYYnwJPPRsEE87JQe9O0jA8f2YjenW9IgWCU58VDC3qoDQr8/Oahy6PzPFZqsPVTMsqo3etTPLww+zN/o7FHAVHLJdUBx6xW8Q6sJQ0Otm6Z8L7eCD22bWZxDN2yQ7AxNx/mVvE+t+SYLWQKGV3cwWg6zvdnq0XjN69YTYgVr4CiY39dDfQlhnblzBjji+VFJmj24sW4HKgz1i+0ublmHznWMQdpYBE8RMFBS0+EaUpK4HP8belpRGbdgUJXmDsX6dCTB066yP+Y9c0nU19OWcRdWjD59uuJDYExro4hFopZwmZ7+cvEp9+p9Mk1NU4b3LPb1YwmyytsTSVbmx/KaV+gGSAMZjUFv1QjnWr/5dX72ACH2cN+die7JKRqqD5ysG7IoP6o0SP578C1cesQQNboJsVRqb2cud4bmKDNMgo00pP/CVgetQUYWA7AGDyYLjfCd25baejPkpr0ZxacfOQsiW7XsoU1np8sMtS7PJ//tYf/s3v/+6FMJgG6yOTEsUMz6ty0uwHJJ8nAUDJSIrm1+cr3ebqjGlaNWjZbnPWZrh+eO/v1qwSGtRlwo8fVTJfBvq6ihzNhEPz2b1P2sVMQRjkTA3KCt0+nhEhzyLQ824VJP4DFGs691oOX+kNP4Jv17zUiTvqcXsnD01q7qtKOCVW7RBnfyPVM9Qc6zdfszBHvJVPQIUXQIWOGGrlk9IwRwbfal7NUgoySPvaitChnasvpR8IuKgMWZnZIX7P2LKIGimkD+uJVUjD8s0KqnEMwUVoj04u3yHPZYdY3XkLrFSJnCGjSmlA0ZEt1elmS8J2Par+5jVKeqqta1WYqNugKpg2b2EjFt0Ziy8u33rCEF12ldif+e8h776zq1hAvWZ7sYBdRejy7eAyrQaZCWZ6qFfyShgTr8qLrxAKOETstJB6j5ob4l5F0okIDmr8AOMVg/nksXTNLYrZFy9G7mWoNRPxJuIiBnbzVKFB1BfHM6YPaV8Z1gn0fm5xhHavvKT9l2vJop1aigsqdp4vRlaXz6NYXJTAGSl0y0Nv3T01/RfbZGQnMGBr4hmt52YKRqTHfvIGCTTcU4SMiE/NzBVCFKh3pqKnpsVsY/FItRBVH/0+Aj8FfCixURIWeECn8yvhJvQob4sx9dO7nVAbknqZ7ih0GRsI5Wjemx/ERMl/j8giksMY58XG/t/DDMUw/Mb23RyCqtmoai6klK0lITqpGvtQY8uwJinJUuX4zQ9tz44vX21j0F4jBUNz9ld16RSOpMFmQQJLCRpk29VBbTOucbxqJH0Q+hFU5Y8L70wOYopq005odMLkQF0KKrKxU64b3HFDOGj9U4BP1OXjrfcJq+j7Mw7E0m1JwjgDscUHpOE9L3Te2R1LSvbc9GFdzW4nJovNc5jZxi3ln677a3ZqdPFQoHdbJxtm8ZkVag/rmDGqh2FqndGdgUOsznk87GTbl4plkjBEb3Ui909ILWFr4kB5j34MnRUfwN7e2/TLU1c6zpsk9zwJ3dcAAA"
                                 alt="Pablo Felip Monferrer"
                                 className="float-right w-24 h-24 rounded-full ml-4 mb-2 border-4 border-white dark:border-gray-800 shadow-md object-cover"
                             />
@@ -522,7 +531,7 @@
           // --- EFECTOS ---
           useEffect(() => {
             const saved = localStorage.getItem('arquitecto_data');
-            if (saved) { try { const parsed = JSON.parse(saved); setFolders(parsed.folders || []); setIsDarkMode(parsed.darkMode || false); } catch (e) { console.error(e); } }
+            if (saved) { try { const parsed = JSON.parse(saved); setFolders(ensureFolders(parsed.folders)); setIsDarkMode(parsed.darkMode || false); } catch (e) { console.error(e); } }
           }, []);
           useEffect(() => { localStorage.setItem('arquitecto_data', JSON.stringify({ folders, darkMode: isDarkMode })); }, [folders, isDarkMode]);
           useEffect(() => { if (isDarkMode) document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark'); }, [isDarkMode]);
@@ -557,6 +566,16 @@
 
           const handleImportClick = () => fileInputRef.current?.click();
 
+          // --- COMPARTIR (enlace a la aplicación) ---
+          const handleShare = async () => {
+            try {
+                await navigator.clipboard.writeText(APP_URL);
+                showToast("Enlace a la aplicación copiado al portapapeles");
+            } catch (err) {
+                showToast(`No se pudo copiar el enlace: ${APP_URL}`);
+            }
+          };
+
           const handleImportFile = (event) => {
             const file = event.target.files?.[0];
             if (!file) return;
@@ -566,7 +585,7 @@
                     const content = e.target?.result;
                     const parsed = JSON.parse(content);
                     if (parsed.folders && Array.isArray(parsed.folders)) {
-                        setFolders(parsed.folders);
+                        setFolders(ensureFolders(parsed.folders));
                         if (parsed.darkMode !== undefined) setIsDarkMode(parsed.darkMode);
                         setCreatingDiagramInFolderId(null)
                         showToast("Copia de seguridad restaurada");
@@ -602,14 +621,11 @@
           const exportPNGNow = () => {
               if (!svgRef.current) return;
 
-              // 1. Calcular Bounding Box de todos los nodos
-              let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-              nodes.forEach(n => {
-                  minX = Math.min(minX, n.x);
-                  minY = Math.min(minY, n.y);
-                  maxX = Math.max(maxX, n.x + n.width);
-                  maxY = Math.max(maxY, n.y + n.height);
-              });
+              // 1. Calcular Bounding Box de todo el contenido dibujado (nodos, relaciones, bucles reflexivos y etiquetas)
+              const mainGroupEl = svgRef.current.querySelector(':scope > g');
+              if (!mainGroupEl) return;
+              const bbox = mainGroupEl.getBBox();
+              let minX = bbox.x, minY = bbox.y, maxX = bbox.x + bbox.width, maxY = bbox.y + bbox.height;
 
               // Añadir margen
               const padding = 50;
@@ -691,7 +707,7 @@
             setFolders(prev => prev.map(f => ({ ...f, diagrams: f.diagrams.map(d => d.id === activeDiagramId ? { ...d, nodes: newNodes, edges: newEdges } : d) })));
           };
 
-          const pushHistory = () => { setHistory(prev => ({ past: [...prev.past, { nodes, edges }], future: [] })); };
+          const pushHistory = () => { setHistory(prev => ({ past: [...prev.past, { nodes, edges }].slice(-MAX_HISTORY), future: [] })); };
 
           const updateDiagramState = (newNodes, newEdges, saveHistory = true) => {
             if (saveHistory) pushHistory();
@@ -822,9 +838,12 @@
           const duplicateSelection = useCallback(() => {
             const selectedNodes = nodes.filter(n => n.selected);
             if (selectedNodes.length === 0) return;
-            const newNodes = selectedNodes.map(node => ({ ...node, id: generateId(), x: node.x + 20, y: node.y + 20, selected: true }));
+            const idMap = {};
+            const newNodes = selectedNodes.map(node => { const id = generateId(); idMap[node.id] = id; return { ...node, id, x: node.x + 20, y: node.y + 20, selected: true }; });
+            // Se duplican también las relaciones cuyos dos extremos están en la selección
+            const newEdges = edges.filter(ed => idMap[ed.source] && idMap[ed.target]).map(ed => ({ ...ed, id: generateId(), source: idMap[ed.source], target: idMap[ed.target], selected: false }));
             const currentNodesDeselected = nodes.map(n => ({ ...n, selected: false }));
-            updateDiagramState([...currentNodesDeselected, ...newNodes], edges);
+            updateDiagramState([...currentNodesDeselected, ...newNodes], [...edges.map(ed => ({ ...ed, selected: false })), ...newEdges]);
             showToast(`${selectedNodes.length} elemento(s) duplicado(s)`);
           }, [nodes, edges]);
 
@@ -835,7 +854,7 @@
           }, [nodes, edges]);
 
           const handleUndo = () => { if (history.past.length === 0) return; const prev = history.past[history.past.length - 1]; setHistory({ past: history.past.slice(0, -1), future: [{ nodes, edges }, ...history.future] }); setNodes(prev.nodes); setEdges(prev.edges); updateDiagramState(prev.nodes, prev.edges, false); };
-          const handleRedo = () => { if (history.future.length === 0) return; const next = history.future[0]; setHistory({ past: [...history.past, { nodes, edges }], future: history.future.slice(1) }); setNodes(next.nodes); setEdges(next.edges); updateDiagramState(next.nodes, next.edges, false); };
+          const handleRedo = () => { if (history.future.length === 0) return; const next = history.future[0]; setHistory({ past: [...history.past, { nodes, edges }].slice(-MAX_HISTORY), future: history.future.slice(1) }); setNodes(next.nodes); setEdges(next.edges); updateDiagramState(next.nodes, next.edges, false); };
 
           const handleFitToScreen = () => {
               if (nodes.length === 0 || !canvasRef.current) { setScale(1); setPan({ x: 0, y: 0 }); return; }
@@ -1010,15 +1029,35 @@
                 const o = snap.nodes.find(p => p.id === n.id);
                 return o && (o.x !== n.x || o.y !== n.y || o.width !== n.width || o.height !== n.height);
             });
-            if (changed) setHistory(prev => ({ past: [...prev.past, snap], future: [] }));
+            if (changed) setHistory(prev => ({ past: [...prev.past, snap].slice(-MAX_HISTORY), future: [] }));
           };
 
           const handleMouseUp = () => { commitDragHistory(); setIsDragging(false); setIsResizing(false); setResizeHandle(null); setActiveNodeId(null); setInitialNodeGeom(null); setSelectionBox(null); setSmartGuides([]); if (isDragging || isResizing) saveCurrentDiagram(nodes, edges); };
           // Listener nativo no pasivo: el onWheel de React es pasivo y no puede impedir el zoom de la página con Ctrl+rueda
+          // Copia de zoom y desplazamiento accesible desde el listener (que se registra una sola vez)
+          const viewRef = useRef({ scale: 1, pan: { x: 0, y: 0 } });
+          viewRef.current = { scale, pan };
           useEffect(() => {
             const el = canvasRef.current;
             if (!el) return;
-            const handleWheel = (e) => { if (e.ctrlKey || e.metaKey || e.shiftKey) { e.preventDefault(); e.stopPropagation(); const d = -e.deltaY * 0.001; setScale(s => Math.min(Math.max(0.1, s + d), 5)); } else { setPan(prev => ({ x: prev.x - e.deltaX, y: prev.y - e.deltaY })); } };
+            const handleWheel = (e) => {
+                const { scale: s, pan: p } = viewRef.current;
+                let next;
+                if (e.ctrlKey || e.metaKey || e.shiftKey) {
+                    e.preventDefault(); e.stopPropagation();
+                    const newScale = Math.min(Math.max(0.1, s + -e.deltaY * 0.001), 5);
+                    // Zoom hacia el cursor: el punto bajo el ratón se mantiene fijo en pantalla
+                    const rect = svgRef.current.getBoundingClientRect();
+                    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+                    const k = newScale / s;
+                    next = { scale: newScale, pan: { x: mx - (mx - p.x) * k, y: my - (my - p.y) * k } };
+                } else {
+                    next = { scale: s, pan: { x: p.x - e.deltaX, y: p.y - e.deltaY } };
+                }
+                // Se actualiza ya la copia por si llegan varios eventos antes del siguiente render
+                viewRef.current = next;
+                setScale(next.scale); setPan(next.pan);
+            };
             el.addEventListener('wheel', handleWheel, { passive: false });
             return () => el.removeEventListener('wheel', handleWheel);
           }, []);
@@ -1376,7 +1415,7 @@
                 <span className="text-xs opacity-50">{activeDiagram?.name || 'Sin diagrama abierto'}</span>
                 <button onClick={() => setShowInfoModal(true)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400" title="Acerca de..."><Info size={18} /></button>
                 <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">{isDarkMode ? <Sun size={18} /> : <Moon size={18} />}</button>
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium opacity-50 cursor-not-allowed">Compartir</button>
+                <button onClick={handleShare} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium" title="Copiar el enlace a Arquitecto Simple UML">Compartir</button>
               </div>
             </div>
           );
