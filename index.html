@@ -6,7 +6,8 @@
     <title>Arquitecto Simple UML</title>
 
     <!-- 1. Cargar Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Versión fijada para que una actualización del CDN no cambie ni rompa la interfaz -->
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
 
     <!-- Configuración para modo oscuro de Tailwind -->
     <script>
@@ -1028,12 +1029,20 @@
                 const isEditingField = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
                 if (e.key === 'Delete' || e.key === 'Backspace') { if (isEditingField) return; deleteSelection(); }
 
-                if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
-                    e.preventDefault();
-                    duplicateSelection();
+                // Con Mayús pulsada e.key llega en mayúsculas ('Z')
+                const key = e.key.toLowerCase();
+                const mod = e.ctrlKey || e.metaKey;
+
+                if (mod && key === 'd') {
+                    e.preventDefault(); // Evita también el diálogo de marcadores del navegador
+                    if (!isEditingField) duplicateSelection();
                 }
 
-                if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); e.shiftKey ? handleRedo() : handleUndo(); }
+                // En campos de texto se deja el deshacer/rehacer nativo del navegador
+                if (mod && (key === 'z' || key === 'y') && !isEditingField) {
+                    e.preventDefault();
+                    (key === 'y' || e.shiftKey) ? handleRedo() : handleUndo();
+                }
                 if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
                     if (isEditingField || !nodes.some(n => n.selected)) return;
                     e.preventDefault();
