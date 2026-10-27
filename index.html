@@ -209,10 +209,12 @@
         // (p. ej. 167002356-atari-embeds.googleusercontent.com), así que localStorage empieza vacío en cada visita
         const IS_EPHEMERAL_STORAGE = /-atari-embeds\.googleusercontent\.com$/.test(window.location.hostname);
 
+        // La selección es estado de interfaz: no debe exportarse ni restaurarse al abrir un diagrama
+        const withoutSelection = (items) => items.map(({ selected, ...item }) => item);
+        const foldersWithoutSelection = (folders) => folders.map(f => ({ ...f, diagrams: f.diagrams.map(d => ({ ...d, nodes: withoutSelection(d.nodes), edges: withoutSelection(d.edges) })) }));
+
         // Contenido de las carpetas sin datos de interfaz (carpetas abiertas/cerradas, selección), para detectar cambios
-        const contentSnapshot = (folders) => JSON.stringify(folders.map(({ isOpen, ...f }) => ({
-            ...f, diagrams: f.diagrams.map(d => ({ ...d, nodes: d.nodes.map(({ selected, ...n }) => n), edges: d.edges.map(({ selected, ...e }) => e) }))
-        })));
+        const contentSnapshot = (folders) => JSON.stringify(foldersWithoutSelection(folders).map(({ isOpen, ...f }) => f));
 
         const toBase64Url = (bytes) => {
             let bin = '';
@@ -729,8 +731,8 @@
 
           useEffect(() => {
             if (activeDiagram) {
-              setNodes(activeDiagram.nodes);
-              setEdges(activeDiagram.edges);
+              setNodes(withoutSelection(activeDiagram.nodes));
+              setEdges(withoutSelection(activeDiagram.edges));
               setHistory({ past: [], future: [] });
               setConnectingNodeId(null);
               setPendingConnection(null);
@@ -747,7 +749,7 @@
 
           // --- PERSISTENCIA JSON (Importar/Exportar) ---
           const handleExportJSON = () => {
-            const dataStr = JSON.stringify({ version: "7.6", folders, darkMode: isDarkMode }, null, 2);
+            const dataStr = JSON.stringify({ version: "7.6", folders: foldersWithoutSelection(folders), darkMode: isDarkMode }, null, 2);
             const blob = new Blob([dataStr], { type: "application/json" });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -835,7 +837,7 @@
             showToast(mode === 'append' ? "Diagramas importados y añadidos a los tuyos" : "Copia de seguridad restaurada", 'success');
             setActiveDiagramId(firstDiagram?.id || null);
             // Carga directa: si el id coincide con el diagrama ya abierto, el efecto de cambio de diagrama no se dispararía
-            setNodes(firstDiagram?.nodes || []); setEdges(firstDiagram?.edges || []);
+            setNodes(withoutSelection(firstDiagram?.nodes || [])); setEdges(withoutSelection(firstDiagram?.edges || []));
             setHistory({ past: [], future: [] }); setConnectingNodeId(null); setPendingConnection(null);
           };
 

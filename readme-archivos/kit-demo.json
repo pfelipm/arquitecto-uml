@@ -1,5 +1,5 @@
 {
-  "version": "7.5.1",
+  "version": "7.6",
   "folders": [
     {
       "id": "folder_demo_kit",
@@ -43,7 +43,7 @@
               "height": 434.82142857142856,
               "text": "Sistema de Biblioteca",
               "zIndex": 0,
-              "selected": true
+              "selected": false
             },
             {
               "id": "node_uc_buscar",
