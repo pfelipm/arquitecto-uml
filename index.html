@@ -375,13 +375,17 @@
         };
 
         const ConnectionModal = ({ pendingConnection, onConfirm, onCancel, isDarkMode }) => {
-            if (!pendingConnection) return null;
-            const { validTypes } = pendingConnection;
+            // Los hooks van antes de cualquier return para respetar las reglas de React
+            const validTypes = pendingConnection?.validTypes || [];
             const [selectedType, setSelectedType] = useState(validTypes[0]);
 
             useEffect(() => {
-                setSelectedType(validTypes[0]);
-            }, [pendingConnection, validTypes]);
+                setSelectedType(pendingConnection?.validTypes[0]);
+            }, [pendingConnection]);
+
+            if (!pendingConnection) return null;
+            // Hasta que el efecto actualiza el estado, se usa el primer tipo válido
+            const currentType = validTypes.includes(selectedType) ? selectedType : validTypes[0];
 
             return (
                 <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-20 backdrop-blur-sm" onMouseDown={(e) => e.stopPropagation()}>
@@ -390,7 +394,7 @@
                         <div className="space-y-2 mb-6">
                             {validTypes.map(t => (
                                 <label key={t} className="flex items-center space-x-3 cursor-pointer p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
-                                    <input type="radio" name="connType" checked={selectedType === t} onChange={() => setSelectedType(t)} className="text-blue-600 focus:ring-blue-500" />
+                                    <input type="radio" name="connType" checked={currentType === t} onChange={() => setSelectedType(t)} className="text-blue-600 focus:ring-blue-500" />
                                     <span>{getEdgeLabel(t)}</span>
                                 </label>
                             ))}
@@ -398,7 +402,7 @@
                         <div className="flex flex-col space-y-2">
                             <div className="flex space-x-2">
                                 <button onClick={onCancel} className="flex-1 py-2 border border-gray-300 rounded hover:bg-gray-100 dark:hover:bg-gray-700">Cancelar</button>
-                                <button onClick={() => onConfirm(selectedType)} className="flex-1 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Crear</button>
+                                <button onClick={() => onConfirm(currentType)} className="flex-1 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Crear</button>
                             </div>
                         </div>
                     </div>
@@ -474,6 +478,8 @@
           const [deleteConfirm, setDeleteConfirm] = useState(null);
 
           const [toastMessage, setToastMessage] = useState(null);
+          // Durante la exportación a PNG se renderiza sin resaltado de selección ni tiradores
+          const [isExporting, setIsExporting] = useState(false);
 
           const [nodes, setNodes] = useState([]);
           const [edges, setEdges] = useState([]);
@@ -582,6 +588,18 @@
                   showToast("El diagrama está vacío");
                   return;
               }
+              // Se vuelve a renderizar sin selección; el efecto de abajo clona el SVG ya actualizado
+              setIsExporting(true);
+          };
+
+          useEffect(() => {
+              if (!isExporting) return;
+              exportPNGNow();
+              setIsExporting(false);
+          }, [isExporting]);
+
+          const exportPNGNow = () => {
+              if (!svgRef.current) return;
 
               // 1. Calcular Bounding Box de todos los nodos
               let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -641,11 +659,14 @@
 
               img.onload = () => {
                   const canvas = document.createElement('canvas');
-                  canvas.width = width;
-                  canvas.height = height;
+                  // Resolución mínima 2x para que el PNG se vea nítido en pantallas HiDPI
+                  const pixelRatio = Math.max(2, window.devicePixelRatio || 1);
+                  canvas.width = Math.ceil(width * pixelRatio);
+                  canvas.height = Math.ceil(height * pixelRatio);
                   const ctx = canvas.getContext('2d');
                   if (ctx) {
-                      ctx.drawImage(img, 0, 0);
+                      ctx.scale(pixelRatio, pixelRatio);
+                      ctx.drawImage(img, 0, 0, width, height);
                       const pngUrl = canvas.toDataURL('image/png');
 
                       // Descargar
@@ -767,7 +788,8 @@
               if (!draggedDiagramId) return;
 
               setFolders(prev => {
-                  const newFolders = [...prev];
+                  // Copias de carpetas y listas para no mutar el estado anterior
+                  const newFolders = prev.map(f => ({ ...f, diagrams: [...f.diagrams] }));
                   let sourceFolderIndex = -1, sourceDiagramIndex = -1, diag = null;
 
                   newFolders.forEach((f, fi) => {
@@ -1043,7 +1065,7 @@
           };
 
           const renderNode = (node) => {
-            const isSelected = node.selected;
+            const isSelected = node.selected && !isExporting;
             const strokeColor = isSelected ? COLORS.selection : (isDarkMode ? COLORS.nodeBorderDark : COLORS.nodeBorder);
             const strokeWidth = isSelected ? 2 : 1;
             const fill = isDarkMode ? COLORS.nodeBgDark : COLORS.nodeBg;
@@ -1105,7 +1127,8 @@
                 className: "cursor-move select-none"
             };
 
-            const NodeContent = () => {
+            // Función normal (no componente): un componente definido aquí se remontaría en cada render
+            const renderNodeContent = () => {
                 switch (node.type) {
                     case 'actor': const sx = node.width/40, sy = node.height/80; return (<g><g transform={`scale(${sx},${sy})`}><circle cx={20} cy={15} r={10} fill={fill} stroke={strokeColor} strokeWidth={strokeWidth/Math.min(sx,sy)} vectorEffect="non-scaling-stroke"/><path d="M20,25 L20,55 M5,35 L35,35 M20,55 L5,80 M20,55 L35,80" stroke={strokeColor} strokeWidth={strokeWidth/Math.min(sx,sy)} vectorEffect="non-scaling-stroke"/></g><text x={node.width/2} y={node.height+20} textAnchor="middle" fill={textFill} fontSize={12}>{node.text}</text><rect width={node.width} height={node.height} fill="transparent"/></g>);
                     case 'usecase': return (<g><ellipse cx={node.width/2} cy={node.height/2} rx={node.width/2} ry={node.height/2} fill={fill} stroke={strokeColor} strokeWidth={strokeWidth}/><text x={node.width/2} y={node.height/2+4} textAnchor="middle" fill={textFill} fontSize={12}>{node.text}</text></g>);
@@ -1171,13 +1194,14 @@
                 }
             };
 
-            return ( <g transform={`translate(${node.x},${node.y})`} {...commonProps}> <NodeContent /> {isSelected && tool === 'select' && renderResizeHandles(node)} </g> );
+            return ( <g transform={`translate(${node.x},${node.y})`} {...commonProps}> {renderNodeContent()} {isSelected && tool === 'select' && renderResizeHandles(node)} </g> );
           };
 
           const renderEdges = () => {
             return edges.map(edge => {
                 const s = nodes.find(n => n.id === edge.source), t = nodes.find(n => n.id === edge.target);
                 if (!s || !t) return null;
+                const edgeSelected = edge.selected && !isExporting;
 
                 const sCenter = { x: s.x + s.width / 2, y: s.y + s.height / 2 };
                 const tCenter = { x: t.x + t.width / 2, y: t.y + t.height / 2 };
@@ -1191,17 +1215,17 @@
                      const d = `M ${p1.x} ${p1.y} C ${cp1.x} ${cp1.y}, ${cp2.x} ${cp2.y}, ${p2.x} ${p2.y}`;
 
                      let markerId = `arrow-${edge.type}`;
-                     if (edge.selected) markerId += '-selected';
+                     if (edgeSelected) markerId += '-selected';
                      let marker = `url(#${markerId})`;
                      if (edge.type === 'association') marker = '';
-                     const strokeColor = edge.selected ? COLORS.selection : (isDarkMode ? '#9ca3af' : '#4b5563');
+                     const strokeColor = edgeSelected ? COLORS.selection : (isDarkMode ? '#9ca3af' : '#4b5563');
 
-                     const dashed = edge.type === 'implementation' ? "5,5" : "";
+                     const dashed = ['dependency', 'implementation'].includes(edge.type) ? "5,5" : "";
 
                      return (
                         <g key={edge.id} onClick={(e) => { e.stopPropagation(); setNodes(nodes.map(n => ({...n, selected: false}))); setEdges(edges.map(ed => ({...ed, selected: ed.id === edge.id}))); }} className="cursor-pointer">
                             <path d={d} fill="none" stroke="transparent" strokeWidth={15} />
-                            <path d={d} fill="none" stroke={strokeColor} strokeWidth={2} markerEnd={marker} />
+                            <path d={d} fill="none" stroke={strokeColor} strokeWidth={2} markerEnd={marker} strokeDasharray={dashed} />
                             {edge.label && <text x={p1.x + 40} y={sCenter.y} textAnchor="start" fill={strokeColor} fontSize={11} paintOrder="stroke" stroke={isDarkMode ? COLORS.nodeBgDark : COLORS.nodeBg} strokeWidth="3px">{edge.label}</text>}
                         </g>
                      );
@@ -1249,18 +1273,18 @@
                 }
 
                 let markerId = `arrow-${edge.type}`;
-                if (edge.selected) markerId += '-selected';
+                if (edgeSelected) markerId += '-selected';
 
                 let marker = `url(#${markerId})`;
                 if (edge.type === 'association') marker = '';
-                if (edge.type === 'include' || edge.type === 'extend') marker = `url(#arrow-dependency${edge.selected ? '-selected' : ''})`;
-                if (edge.type === 'implementation') marker = `url(#arrow-generalization${edge.selected ? '-selected' : ''})`;
-                if (edge.type === 'control') marker = `url(#arrow-directed_association${edge.selected ? '-selected' : ''})`;
+                if (edge.type === 'include' || edge.type === 'extend') marker = `url(#arrow-dependency${edgeSelected ? '-selected' : ''})`;
+                if (edge.type === 'implementation') marker = `url(#arrow-generalization${edgeSelected ? '-selected' : ''})`;
+                if (edge.type === 'control') marker = `url(#arrow-directed_association${edgeSelected ? '-selected' : ''})`;
 
                 const dashed = ['include', 'extend', 'dependency', 'implementation'].includes(edge.type) ? "5,5" : "";
                 const showLabel = activeDiagram?.type === 'dcu' ? (edge.type === 'include' || edge.type === 'extend') : (edge.label || edge.type === 'include' || edge.type === 'extend');
 
-                const strokeColor = edge.selected ? COLORS.selection : (isDarkMode ? '#9ca3af' : '#4b5563');
+                const strokeColor = edgeSelected ? COLORS.selection : (isDarkMode ? '#9ca3af' : '#4b5563');
 
                 // Multiplicity Positions
                 const nextPoint = (edge.pathType === 'straight') ? end : mid1;
