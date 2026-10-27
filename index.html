@@ -70,7 +70,7 @@
 
         /**
          * ARQUITECTO SIMPLE UML - SUITE DE MODELADO
-         * Versión 7.5 "Pixel Perfect"
+         * Versión 7.5.1 "Pixel Perfect"
          */
 
         // --- TIPOS Y CONSTANTES ---
@@ -423,8 +423,8 @@
                             </div>
                             <div>
                                 <h2 className="text-xl font-bold">Arquitecto Simple UML</h2>
-                                <p className="text-xs opacity-60 font-mono">Versión 7.5 "Pixel Perfect"</p>
-                                <p className="text-[10px] opacity-50 mt-1">Actualizado: 25 de diciembre de 2025</p>
+                                <p className="text-xs opacity-60 font-mono">Versión 7.5.1 "Pixel Perfect"</p>
+                                <p className="text-[10px] opacity-50 mt-1">Actualizado: 27 de octubre de 2026</p>
                             </div>
                         </div>
 
@@ -542,7 +542,7 @@
 
           // --- PERSISTENCIA JSON (Importar/Exportar) ---
           const handleExportJSON = () => {
-            const dataStr = JSON.stringify({ version: "7.5", folders, darkMode: isDarkMode }, null, 2);
+            const dataStr = JSON.stringify({ version: "7.5.1", folders, darkMode: isDarkMode }, null, 2);
             const blob = new Blob([dataStr], { type: "application/json" });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
