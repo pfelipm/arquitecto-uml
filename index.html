@@ -71,7 +71,7 @@
 
         /**
          * ARQUITECTO SIMPLE UML - SUITE DE MODELADO
-         * Versión 7.6 "Compartir"
+         * Versión 7.7 "Compartir"
          */
 
         // --- TIPOS Y CONSTANTES ---
@@ -586,7 +586,7 @@
                             </div>
                             <div>
                                 <h2 className="text-xl font-bold">Arquitecto Simple UML</h2>
-                                <p className="text-xs opacity-60 font-mono">Versión 7.6 "Compartir"</p>
+                                <p className="text-xs opacity-60 font-mono">Versión 7.7 "Compartir"</p>
                                 <p className="text-[10px] opacity-50 mt-1">Actualizado: 28 de octubre de 2026</p>
                             </div>
                         </div>
@@ -813,7 +813,7 @@
 
           // --- PERSISTENCIA JSON (Importar/Exportar) ---
           const handleExportJSON = () => {
-            const dataStr = JSON.stringify({ version: "7.6", folders: foldersWithoutSelection(folders), darkMode: isDarkMode }, null, 2);
+            const dataStr = JSON.stringify({ version: "7.7", folders: foldersWithoutSelection(folders), darkMode: isDarkMode }, null, 2);
             const blob = new Blob([dataStr], { type: "application/json" });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -1402,6 +1402,9 @@
             const el = canvasRef.current;
             if (!el) return;
             const handleWheel = (e) => {
+                // Los modales y avisos se dibujan dentro del lienzo: la rueda sobre ellos (p. ej. al desplazar
+                // el enlace del modal de compartir) no debe mover ni ampliar el diagrama
+                if (!(svgRef.current?.contains(e.target) || e.target === el)) return;
                 const { scale: s, pan: p } = viewRef.current;
                 let next;
                 if (e.ctrlKey || e.metaKey) {
