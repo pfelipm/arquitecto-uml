@@ -194,8 +194,75 @@
 
         const generateId = () => Math.random().toString(36).substr(2, 9);
 
-        // Dirección pública de la aplicación (botón Compartir)
+        // Dirección pública de la aplicación (base de los enlaces para compartir)
         const APP_URL = 'https://umlsimple.pablofelip.online';
+
+        // --- COMPARTIR DIAGRAMAS POR ENLACE ---
+        // El diagrama se comprime (deflate) y viaja en el fragmento de la URL (#d=...), que nunca se envía a ningún servidor.
+        // En Google Sites la app corre en un iframe que no puede leer la URL de la página, así que el enlace también
+        // puede pegarse en "Abrir diagrama compartido".
+        const SHARE_HASH_PREFIX = '#d=';
+        const SHARE_LONG_LINK = 8000; // A partir de aquí algunos servicios pueden recortar el enlace
+        const SHARED_FOLDER_NAME = 'Diagramas compartidos';
+
+        const toBase64Url = (bytes) => {
+            let bin = '';
+            for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+            return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        };
+        const fromBase64Url = (str) => {
+            const b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+            const bin = atob(b64 + '='.repeat((4 - b64.length % 4) % 4));
+            return Uint8Array.from(bin, c => c.charCodeAt(0));
+        };
+
+        const encodeDiagramForLink = async (diagram) => {
+            const payload = {
+                v: 1, name: diagram.name, type: diagram.type,
+                nodes: diagram.nodes.map(({ selected, ...n }) => n),
+                edges: diagram.edges.map(({ selected, ...e }) => e),
+            };
+            const stream = new Blob([JSON.stringify(payload)]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+            return toBase64Url(new Uint8Array(await new Response(stream).arrayBuffer()));
+        };
+
+        // Acepta el enlace completo o solo el código; descarta nodos y relaciones mal formados
+        const decodeSharedDiagram = async (input) => {
+            const text = input.trim();
+            const idx = text.indexOf(SHARE_HASH_PREFIX);
+            const code = (idx >= 0 ? text.slice(idx + SHARE_HASH_PREFIX.length) : text).split(/[&\s]/)[0];
+            const stream = new Blob([fromBase64Url(code)]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+            const data = JSON.parse(await new Response(stream).text());
+            if (!data || !['dcu', 'dc', 'da'].includes(data.type) || !Array.isArray(data.nodes) || !Array.isArray(data.edges)) throw new Error('Formato no válido');
+            const nodes = data.nodes.filter(n => n && typeof n.id === 'string' && ['x', 'y', 'width', 'height'].every(k => Number.isFinite(n[k])));
+            const ids = new Set(nodes.map(n => n.id));
+            const edges = data.edges.filter(e => e && typeof e.id === 'string' && ids.has(e.source) && ids.has(e.target));
+            const name = typeof data.name === 'string' && data.name.trim() ? data.name.trim() : 'Diagrama compartido';
+            return { name, type: data.type, nodes, edges };
+        };
+
+        // Fuera de Google Sites (alojamiento directo o servidor local) el enlace apunta a la propia página y se abre solo
+        const getShareBaseUrl = () => {
+            const { protocol, hostname, origin, pathname } = window.location;
+            const direct = (protocol === 'http:' || protocol === 'https:') && !hostname.endsWith('googleusercontent.com');
+            return direct ? origin + pathname : APP_URL + '/';
+        };
+
+        // Copia primero con execCommand (funciona en iframes sin permiso de portapapeles) y, si no, con la API moderna
+        const copyFromField = async (field) => {
+            try { field.focus(); field.select(); if (document.execCommand('copy')) return true; } catch (e) { /* se intenta la API */ }
+            try { await navigator.clipboard.writeText(field.value); return true; } catch (e) { return false; }
+        };
+
+        const DIAGRAM_TYPE_NAMES = { dcu: 'Casos de uso', dc: 'Clases', da: 'Actividad' };
+
+        // Colores de los avisos (contraste de texto >= 4.5:1 en todos los casos)
+        const TOAST_STYLES = {
+          success: 'bg-green-700 text-white',
+          warning: 'bg-amber-400 text-gray-900',
+          error: 'bg-red-700 text-white',
+          info: 'bg-gray-800 text-white',
+        };
 
         // Pasos máximos que se conservan en el historial de deshacer
         const MAX_HISTORY = 100;
@@ -481,6 +548,55 @@
             );
         };
 
+        const ShareLinkModal = ({ isOpen, link, diagramName, onCopy, onClose, isDarkMode }) => {
+            const fieldRef = useRef(null);
+            if (!isOpen) return null;
+            const fieldClass = `w-full p-2 rounded border font-mono text-xs break-all resize-none focus:ring-2 focus:ring-blue-500 outline-none ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-black'}`;
+            return (
+                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onMouseDown={e => e.stopPropagation()}>
+                    <div className={`p-6 rounded-lg shadow-xl border w-[28rem] max-w-[95%] ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
+                        <h3 className="text-lg font-bold mb-3 flex items-center gap-2"><Link2 size={18} className="text-blue-500"/> Compartir «{diagramName}»</h3>
+                        {link === null ? (
+                            <p className="text-sm opacity-70 mb-4">Generando enlace…</p>
+                        ) : (<>
+                            <textarea ref={fieldRef} readOnly rows={4} value={link} onFocus={e => e.target.select()} className={fieldClass} />
+                            <p className="text-xs opacity-70 mt-2">Quien reciba el enlace podrá añadir una copia de este diagrama a los suyos; los cambios que hagas después no se reflejan en el enlace.</p>
+                            <p className="text-xs opacity-70 mt-2">Si al abrirlo no aparece el diagrama (por ejemplo, desde la web pública), basta con pegar el enlace en <strong>Abrir diagrama compartido</strong> <Link2 size={11} className="inline"/>, en la barra superior.</p>
+                            {link.length > SHARE_LONG_LINK && (
+                                <p className={`text-xs mt-2 p-2 rounded flex gap-2 ${isDarkMode ? 'bg-amber-900/40 text-amber-200' : 'bg-amber-50 text-amber-800'}`}><AlertTriangle size={14} className="flex-shrink-0 mt-0.5"/> El enlace es muy largo ({link.length.toLocaleString('es-ES')} caracteres) y algunos servicios podrían recortarlo. Para diagramas grandes es más fiable exportar una copia JSON.</p>
+                            )}
+                        </>)}
+                        <div className="flex justify-end space-x-2 mt-4">
+                            <button onClick={onClose} className={`px-4 py-2 rounded font-medium ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>Cerrar</button>
+                            <button disabled={link === null} onClick={() => onCopy(fieldRef.current)} className="px-4 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 shadow-sm disabled:opacity-50 flex items-center gap-2"><Copy size={14}/> Copiar enlace</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const OpenSharedModal = ({ isOpen, initialText, onOpen, onClose, isDarkMode }) => {
+            const [text, setText] = useState(initialText || '');
+            const fieldRef = useRef(null);
+            useEffect(() => {
+                if (isOpen) { setText(initialText || ''); setTimeout(() => fieldRef.current?.focus(), 50); }
+            }, [isOpen, initialText]);
+            if (!isOpen) return null;
+            return (
+                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onMouseDown={e => e.stopPropagation()}>
+                    <div className={`p-6 rounded-lg shadow-xl border w-[28rem] max-w-[95%] ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
+                        <h3 className="text-lg font-bold mb-3 flex items-center gap-2"><Link2 size={18} className="text-blue-500"/> Abrir diagrama compartido</h3>
+                        <p className="text-xs opacity-70 mb-2">Pega el enlace que te han compartido. Se añadirá una copia a la carpeta «{SHARED_FOLDER_NAME}».</p>
+                        <textarea ref={fieldRef} rows={4} value={text} onChange={e => setText(e.target.value)} placeholder="https://…#d=…" className={`w-full p-2 rounded border font-mono text-xs break-all resize-none focus:ring-2 focus:ring-blue-500 outline-none ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-black'}`} />
+                        <div className="flex justify-end space-x-2 mt-4">
+                            <button onClick={onClose} className={`px-4 py-2 rounded font-medium ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>Cancelar</button>
+                            <button disabled={!text.trim()} onClick={() => onOpen(text)} className="px-4 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 shadow-sm disabled:opacity-50">Abrir</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         // --- COMPONENTE PRINCIPAL ---
 
         function ArquitectoUML() {
@@ -490,6 +606,11 @@
           const [activeDiagramId, setActiveDiagramId] = useState(null);
 
           const [showInfoModal, setShowInfoModal] = useState(false);
+
+          // Compartir: shareLink es undefined (modal cerrado), null (generando) o el enlace
+          const [shareLink, setShareLink] = useState(undefined);
+          // Abrir compartido: null (cerrado) o el texto inicial del modal
+          const [openSharedText, setOpenSharedText] = useState(null);
 
           const [creatingDiagramInFolderId, setCreatingDiagramInFolderId] = useState(null);
 
@@ -550,6 +671,13 @@
                 // Reabrir el último diagrama abierto, si sigue existiendo
                 if (loadedFolders.some(f => f.diagrams.some(d => d.id === parsed.activeDiagramId))) setActiveDiagramId(parsed.activeDiagramId);
             } catch (e) { console.error(e); } }
+
+            // Enlace compartido abierto directamente: se ofrece importarlo y se limpia la URL para no repetirlo al recargar
+            if (window.location.hash.startsWith(SHARE_HASH_PREFIX)) {
+                setOpenSharedText(window.location.href);
+                // window.history: dentro del componente, "history" es el estado de deshacer
+                try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch (e) { /* p. ej. iframe aislado */ }
+            }
           }, []);
           // activeDiagramId solo se guarda en el navegador; no forma parte de las copias JSON exportadas
           useEffect(() => { localStorage.setItem('arquitecto_data', JSON.stringify({ folders, darkMode: isDarkMode, activeDiagramId })); }, [folders, isDarkMode, activeDiagramId]);
@@ -567,7 +695,13 @@
             }
           }, [activeDiagramId]);
 
-          const showToast = (msg) => { setToastMessage(msg); setTimeout(() => setToastMessage(null), 3000); };
+          // kind: 'success' | 'warning' | 'error' | 'info'. El temporizador se reinicia para que un aviso nuevo no se cierre antes de tiempo
+          const toastTimerRef = useRef(null);
+          const showToast = (msg, kind = 'info') => {
+            setToastMessage({ text: msg, kind });
+            clearTimeout(toastTimerRef.current);
+            toastTimerRef.current = setTimeout(() => setToastMessage(null), kind === 'error' ? 5000 : 3000);
+          };
 
           // --- PERSISTENCIA JSON (Importar/Exportar) ---
           const handleExportJSON = () => {
@@ -580,19 +714,45 @@
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            showToast("Copia de seguridad descargada correctamente");
+            showToast("Copia de seguridad descargada correctamente", 'success');
           };
 
           const handleImportClick = () => fileInputRef.current?.click();
 
-          // --- COMPARTIR (enlace a la aplicación) ---
+          // --- COMPARTIR DIAGRAMA (enlace con el diagrama comprimido) ---
           const handleShare = async () => {
+            if (!activeDiagram) return;
+            if (nodes.length === 0) { showToast("El diagrama está vacío", 'warning'); return; }
+            setShareLink(null);
             try {
-                await navigator.clipboard.writeText(APP_URL);
-                showToast("Enlace a la aplicación copiado al portapapeles");
+                // Se usa el estado del lienzo, que es el más reciente
+                const code = await encodeDiagramForLink({ ...activeDiagram, nodes, edges });
+                setShareLink(getShareBaseUrl() + SHARE_HASH_PREFIX + code);
             } catch (err) {
-                showToast(`No se pudo copiar el enlace: ${APP_URL}`);
+                console.error(err);
+                setShareLink(undefined);
+                showToast("No se pudo generar el enlace en este navegador", 'error');
             }
+          };
+
+          const handleCopyShareLink = async (field) => {
+            if (!field) return;
+            if (await copyFromField(field)) showToast("Enlace copiado al portapapeles", 'success');
+            else showToast("No se pudo copiar automáticamente: selecciona el enlace y cópialo a mano", 'warning');
+          };
+
+          const handleOpenShared = async (text) => {
+            let shared;
+            try { shared = await decodeSharedDiagram(text); }
+            catch (err) { showToast("El enlace no es válido o está incompleto", 'error'); return; }
+            const newDiag = { id: generateId(), name: shared.name, type: shared.type, nodes: shared.nodes, edges: shared.edges, createdAt: Date.now() };
+            // Los diagramas recibidos se agrupan en su propia carpeta, que se crea si no existe
+            setFolders(prev => prev.some(f => f.name === SHARED_FOLDER_NAME)
+                ? prev.map(f => f.name === SHARED_FOLDER_NAME ? { ...f, isOpen: true, diagrams: [...f.diagrams, newDiag] } : f)
+                : [...prev, { id: generateId(), name: SHARED_FOLDER_NAME, isOpen: true, diagrams: [newDiag] }]);
+            setActiveDiagramId(newDiag.id);
+            setOpenSharedText(null);
+            showToast(`«${shared.name}» añadido a «${SHARED_FOLDER_NAME}»`, 'success');
           };
 
           const handleImportFile = (event) => {
@@ -611,16 +771,16 @@
                         setFolders(importedFolders.map(f => f === firstFolder ? { ...f, isOpen: true } : f));
                         if (parsed.darkMode !== undefined) setIsDarkMode(parsed.darkMode);
                         setCreatingDiagramInFolderId(null)
-                        showToast("Copia de seguridad restaurada");
+                        showToast("Copia de seguridad restaurada", 'success');
                         setActiveDiagramId(firstDiagram?.id || null);
                         // Carga directa: si el id coincide con el diagrama ya abierto, el efecto de cambio de diagrama no se dispararía
                         setNodes(firstDiagram?.nodes || []); setEdges(firstDiagram?.edges || []);
                         setHistory({ past: [], future: [] }); setConnectingNodeId(null); setPendingConnection(null);
                     } else {
-                        showToast("Error: Formato de archivo inválido");
+                        showToast("Error: Formato de archivo inválido", 'error');
                     }
                 } catch (err) {
-                    showToast("Error al leer el archivo");
+                    showToast("Error al leer el archivo", 'error');
                     console.error(err);
                 }
             };
@@ -631,7 +791,7 @@
           // --- EXPORTAR PNG ---
           const handleExportPNG = () => {
               if (!svgRef.current || nodes.length === 0) {
-                  showToast("El diagrama está vacío");
+                  showToast("El diagrama está vacío", 'warning');
                   return;
               }
               // Se vuelve a renderizar sin selección; el efecto de abajo clona el SVG ya actualizado
@@ -720,7 +880,7 @@
                       link.click();
                       document.body.removeChild(link);
                       URL.revokeObjectURL(url);
-                      showToast("Imagen exportada correctamente");
+                      showToast("Imagen exportada correctamente", 'success');
                   }
               };
               img.src = url;
@@ -757,7 +917,7 @@
           };
 
           const handleDeleteFolderRequest = (folder) => {
-              if (folders.length <= 1) { showToast("Debe existir al menos una carpeta."); return; }
+              if (folders.length <= 1) { showToast("Debe existir al menos una carpeta.", 'warning'); return; }
               setDeleteConfirm({ type: 'folder', folderId: folder.id, name: folder.name });
           };
 
@@ -870,7 +1030,7 @@
             const newEdges = edges.filter(ed => idMap[ed.source] && idMap[ed.target]).map(ed => ({ ...ed, id: generateId(), source: idMap[ed.source], target: idMap[ed.target], selected: false }));
             const currentNodesDeselected = nodes.map(n => ({ ...n, selected: false }));
             updateDiagramState([...currentNodesDeselected, ...newNodes], [...edges.map(ed => ({ ...ed, selected: false })), ...newEdges]);
-            showToast(`${selectedNodes.length} elemento(s) duplicado(s)`);
+            showToast(`${selectedNodes.length} elemento(s) duplicado(s)`, 'success');
           }, [nodes, edges]);
 
           const deleteSelection = useCallback(() => {
@@ -1163,9 +1323,9 @@
                         const src = nodes.find(n => n.id === connectingNodeId);
                         if (!src) return;
                         const allValidTypes = getValidConnectionTypes(src, node, activeDiagram?.type || 'dcu');
-                        if (allValidTypes.length === 0) { showToast("Conexión no válida"); return; }
+                        if (allValidTypes.length === 0) { showToast("Conexión no válida", 'warning'); return; }
                         const validTypes = filterTypesByExisting(allValidTypes, getEdgesBetween(edges, src.id, node.id), activeDiagram?.type || 'dcu');
-                        if (validTypes.length === 0) { showToast("Relación ya existente"); return; }
+                        if (validTypes.length === 0) { showToast("Relación ya existente", 'warning'); return; }
 
                         if (validTypes.length > 1) {
                             setPendingConnection({ source: src, target: node, validTypes });
@@ -1480,6 +1640,9 @@
                     <button onClick={handleExportJSON} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded" title="Guardar (Exportar JSON)">
                         <Download size={18}/>
                     </button>
+                    <button onClick={() => setOpenSharedText('')} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded" title="Abrir diagrama compartido (pegar enlace)">
+                        <Link2 size={18}/>
+                    </button>
                     <button onClick={handleExportPNG} className={`p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded ${!activeDiagram ? 'opacity-50 cursor-not-allowed' : ''}`} title="Exportar como imagen (PNG)">
                         <ImageIcon size={18}/>
                     </button>
@@ -1501,7 +1664,7 @@
                 <span className="text-xs opacity-50">{activeDiagram?.name || 'Sin diagrama abierto'}</span>
                 <button onClick={() => setShowInfoModal(true)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400" title="Acerca de..."><Info size={18} /></button>
                 <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">{isDarkMode ? <Sun size={18} /> : <Moon size={18} />}</button>
-                <button onClick={handleShare} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium" title="Copiar el enlace a Arquitecto Simple UML">Compartir</button>
+                <button onClick={handleShare} disabled={!activeDiagram} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600" title={activeDiagram ? 'Compartir este diagrama mediante un enlace' : 'Abre un diagrama para compartirlo'}>Compartir</button>
               </div>
             </div>
           );
@@ -1745,7 +1908,7 @@
                         </g>
                     </svg>
                     {connectingNodeId && ( <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center space-x-3 z-50 animate-bounce-in"> <Link2 size={18} className="animate-pulse"/> <span className="text-sm font-medium">Modo Conexión: Selecciona el destino</span> <button onClick={() => setConnectingNodeId(null)} className="ml-2 bg-blue-700 p-1 rounded-full hover:bg-blue-800"><X size={14}/></button> </div> )}
-                    {toastMessage && ( <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50 text-sm font-medium"> {toastMessage} </div> )}
+                    {toastMessage && ( <div role={toastMessage.kind === 'error' ? 'alert' : 'status'} className={`absolute top-4 left-1/2 transform -translate-x-1/2 px-4 py-2 rounded shadow-lg z-[110] text-sm font-medium max-w-[90%] text-center ${TOAST_STYLES[toastMessage.kind] || TOAST_STYLES.info}`}> {toastMessage.text} </div> )}
                     {!activeDiagram && ( <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 text-white z-50"> <div className="bg-gray-800 p-8 rounded shadow-2xl text-center"> <h2 className="text-2xl font-bold mb-4">Bienvenido a Arquitecto Simple UML</h2>
                         {folders.some(f => f.diagrams.length > 0) ? (<>
                             <p className="mb-4">Selecciona un diagrama a la izquierda o crea uno nuevo.</p>
@@ -1754,6 +1917,7 @@
                             <p className="mb-4">Todavía no tienes ningún diagrama. Empieza creando el primero.</p>
                             <button onClick={() => openNewDiagramModal(folders[0]?.id || 'root')} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-bold">Crear mi primer diagrama</button>
                             <button onClick={handleImportClick} className="block mx-auto mt-3 text-sm text-blue-300 hover:text-blue-200 hover:underline">o importa una copia de seguridad (JSON)</button>
+                            <button onClick={() => setOpenSharedText('')} className="block mx-auto mt-1 text-sm text-blue-300 hover:text-blue-200 hover:underline">o abre un diagrama compartido</button>
                         </>)}
                     </div> </div> )}
 
@@ -1793,6 +1957,9 @@
                     />
 
                     <InfoModal isOpen={showInfoModal} onClose={() => setShowInfoModal(false)} isDarkMode={isDarkMode} />
+
+                    <ShareLinkModal isOpen={shareLink !== undefined} link={shareLink} diagramName={activeDiagram?.name || ''} onCopy={handleCopyShareLink} onClose={() => setShareLink(undefined)} isDarkMode={isDarkMode} />
+                    <OpenSharedModal isOpen={openSharedText !== null} initialText={openSharedText} onOpen={handleOpenShared} onClose={() => setOpenSharedText(null)} isDarkMode={isDarkMode} />
                 </div>
                 {showProperties && renderPropertiesPanel()}
 
