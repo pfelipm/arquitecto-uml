@@ -16,16 +16,17 @@ Puedes utilizar el editor sin limitaciones y directamente en tu navegador accedi
     *   **DCU:** Diagramas de Casos de Uso (Actores, Casos de uso, Límites).
         
         ![Ejemplo DCU](readme-archivos/DCU.png)
-    *   **DC:** Diagramas de Clases (Clases, Interfaces, Relaciones).
+    *   **DC:** Diagramas de Clases (Clases, Interfaces, Relaciones). Admite varias asociaciones entre las mismas clases (por ejemplo, *origen* y *destino*), que se dibujan separadas.
         
         ![Ejemplo DC](readme-archivos/DC.png)
     *   **DA:** Diagramas de Actividad (Inicio, Fin, Actividades, Decisiones, Carriles).
         
         ![Ejemplo DA](readme-archivos/DA.png)
 *   **Gestión de Proyectos:** Organización mediante carpetas y múltiples diagramas.
-*   **Persistencia Local:** Guardado automático en el navegador (`localStorage`).
-*   **Importar/Exportar:** Copias de seguridad completas en formato JSON (incluye un [kit de demostración](readme-archivos/kit-demo.json) para pruebas) y exportación de diagramas a imágenes PNG con fidelidad tipográfica mejorada.
-*   **Interfaz Moderna:** Diseño limpio con soporte para **modo oscuro**, zoom, guías de alineación inteligentes y atajos de teclado.
+*   **Persistencia Local:** Guardado automático en el navegador (`localStorage`); al volver, se reabre el último diagrama abierto.
+*   **Compartir por enlace:** El botón **Compartir** genera un enlace que contiene el diagrama abierto (comprimido y sin pasar por ningún servidor). Quien lo recibe lo pega en **Abrir diagrama compartido** y obtiene una copia en la carpeta «Diagramas compartidos», sin que se modifiquen sus otros diagramas. Si la aplicación se abre directamente (no insertada en Google Sites), basta con abrir el enlace.
+*   **Importar/Exportar:** Copias de seguridad completas en formato JSON (incluye un [kit de demostración](readme-archivos/kit-demo.json) para pruebas). Al importar una copia, puedes **añadir** sus carpetas a las tuyas o **reemplazar** todo tu contenido. También permite exportar diagramas a imágenes PNG en alta resolución.
+*   **Interfaz Moderna:** Diseño limpio con soporte para **modo oscuro**, zoom hacia el cursor, guías de alineación inteligentes y atajos de teclado (deshacer/rehacer con Ctrl+Z, Ctrl+Mayús+Z o Ctrl+Y; duplicar con Ctrl+D).
 
 ## Tecnologías Utilizadas
 

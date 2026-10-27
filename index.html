@@ -71,7 +71,7 @@
 
         /**
          * ARQUITECTO SIMPLE UML - SUITE DE MODELADO
-         * Versión 7.5.1 "Pixel Perfect"
+         * Versión 7.6 "Compartir"
          */
 
         // --- TIPOS Y CONSTANTES ---
@@ -512,8 +512,8 @@
                             </div>
                             <div>
                                 <h2 className="text-xl font-bold">Arquitecto Simple UML</h2>
-                                <p className="text-xs opacity-60 font-mono">Versión 7.5.1 "Pixel Perfect"</p>
-                                <p className="text-[10px] opacity-50 mt-1">Actualizado: 27 de octubre de 2026</p>
+                                <p className="text-xs opacity-60 font-mono">Versión 7.6 "Compartir"</p>
+                                <p className="text-[10px] opacity-50 mt-1">Actualizado: 28 de octubre de 2026</p>
                             </div>
                         </div>
 
@@ -597,6 +597,34 @@
             );
         };
 
+        const ImportModeModal = ({ pendingImport, currentCount, onAppend, onReplace, onCancel, isDarkMode }) => {
+            if (!pendingImport) return null;
+            const folderCount = pendingImport.folders.length;
+            const diagramCount = pendingImport.folders.reduce((n, f) => n + f.diagrams.length, 0);
+            return (
+                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onMouseDown={e => e.stopPropagation()}>
+                    <div className={`p-6 rounded-lg shadow-xl border w-[28rem] max-w-[95%] ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
+                        <h3 className="text-lg font-bold mb-3 flex items-center gap-2"><Upload size={18} className="text-blue-500"/> Importar copia de seguridad</h3>
+                        <p className="text-sm mb-1">El archivo contiene <strong>{diagramCount} {diagramCount === 1 ? 'diagrama' : 'diagramas'}</strong> en {folderCount} {folderCount === 1 ? 'carpeta' : 'carpetas'}.</p>
+                        <p className="text-sm opacity-70 mb-4">Ahora tienes {currentCount} {currentCount === 1 ? 'diagrama' : 'diagramas'}. ¿Qué quieres hacer?</p>
+                        <div className="space-y-2">
+                            <button onClick={onAppend} className="w-full text-left p-3 rounded border-2 border-blue-500 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50">
+                                <span className="font-semibold block">Añadir a mis diagramas</span>
+                                <span className="text-xs opacity-70">Las carpetas importadas se suman a las tuyas. No se pierde nada.</span>
+                            </button>
+                            <button onClick={onReplace} className={`w-full text-left p-3 rounded border ${isDarkMode ? 'border-gray-600 hover:bg-red-900/30' : 'border-gray-300 hover:bg-red-50'}`}>
+                                <span className={`font-semibold block ${isDarkMode ? 'text-red-300' : 'text-red-700'}`}>Reemplazar todo</span>
+                                <span className="text-xs opacity-70">Se borran tus {currentCount} {currentCount === 1 ? 'diagrama' : 'diagramas'} actuales y se sustituyen por los del archivo. No se puede deshacer.</span>
+                            </button>
+                        </div>
+                        <div className="flex justify-end mt-4">
+                            <button onClick={onCancel} className={`px-4 py-2 rounded font-medium ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         // --- COMPONENTE PRINCIPAL ---
 
         function ArquitectoUML() {
@@ -611,6 +639,8 @@
           const [shareLink, setShareLink] = useState(undefined);
           // Abrir compartido: null (cerrado) o el texto inicial del modal
           const [openSharedText, setOpenSharedText] = useState(null);
+          // Copia JSON leída y pendiente de decidir si se añade o reemplaza
+          const [pendingImport, setPendingImport] = useState(null);
 
           const [creatingDiagramInFolderId, setCreatingDiagramInFolderId] = useState(null);
 
@@ -705,7 +735,7 @@
 
           // --- PERSISTENCIA JSON (Importar/Exportar) ---
           const handleExportJSON = () => {
-            const dataStr = JSON.stringify({ version: "7.5.1", folders, darkMode: isDarkMode }, null, 2);
+            const dataStr = JSON.stringify({ version: "7.6", folders, darkMode: isDarkMode }, null, 2);
             const blob = new Blob([dataStr], { type: "application/json" });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -755,6 +785,38 @@
             showToast(`«${shared.name}» añadido a «${SHARED_FOLDER_NAME}»`, 'success');
           };
 
+          // mode: 'replace' sustituye todas las carpetas; 'append' añade las importadas con ids nuevos
+          const applyImport = (imported, mode) => {
+            let importedFolders, newFolders;
+            if (mode === 'append') {
+                const usedNames = new Set(folders.map(f => f.name));
+                importedFolders = imported.folders.map(f => {
+                    let name = f.name || 'Carpeta importada';
+                    if (usedNames.has(name)) name = `${name} (importada)`;
+                    usedNames.add(name);
+                    // Ids nuevos para que no choquen con diagramas que ya existen (p. ej. al importar dos veces la misma copia)
+                    return { ...f, id: generateId(), name, diagrams: f.diagrams.map(d => ({ ...d, id: generateId() })) };
+                });
+            } else {
+                importedFolders = ensureFolders(imported.folders);
+                if (imported.darkMode !== undefined) setIsDarkMode(imported.darkMode);
+            }
+            // Se abre el primer diagrama importado (y su carpeta); si no hay ninguno, se muestra la bienvenida
+            const firstFolder = importedFolders.find(f => f.diagrams.length > 0);
+            const firstDiagram = firstFolder?.diagrams[0] || null;
+            importedFolders = importedFolders.map(f => f === firstFolder ? { ...f, isOpen: true } : f);
+            newFolders = mode === 'append' ? [...folders, ...importedFolders] : importedFolders;
+            setFolders(newFolders);
+            setCreatingDiagramInFolderId(null);
+            setPendingImport(null);
+            if (mode === 'append' && !firstDiagram) { showToast("La copia no contenía diagramas", 'warning'); return; }
+            showToast(mode === 'append' ? "Diagramas importados y añadidos a los tuyos" : "Copia de seguridad restaurada", 'success');
+            setActiveDiagramId(firstDiagram?.id || null);
+            // Carga directa: si el id coincide con el diagrama ya abierto, el efecto de cambio de diagrama no se dispararía
+            setNodes(firstDiagram?.nodes || []); setEdges(firstDiagram?.edges || []);
+            setHistory({ past: [], future: [] }); setConnectingNodeId(null); setPendingConnection(null);
+          };
+
           const handleImportFile = (event) => {
             const file = event.target.files?.[0];
             if (!file) return;
@@ -764,18 +826,10 @@
                     const content = e.target?.result;
                     const parsed = JSON.parse(content);
                     if (parsed.folders && Array.isArray(parsed.folders)) {
-                        // Se abre el primer diagrama importado (y su carpeta); si no hay ninguno, se muestra la bienvenida
-                        const importedFolders = ensureFolders(parsed.folders);
-                        const firstFolder = importedFolders.find(f => f.diagrams.length > 0);
-                        const firstDiagram = firstFolder?.diagrams[0] || null;
-                        setFolders(importedFolders.map(f => f === firstFolder ? { ...f, isOpen: true } : f));
-                        if (parsed.darkMode !== undefined) setIsDarkMode(parsed.darkMode);
-                        setCreatingDiagramInFolderId(null)
-                        showToast("Copia de seguridad restaurada", 'success');
-                        setActiveDiagramId(firstDiagram?.id || null);
-                        // Carga directa: si el id coincide con el diagrama ya abierto, el efecto de cambio de diagrama no se dispararía
-                        setNodes(firstDiagram?.nodes || []); setEdges(firstDiagram?.edges || []);
-                        setHistory({ past: [], future: [] }); setConnectingNodeId(null); setPendingConnection(null);
+                        const imported = { ...parsed, folders: parsed.folders.map(f => ({ ...f, diagrams: Array.isArray(f.diagrams) ? f.diagrams : [] })) };
+                        // Si ya hay diagramas, se pregunta si añadir o reemplazar; si no, no hay nada que perder
+                        if (folders.some(f => f.diagrams.length > 0)) setPendingImport(imported);
+                        else applyImport(imported, 'replace');
                     } else {
                         showToast("Error: Formato de archivo inválido", 'error');
                     }
@@ -1959,6 +2013,7 @@
                     <InfoModal isOpen={showInfoModal} onClose={() => setShowInfoModal(false)} isDarkMode={isDarkMode} />
 
                     <ShareLinkModal isOpen={shareLink !== undefined} link={shareLink} diagramName={activeDiagram?.name || ''} onCopy={handleCopyShareLink} onClose={() => setShareLink(undefined)} isDarkMode={isDarkMode} />
+                    <ImportModeModal pendingImport={pendingImport} currentCount={folders.reduce((n, f) => n + f.diagrams.length, 0)} onAppend={() => applyImport(pendingImport, 'append')} onReplace={() => applyImport(pendingImport, 'replace')} onCancel={() => setPendingImport(null)} isDarkMode={isDarkMode} />
                     <OpenSharedModal isOpen={openSharedText !== null} initialText={openSharedText} onOpen={handleOpenShared} onClose={() => setOpenSharedText(null)} isDarkMode={isDarkMode} />
                 </div>
                 {showProperties && renderPropertiesPanel()}
