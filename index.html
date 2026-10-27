@@ -205,6 +205,15 @@
         const SHARE_LONG_LINK = 8000; // A partir de aquí algunos servicios pueden recortar el enlace
         const SHARED_FOLDER_NAME = 'Diagramas compartidos';
 
+        // Insertada como código en Google Sites, la app corre en un subdominio aleatorio que cambia en cada carga
+        // (p. ej. 167002356-atari-embeds.googleusercontent.com), así que localStorage empieza vacío en cada visita
+        const IS_EPHEMERAL_STORAGE = /-atari-embeds\.googleusercontent\.com$/.test(window.location.hostname);
+
+        // Contenido de las carpetas sin datos de interfaz (carpetas abiertas/cerradas, selección), para detectar cambios
+        const contentSnapshot = (folders) => JSON.stringify(folders.map(({ isOpen, ...f }) => ({
+            ...f, diagrams: f.diagrams.map(d => ({ ...d, nodes: d.nodes.map(({ selected, ...n }) => n), edges: d.edges.map(({ selected, ...e }) => e) }))
+        })));
+
         const toBase64Url = (bytes) => {
             let bin = '';
             for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
@@ -641,6 +650,9 @@
           const [openSharedText, setOpenSharedText] = useState(null);
           // Copia JSON leída y pendiente de decidir si se añade o reemplaza
           const [pendingImport, setPendingImport] = useState(null);
+          // Solo con almacenamiento efímero (Sites): contenido en el momento de la última exportación o restauración
+          const [savedSnapshot, setSavedSnapshot] = useState(null);
+          const [storageNoticeCollapsed, setStorageNoticeCollapsed] = useState(false);
 
           const [creatingDiagramInFolderId, setCreatingDiagramInFolderId] = useState(null);
 
@@ -740,12 +752,20 @@
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `arquitecto_uml_${new Date().toISOString().slice(0,10)}.json`;
+            // Fecha local (toISOString usa UTC y de madrugada daría el día anterior)
+            const today = new Date();
+            const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            link.download = `arquitecto_uml_${localDate}.json`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             showToast("Copia de seguridad descargada correctamente", 'success');
+            setSavedSnapshot(contentSnapshot(folders));
           };
+
+          // Hay diagramas cuyo contenido aún no está en ninguna copia exportada (solo importa si el almacenamiento es efímero)
+          const currentSnapshot = useMemo(() => IS_EPHEMERAL_STORAGE ? contentSnapshot(folders) : null, [folders]);
+          const hasUnexportedChanges = IS_EPHEMERAL_STORAGE && folders.some(f => f.diagrams.length > 0) && currentSnapshot !== savedSnapshot;
 
           const handleImportClick = () => fileInputRef.current?.click();
 
@@ -807,6 +827,8 @@
             importedFolders = importedFolders.map(f => f === firstFolder ? { ...f, isOpen: true } : f);
             newFolders = mode === 'append' ? [...folders, ...importedFolders] : importedFolders;
             setFolders(newFolders);
+            // Tras reemplazar, todo el contenido está ya en el archivo importado
+            if (mode === 'replace') setSavedSnapshot(contentSnapshot(newFolders));
             setCreatingDiagramInFolderId(null);
             setPendingImport(null);
             if (mode === 'append' && !firstDiagram) { showToast("La copia no contenía diagramas", 'warning'); return; }
@@ -1920,9 +1942,34 @@
             );
           };
 
+          // Aviso permanente cuando los diagramas no sobreviven a una recarga (inserción por código en Google Sites).
+          // Con cambios sin exportar no se puede ocultar.
+          const renderStorageNotice = () => {
+            if (!IS_EPHEMERAL_STORAGE || (storageNoticeCollapsed && !hasUnexportedChanges)) return null;
+            const tone = hasUnexportedChanges
+                ? (isDarkMode ? 'bg-amber-900/60 border-amber-700 text-amber-100' : 'bg-amber-100 border-amber-300 text-amber-900')
+                : (isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-300' : 'bg-blue-50 border-blue-200 text-blue-900');
+            return (
+                <div role={hasUnexportedChanges ? 'alert' : 'status'} className={`px-4 py-2 border-b text-sm flex items-center gap-3 ${tone}`}>
+                    <AlertTriangle size={16} className="flex-shrink-0"/>
+                    <span className="flex-1">
+                        {hasUnexportedChanges
+                            ? <><strong>Tienes cambios sin exportar.</strong> En esta versión los diagramas no se conservan al recargar o cerrar la página: exporta una copia (JSON) para no perderlos.</>
+                            : <>En esta versión los diagramas no se conservan al recargar o cerrar la página. Antes de salir, exporta una copia (JSON) con <strong>Guardar</strong>.</>}
+                    </span>
+                    {hasUnexportedChanges ? (
+                        <button onClick={handleExportJSON} className="px-3 py-1 rounded bg-amber-800 hover:bg-amber-900 text-white font-medium flex items-center gap-1 flex-shrink-0"><Download size={14}/> Exportar ahora</button>
+                    ) : (
+                        <button onClick={() => setStorageNoticeCollapsed(true)} className="p-1 rounded hover:bg-black/10 flex-shrink-0" title="Ocultar aviso"><X size={14}/></button>
+                    )}
+                </div>
+            );
+          };
+
           return (
             <div className={`flex flex-col h-screen w-full overflow-hidden select-none ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-black'}`}>
               {renderToolbar()}
+              {renderStorageNotice()}
               <div className="flex flex-1 overflow-hidden relative">
                 {renderSidebar()}
                 <div ref={canvasRef} className={`flex-1 relative overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} ${connectingNodeId ? 'cursor-crosshair' : (tool === 'pan' || (isDragging && tool === 'pan')) ? 'cursor-grab' : 'default'}`} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
