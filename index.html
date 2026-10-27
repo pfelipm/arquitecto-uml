@@ -280,6 +280,18 @@
             return ['association'];
         };
 
+        const ASSOCIATION_TYPES = ['association', 'directed_association', 'aggregation', 'composition'];
+
+        // Relaciones ya existentes entre dos nodos (en cualquier sentido)
+        const getEdgesBetween = (edges, aId, bId) => edges.filter(ed => (ed.source === aId && ed.target === bId) || (ed.source === bId && ed.target === aId));
+
+        // Una sola relación por par de nodos, salvo en DC: allí se admiten varias asociaciones
+        // (p. ej. Vuelo-Aeropuerto como origen y destino) y el resto de tipos una vez cada uno
+        const filterTypesByExisting = (validTypes, existing, diagramType) => {
+            if (diagramType !== 'dc') return existing.length > 0 ? [] : validTypes;
+            return validTypes.filter(t => ASSOCIATION_TYPES.includes(t) || !existing.some(ed => ed.type === t));
+        };
+
         const getEdgeLabel = (type) => {
             if (type === 'association') return 'Asociación simple';
             if (type === 'directed_association') return 'Asociación dirigida';
@@ -1136,10 +1148,10 @@
                         if (connectingNodeId === node.id && activeDiagram?.type === 'dc' && node.type !== 'class') return;
                         const src = nodes.find(n => n.id === connectingNodeId);
                         if (!src) return;
-                        const validTypes = getValidConnectionTypes(src, node, activeDiagram?.type || 'dcu');
-                        if (validTypes.length === 0) { showToast("Conexión no válida"); return; }
-                        const exists = edges.find(ed => (ed.source === src.id && ed.target === node.id) || (ed.source === node.id && ed.target === src.id));
-                        if (exists) { showToast("Relación ya existente"); return; }
+                        const allValidTypes = getValidConnectionTypes(src, node, activeDiagram?.type || 'dcu');
+                        if (allValidTypes.length === 0) { showToast("Conexión no válida"); return; }
+                        const validTypes = filterTypesByExisting(allValidTypes, getEdgesBetween(edges, src.id, node.id), activeDiagram?.type || 'dcu');
+                        if (validTypes.length === 0) { showToast("Relación ya existente"); return; }
 
                         if (validTypes.length > 1) {
                             setPendingConnection({ source: src, target: node, validTypes });
@@ -1246,19 +1258,43 @@
           };
 
           const renderEdges = () => {
+            // Posición de cada relación dentro de su grupo (mismo par de nodos), para dibujar separadas las paralelas
+            const groupIndex = {}, groupSize = {};
+            edges.forEach(ed => {
+                const key = [ed.source, ed.target].sort().join('|');
+                groupIndex[ed.id] = groupSize[key] || 0;
+                groupSize[key] = (groupSize[key] || 0) + 1;
+            });
+
             return edges.map(edge => {
                 const s = nodes.find(n => n.id === edge.source), t = nodes.find(n => n.id === edge.target);
                 if (!s || !t) return null;
                 const edgeSelected = edge.selected && !isExporting;
+                const idx = groupIndex[edge.id];
+                const count = groupSize[[edge.source, edge.target].sort().join('|')];
 
                 const sCenter = { x: s.x + s.width / 2, y: s.y + s.height / 2 };
                 const tCenter = { x: t.x + t.width / 2, y: t.y + t.height / 2 };
 
                 if (s.id === t.id) {
-                     const p1 = { x: s.x + s.width, y: s.y + s.height / 2 - 15 };
-                     const p2 = { x: s.x + s.width, y: s.y + s.height / 2 + 15 };
-                     const cp1 = { x: p1.x + 50, y: p1.y };
-                     const cp2 = { x: p2.x + 50, y: p2.y };
+                     // Cada bucle reflexivo de una misma clase va en un lado distinto (y más grande si hay más de cuatro)
+                     const side = ['right', 'left', 'top', 'bottom'][idx % 4];
+                     const size = 50 + 30 * Math.floor(idx / 4);
+                     const sign = (side === 'right' || side === 'bottom') ? 1 : -1;
+                     let p1, p2, cp1, cp2, labelPos, labelAnchor;
+                     if (side === 'right' || side === 'left') {
+                         const x = side === 'right' ? s.x + s.width : s.x;
+                         p1 = { x, y: sCenter.y - 15 }; p2 = { x, y: sCenter.y + 15 };
+                         cp1 = { x: x + sign * size, y: p1.y }; cp2 = { x: x + sign * size, y: p2.y };
+                         labelPos = { x: x + sign * size * 0.8, y: sCenter.y };
+                         labelAnchor = side === 'right' ? 'start' : 'end';
+                     } else {
+                         const y = side === 'bottom' ? s.y + s.height : s.y;
+                         p1 = { x: sCenter.x - 15, y }; p2 = { x: sCenter.x + 15, y };
+                         cp1 = { x: p1.x, y: y + sign * size }; cp2 = { x: p2.x, y: y + sign * size };
+                         labelPos = { x: sCenter.x, y: y + sign * size * 0.8 + (side === 'bottom' ? 11 : -4) };
+                         labelAnchor = 'middle';
+                     }
 
                      const d = `M ${p1.x} ${p1.y} C ${cp1.x} ${cp1.y}, ${cp2.x} ${cp2.y}, ${p2.x} ${p2.y}`;
 
@@ -1274,7 +1310,7 @@
                         <g key={edge.id} onClick={(e) => { e.stopPropagation(); setNodes(nodes.map(n => ({...n, selected: false}))); setEdges(edges.map(ed => ({...ed, selected: ed.id === edge.id}))); }} className="cursor-pointer">
                             <path d={d} fill="none" stroke="transparent" strokeWidth={15} />
                             <path d={d} fill="none" stroke={strokeColor} strokeWidth={2} markerEnd={marker} strokeDasharray={dashed} />
-                            {edge.label && <text x={p1.x + 40} y={sCenter.y} textAnchor="start" fill={strokeColor} fontSize={11} paintOrder="stroke" stroke={isDarkMode ? COLORS.nodeBgDark : COLORS.nodeBg} strokeWidth="3px">{edge.label}</text>}
+                            {edge.label && <text x={labelPos.x} y={labelPos.y} textAnchor={labelAnchor} fill={strokeColor} fontSize={11} paintOrder="stroke" stroke={isDarkMode ? COLORS.nodeBgDark : COLORS.nodeBg} strokeWidth="3px">{edge.label}</text>}
                         </g>
                      );
                 }
@@ -1296,8 +1332,27 @@
                      }
                 }
 
-                const start = calculatePerimeterPoint(s, refStart);
-                const end = calculatePerimeterPoint(t, refEnd);
+                // Relaciones paralelas: se desplaza cada una perpendicularmente, de forma simétrica respecto al eje.
+                // La dirección se calcula sobre el par ordenado para que A→B y B→A se repartan igual.
+                const PARALLEL_GAP = 18;
+                const offset = (idx - (count - 1) / 2) * PARALLEL_GAP;
+                let offv = { x: 0, y: 0 };
+                if (offset !== 0) {
+                    if (edge.pathType === 'orthogonal') {
+                        offv = isVertical ? { x: offset, y: 0 } : { x: 0, y: offset };
+                    } else {
+                        const [a, b] = edge.source < edge.target ? [sCenter, tCenter] : [tCenter, sCenter];
+                        const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+                        offv = { x: -(b.y - a.y) / len * offset, y: (b.x - a.x) / len * offset };
+                    }
+                }
+                const shiftNode = (n) => ({ ...n, x: n.x + offv.x, y: n.y + offv.y });
+                const shiftPoint = (p) => ({ x: p.x + offv.x, y: p.y + offv.y });
+
+                const start = calculatePerimeterPoint(shiftNode(s), shiftPoint(refStart));
+                const end = calculatePerimeterPoint(shiftNode(t), shiftPoint(refEnd));
+                // En ortogonales, el tramo intermedio también se desplaza (en el sentido que evita cruces)
+                const midShift = -offset * (Math.sign(end.x - start.x) || 1) * (Math.sign(end.y - start.y) || 1);
 
                 let d = '';
                 let mid1, mid2;
@@ -1308,12 +1363,12 @@
                     mid2 = end;
                 } else {
                     if (isVertical) {
-                        const midY = (start.y + end.y) / 2;
+                        const midY = (start.y + end.y) / 2 + midShift;
                         d = `M ${start.x} ${start.y} L ${start.x} ${midY} L ${end.x} ${midY} L ${end.x} ${end.y}`;
                         mid1 = {x: start.x, y: midY};
                         mid2 = {x: end.x, y: midY};
                     } else {
-                        const midX = (start.x + end.x) / 2;
+                        const midX = (start.x + end.x) / 2 + midShift;
                         d = `M ${start.x} ${start.y} L ${midX} ${start.y} L ${midX} ${end.y} L ${end.x} ${end.y}`;
                         mid1 = {x: midX, y: start.y};
                         mid2 = {x: midX, y: end.y};
@@ -1338,8 +1393,25 @@
                 const nextPoint = (edge.pathType === 'straight') ? end : mid1;
                 const prevPoint = (edge.pathType === 'straight') ? start : mid2;
 
-                const startLabelPos = getMultiplicityPos(start, nextPoint, 15, 10);
-                const endLabelPos = getMultiplicityPos(end, prevPoint, 15, -10);
+                // Etiqueta: sobre el punto medio; en relaciones paralelas, en su lado exterior para no confundirlas
+                const mid = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
+                let labelPos = { x: mid.x, y: mid.y - 10 }, labelAnchor = 'middle';
+                if (offset !== 0) {
+                    const ux = offv.x / Math.abs(offset), uy = offv.y / Math.abs(offset);
+                    const sideways = Math.abs(ux) > 0.3;
+                    labelPos = { x: mid.x + ux * 12, y: mid.y + uy * 12 + (uy > 0.3 ? 9 : 0) + (sideways && Math.abs(uy) <= 0.3 ? 4 : 0) };
+                    labelAnchor = sideways ? (ux > 0 ? 'start' : 'end') : 'middle';
+                }
+
+                // En relaciones paralelas, las multiplicidades también van en el lado exterior
+                const sideOffset = (from, to, base) => {
+                    if (offset === 0) return base;
+                    const a = Math.atan2(to.y - from.y, to.x - from.x);
+                    const dot = Math.cos(a - Math.PI / 2) * offv.x + Math.sin(a - Math.PI / 2) * offv.y;
+                    return (Math.sign(dot) || 1) * Math.abs(base);
+                };
+                const startLabelPos = getMultiplicityPos(start, nextPoint, 15, sideOffset(start, nextPoint, 10));
+                const endLabelPos = getMultiplicityPos(end, prevPoint, 15, sideOffset(end, prevPoint, -10));
 
                 const textStyle = {
                     paintOrder: 'stroke',
@@ -1358,7 +1430,7 @@
                     }} className="cursor-pointer">
                         <path d={d} fill="none" stroke="transparent" strokeWidth={15} />
                         <path d={d} fill="none" stroke={strokeColor} strokeWidth={2} markerEnd={marker} strokeDasharray={dashed} />
-                        {showLabel && <text x={(start.x+end.x)/2} y={(start.y+end.y)/2 - 10} textAnchor="middle" {...textStyle} strokeWidth="4px" style={{}}>{edge.label}</text>}
+                        {showLabel && <text x={labelPos.x} y={labelPos.y} textAnchor={labelAnchor} {...textStyle} strokeWidth="4px" style={{}}>{edge.label}</text>}
 
                         {/* Etiquetas de Multiplicidad */}
                         {activeDiagram?.type === 'dc' && edge.sourceLabel && ['association', 'directed_association', 'aggregation', 'composition'].includes(edge.type) && (
@@ -1499,10 +1571,16 @@
                 if (s && t) allowed = getValidConnectionTypes(s, t, 'dcu').map(type => ({ value: type, label: getEdgeLabel(type) }));
             } else if (sE.length === 1 && activeDiagram?.type === 'dc') {
                 const edge = sE[0], s = nodes.find(n => n.id === edge.source), t = nodes.find(n => n.id === edge.target);
-                if (s && t) allowed = getValidConnectionTypes(s, t, 'dc').map(type => ({ value: type, label: getEdgeLabel(type) }));
+                // Se excluyen los tipos que ya usa otra relación del mismo par (salvo asociaciones)
+                const others = s && t ? getEdgesBetween(edges, s.id, t.id).filter(ed => ed.id !== edge.id) : [];
+                if (s && t) allowed = filterTypesByExisting(getValidConnectionTypes(s, t, 'dc'), others, 'dc').map(type => ({ value: type, label: getEdgeLabel(type) }));
             }
 
             const currentEdge = sE[0];
+
+            // En DC, varias asociaciones entre las mismas clases deben distinguirse por su etiqueta
+            const hasDuplicateAssociationLabel = activeDiagram?.type === 'dc' && currentEdge && ASSOCIATION_TYPES.includes(currentEdge.type) &&
+                getEdgesBetween(edges, currentEdge.source, currentEdge.target).some(ed => ed.id !== currentEdge.id && ASSOCIATION_TYPES.includes(ed.type) && (ed.label || '').trim() === (currentEdge.label || '').trim());
             const isReflexive = currentEdge ? currentEdge.source === currentEdge.target : false;
 
             const showMultiplicity = currentEdge && ['association', 'directed_association', 'aggregation', 'composition'].includes(currentEdge.type) && !(currentEdge.type === 'association' && isReflexive);
@@ -1586,6 +1664,13 @@
                             <div> <label className="block text-xs font-medium mb-1">Estilo de línea</label> <select value={sE[0].pathType} onChange={(e) => updateDiagramState(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, pathType: e.target.value } : ed))} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}> <option value="straight">Recta</option> <option value="orthogonal">Ortogonal</option> </select> </div>
 
                             {!(activeDiagram?.type === 'dcu' && (sE[0].type === 'association' || sE[0].type === 'generalization')) && ( <div> <label className="block text-xs font-medium mb-1">Etiqueta</label> <input type="text" disabled={sE[0].type === 'include' || sE[0].type === 'extend'} value={sE[0].label || ''} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, label: e.target.value } : ed))} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'} disabled:opacity-50`}/> </div> )}
+
+                            {hasDuplicateAssociationLabel && (
+                                <div className={`p-2 rounded text-xs flex gap-2 ${isDarkMode ? 'bg-amber-900/40 text-amber-200' : 'bg-amber-50 text-amber-800'}`}>
+                                    <AlertTriangle size={14} className="flex-shrink-0 mt-0.5"/>
+                                    <span>Hay otra asociación entre estas clases con la misma etiqueta. Usa etiquetas distintas (p. ej. «origen» y «destino») para diferenciarlas.</span>
+                                </div>
+                            )}
 
                             {activeDiagram?.type === 'dc' && showMultiplicity && (
                                 <div className="grid grid-cols-2 gap-2">
