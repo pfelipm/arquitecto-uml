@@ -28,7 +28,8 @@
     </script>
 
     <!-- 3. Cargar Babel para traducir TSX a JS en el navegador -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Versión fijada: Babel 8 no aplica el preset de TypeScript a scripts en línea -->
+    <script src="https://unpkg.com/@babel/standalone@7.26.10/babel.min.js"></script>
 
     <style>
         /* Ajustes básicos para asegurar que ocupe el iframe de Google Sites */
@@ -506,6 +507,10 @@
           const fileInputRef = useRef(null);
 
           const lastClickRef = useRef({id: '', time: 0});
+          // Estado previo a un arrastre/redimensionado, para poder deshacerlo
+          const dragSnapshotRef = useRef(null);
+          // Indica si la edición de texto en curso ya ha guardado su punto de deshacer
+          const textEditPushedRef = useRef(false);
 
           // --- EFECTOS ---
           useEffect(() => {
@@ -669,6 +674,13 @@
           const updateDiagramState = (newNodes, newEdges, saveHistory = true) => {
             if (saveHistory) pushHistory();
             setNodes(newNodes); setEdges(newEdges); saveCurrentDiagram(newNodes, newEdges);
+          };
+
+          // Edición de texto en el panel: un único punto de deshacer por sesión de edición (foco)
+          const beginTextEdit = () => { textEditPushedRef.current = false; };
+          const updateFromTextEdit = (newNodes, newEdges) => {
+            updateDiagramState(newNodes, newEdges, !textEditPushedRef.current);
+            textEditPushedRef.current = true;
           };
 
           // --- ACTIONS ---
@@ -967,13 +979,32 @@
             }
           };
 
-          const handleMouseUp = () => { setIsDragging(false); setIsResizing(false); setResizeHandle(null); setActiveNodeId(null); setInitialNodeGeom(null); setSelectionBox(null); setSmartGuides([]); if (isDragging || isResizing) saveCurrentDiagram(nodes, edges); };
-          const handleWheel = (e) => { if (e.ctrlKey || e.metaKey || e.shiftKey) { e.preventDefault(); e.stopPropagation(); const d = -e.deltaY * 0.001; setScale(Math.min(Math.max(0.1, scale + d), 5)); } else { setPan(prev => ({ x: prev.x - e.deltaX, y: prev.y - e.deltaY })); } };
+          const commitDragHistory = () => {
+            const snap = dragSnapshotRef.current;
+            dragSnapshotRef.current = null;
+            if (!snap) return;
+            const changed = nodes.some(n => {
+                const o = snap.nodes.find(p => p.id === n.id);
+                return o && (o.x !== n.x || o.y !== n.y || o.width !== n.width || o.height !== n.height);
+            });
+            if (changed) setHistory(prev => ({ past: [...prev.past, snap], future: [] }));
+          };
+
+          const handleMouseUp = () => { commitDragHistory(); setIsDragging(false); setIsResizing(false); setResizeHandle(null); setActiveNodeId(null); setInitialNodeGeom(null); setSelectionBox(null); setSmartGuides([]); if (isDragging || isResizing) saveCurrentDiagram(nodes, edges); };
+          // Listener nativo no pasivo: el onWheel de React es pasivo y no puede impedir el zoom de la página con Ctrl+rueda
+          useEffect(() => {
+            const el = canvasRef.current;
+            if (!el) return;
+            const handleWheel = (e) => { if (e.ctrlKey || e.metaKey || e.shiftKey) { e.preventDefault(); e.stopPropagation(); const d = -e.deltaY * 0.001; setScale(s => Math.min(Math.max(0.1, s + d), 5)); } else { setPan(prev => ({ x: prev.x - e.deltaX, y: prev.y - e.deltaY })); } };
+            el.addEventListener('wheel', handleWheel, { passive: false });
+            return () => el.removeEventListener('wheel', handleWheel);
+          }, []);
 
           // --- KEYBOARD ---
           useEffect(() => {
             const handleKeyDown = (e) => {
-                if (e.key === 'Delete' || e.key === 'Backspace') { if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return; deleteSelection(); }
+                const isEditingField = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+                if (e.key === 'Delete' || e.key === 'Backspace') { if (isEditingField) return; deleteSelection(); }
 
                 if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
                     e.preventDefault();
@@ -982,12 +1013,13 @@
 
                 if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); e.shiftKey ? handleRedo() : handleUndo(); }
                 if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-                    if (document.activeElement?.tagName === 'INPUT') return;
+                    if (isEditingField || !nodes.some(n => n.selected)) return;
                     e.preventDefault();
                     const step = (e.shiftKey || e.ctrlKey) ? 10 : 1;
                     const dx = (e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0) * step;
                     const dy = (e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0) * step;
-                    setNodes(nodes.map(n => n.selected ? { ...n, x: n.x + dx, y: n.y + dy } : n));
+                    // Un punto de deshacer por pulsación (no por autorrepetición al mantener la tecla)
+                    updateDiagramState(nodes.map(n => n.selected ? { ...n, x: n.x + dx, y: n.y + dy } : n), edges, !e.repeat);
                 }
             };
             window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown);
@@ -1007,7 +1039,7 @@
                   { id: 'w', x: -4, y: node.height / 2 - 4, cursor: 'w-resize' }
               ];
 
-              return ( <g> {h.map((pos) => ( <rect key={pos.id} x={pos.x} y={pos.y} width={s} height={s} fill="white" stroke={COLORS.selection} strokeWidth={1} style={{ cursor: pos.cursor }} onMouseDown={(e) => { e.stopPropagation(); setIsResizing(true); setResizeHandle(pos.id); setActiveNodeId(node.id); setDragStart(getMousePos(e)); setInitialNodeGeom({ x: node.x, y: node.y, w: node.width, h: node.height }); }} /> ))} </g> );
+              return ( <g> {h.map((pos) => ( <rect key={pos.id} x={pos.x} y={pos.y} width={s} height={s} fill="white" stroke={COLORS.selection} strokeWidth={1} style={{ cursor: pos.cursor }} onMouseDown={(e) => { e.stopPropagation(); dragSnapshotRef.current = { nodes, edges }; setIsResizing(true); setResizeHandle(pos.id); setActiveNodeId(node.id); setDragStart(getMousePos(e)); setInitialNodeGeom({ x: node.x, y: node.y, w: node.width, h: node.height }); }} /> ))} </g> );
           };
 
           const renderNode = (node) => {
@@ -1065,6 +1097,7 @@
                                 setEdges(edges.map(ed => ({ ...ed, selected: false })));
                             }
                         }
+                        dragSnapshotRef.current = { nodes, edges };
                         setIsDragging(true);
                         setDragStart(getMousePos(e));
                     }
@@ -1435,7 +1468,7 @@
 
                     {sN.length === 1 && (
                         <div className="space-y-4">
-                            <div> <label className="block text-xs font-medium mb-1">Texto / Nombre</label> <input type="text" value={sN[0].text} onChange={(e) => { updateDiagramState(nodes.map(n => n.id === sN[0].id ? { ...n, text: e.target.value } : n), edges, false); }} onBlur={() => pushHistory()} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/> </div>
+                            <div> <label className="block text-xs font-medium mb-1">Texto / Nombre</label> <input type="text" value={sN[0].text} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes.map(n => n.id === sN[0].id ? { ...n, text: e.target.value } : n), edges)} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/> </div>
                             {(sN[0].type === 'class' || sN[0].type === 'interface') && ( <>
                                 {sN[0].type === 'class' && (
                                     <div className="flex items-center space-x-2">
@@ -1444,9 +1477,9 @@
                                     </div>
                                 )}
                                 {sN[0].type !== 'interface' && (
-                                    <div><label className="block text-xs font-medium mb-1">Atributos</label><textarea rows={3} value={sN[0].attributes?.join('\n')} onChange={(e) => updateDiagramState(nodes.map(n => n.id === sN[0].id ? { ...n, attributes: e.target.value.split('\n') } : n), edges, false)} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`} /></div>
+                                    <div><label className="block text-xs font-medium mb-1">Atributos</label><textarea rows={3} value={sN[0].attributes?.join('\n')} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes.map(n => n.id === sN[0].id ? { ...n, attributes: e.target.value.split('\n') } : n), edges)} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`} /></div>
                                 )}
-                                <div><label className="block text-xs font-medium mb-1">Métodos</label><textarea rows={3} value={sN[0].methods?.join('\n')} onChange={(e) => updateDiagramState(nodes.map(n => n.id === sN[0].id ? { ...n, methods: e.target.value.split('\n') } : n), edges, false)} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`} /></div> </>
+                                <div><label className="block text-xs font-medium mb-1">Métodos</label><textarea rows={3} value={sN[0].methods?.join('\n')} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes.map(n => n.id === sN[0].id ? { ...n, methods: e.target.value.split('\n') } : n), edges)} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`} /></div> </>
                             )}
                             {sN[0].type !== 'boundary' && sN[0].type !== 'swimlane' && (
                                 <button
@@ -1480,12 +1513,12 @@
 
                             <div> <label className="block text-xs font-medium mb-1">Estilo de línea</label> <select value={sE[0].pathType} onChange={(e) => updateDiagramState(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, pathType: e.target.value } : ed))} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}> <option value="straight">Recta</option> <option value="orthogonal">Ortogonal</option> </select> </div>
 
-                            {!(activeDiagram?.type === 'dcu' && (sE[0].type === 'association' || sE[0].type === 'generalization')) && ( <div> <label className="block text-xs font-medium mb-1">Etiqueta</label> <input type="text" disabled={sE[0].type === 'include' || sE[0].type === 'extend'} value={sE[0].label || ''} onChange={(e) => updateDiagramState(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, label: e.target.value } : ed), false)} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'} disabled:opacity-50`}/> </div> )}
+                            {!(activeDiagram?.type === 'dcu' && (sE[0].type === 'association' || sE[0].type === 'generalization')) && ( <div> <label className="block text-xs font-medium mb-1">Etiqueta</label> <input type="text" disabled={sE[0].type === 'include' || sE[0].type === 'extend'} value={sE[0].label || ''} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, label: e.target.value } : ed))} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'} disabled:opacity-50`}/> </div> )}
 
                             {activeDiagram?.type === 'dc' && showMultiplicity && (
                                 <div className="grid grid-cols-2 gap-2">
-                                    <div><label className="block text-xs font-medium mb-1">Mult. origen</label><input type="text" placeholder="1" value={sE[0].sourceLabel || ''} onChange={(e) => updateDiagramState(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, sourceLabel: e.target.value } : ed), false)} className={`w-full p-1 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/></div>
-                                    <div><label className="block text-xs font-medium mb-1">Mult. destino</label><input type="text" placeholder="*" value={sE[0].targetLabel || ''} onChange={(e) => updateDiagramState(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, targetLabel: e.target.value } : ed), false)} className={`w-full p-1 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/></div>
+                                    <div><label className="block text-xs font-medium mb-1">Mult. origen</label><input type="text" placeholder="1" value={sE[0].sourceLabel || ''} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, sourceLabel: e.target.value } : ed))} className={`w-full p-1 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/></div>
+                                    <div><label className="block text-xs font-medium mb-1">Mult. destino</label><input type="text" placeholder="*" value={sE[0].targetLabel || ''} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, targetLabel: e.target.value } : ed))} className={`w-full p-1 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/></div>
                                 </div>
                             )}
 
@@ -1504,7 +1537,7 @@
               {renderToolbar()}
               <div className="flex flex-1 overflow-hidden relative">
                 {renderSidebar()}
-                <div ref={canvasRef} className={`flex-1 relative overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} ${connectingNodeId ? 'cursor-crosshair' : (tool === 'pan' || (isDragging && tool === 'pan')) ? 'cursor-grab' : 'default'}`} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onWheel={handleWheel}>
+                <div ref={canvasRef} className={`flex-1 relative overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} ${connectingNodeId ? 'cursor-crosshair' : (tool === 'pan' || (isDragging && tool === 'pan')) ? 'cursor-grab' : 'default'}`} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
                     <div className="absolute inset-0 pointer-events-none opacity-20" style={{ backgroundImage: `radial-gradient(${isDarkMode ? '#6b7280' : '#9ca3af'} 1px, transparent 1px)`, backgroundSize: `${20 * scale}px ${20 * scale}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }} />
                     <svg ref={svgRef} className="w-full h-full block touch-none" xmlns="http://www.w3.org/2000/svg">
                         <defs>
@@ -1551,8 +1584,7 @@
                         onClose={() => setEditingLabelId(null)}
                         onSave={(newText) => {
                             if (editingLabelId) {
-                                setNodes(nodes.map(n => n.id === editingLabelId ? { ...n, text: newText } : n));
-                                pushHistory();
+                                updateDiagramState(nodes.map(n => n.id === editingLabelId ? { ...n, text: newText } : n), edges);
                                 setEditingLabelId(null);
                             }
                         }}
