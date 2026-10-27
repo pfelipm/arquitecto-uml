@@ -64,7 +64,7 @@
           Maximize2, Copy, User, Edit2, ArrowDownAZ,
           AlertTriangle, X, Link2, ArrowLeftRight, Italic,
           FolderPlus, FilePlus, Layout, Upload, Image as ImageIcon,
-          Info, Github, Linkedin
+          Info, Github, Linkedin, Keyboard
         } from 'lucide-react';
 
         // --- CÓDIGO ORIGINAL DE LA APP (Sin modificaciones lógicas) ---
@@ -266,6 +266,69 @@
         };
 
         const DIAGRAM_TYPE_NAMES = { dcu: 'Casos de uso', dc: 'Clases', da: 'Actividad' };
+
+        // Tecla modificadora principal según el sistema (para la ayuda y las descripciones de los botones)
+        const MOD_KEY = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘' : 'Ctrl';
+
+        const SHORTCUT_GROUPS = [
+            { title: 'Edición', items: [
+                [`${MOD_KEY}+Z`, 'Deshacer'],
+                [`${MOD_KEY}+Mayús+Z  ·  ${MOD_KEY}+Y`, 'Rehacer'],
+                [`${MOD_KEY}+C  ·  ${MOD_KEY}+X  ·  ${MOD_KEY}+V`, 'Copiar, cortar y pegar elementos (también entre diagramas del mismo tipo)'],
+                [`${MOD_KEY}+D`, 'Duplicar la selección'],
+                ['Supr  ·  Retroceso', 'Eliminar la selección'],
+                ['Doble clic', 'Editar el texto de un elemento'],
+            ]},
+            { title: 'Selección', items: [
+                ['Clic', 'Seleccionar un elemento o una relación'],
+                ['Mayús+clic', 'Añadir o quitar un elemento de la selección'],
+                ['Arrastrar en el fondo', 'Seleccionar con un recuadro (Mayús: añadir a la selección)'],
+                [`${MOD_KEY}+A`, 'Seleccionar todos los elementos'],
+                ['Esc', 'Cancelar la conexión o la herramienta; si no hay ninguna, deseleccionar'],
+            ]},
+            { title: 'Mover', items: [
+                ['Flechas', 'Mover la selección 1 px'],
+                ['Mayús+flechas', 'Mover la selección 10 px'],
+            ]},
+            { title: 'Vista', items: [
+                ['Rueda', 'Desplazar el lienzo'],
+                ['Mayús+rueda', 'Desplazar el lienzo en horizontal'],
+                [`${MOD_KEY}+rueda`, 'Zoom hacia el cursor'],
+                [`${MOD_KEY}+0`, 'Zoom al 100 %'],
+                ['Botón central  ·  Alt+arrastrar', 'Mover el lienzo (en algunos escritorios Linux, Alt+arrastrar mueve la ventana: usa el botón central)'],
+                ['?', 'Mostrar u ocultar esta ayuda'],
+            ]},
+        ];
+
+        const ShortcutsModal = ({ isOpen, onClose, isDarkMode }) => {
+            if (!isOpen) return null;
+            const kbd = `inline-block px-1.5 py-0.5 rounded border text-xs font-mono whitespace-nowrap ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-100 border-gray-300'}`;
+            return (
+                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onMouseDown={e => e.stopPropagation()} onClick={onClose}>
+                    <div className={`p-6 rounded-lg shadow-xl border w-[40rem] max-w-[95%] max-h-[90%] overflow-y-auto ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`} onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-bold flex items-center gap-2"><Keyboard size={18} className="text-blue-500"/> Atajos de teclado y ratón</h3>
+                            <button onClick={onClose} className={`p-1 rounded-full ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`} title="Cerrar (Esc)"><X size={18}/></button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                            {SHORTCUT_GROUPS.map(group => (
+                                <div key={group.title}>
+                                    <h4 className="text-xs font-semibold uppercase tracking-wider opacity-60 mb-2">{group.title}</h4>
+                                    <dl className="space-y-1.5 text-sm">
+                                        {group.items.map(([keys, desc]) => (
+                                            <div key={keys} className="flex flex-col">
+                                                <dt className="flex flex-wrap gap-1">{keys.split('  ·  ').map(k => <kbd key={k} className={kbd}>{k}</kbd>)}</dt>
+                                                <dd className="text-xs opacity-75 mt-0.5">{desc}</dd>
+                                            </div>
+                                        ))}
+                                    </dl>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
 
         // Colores de los avisos (contraste de texto >= 4.5:1 en todos los casos)
         const TOAST_STYLES = {
@@ -645,6 +708,7 @@
           const [activeDiagramId, setActiveDiagramId] = useState(null);
 
           const [showInfoModal, setShowInfoModal] = useState(false);
+          const [showShortcuts, setShowShortcuts] = useState(false);
 
           // Compartir: shareLink es undefined (modal cerrado), null (generando) o el enlace
           const [shareLink, setShareLink] = useState(undefined);
@@ -1111,6 +1175,38 @@
             showToast(`${selectedNodes.length} elemento(s) duplicado(s)`, 'success');
           }, [nodes, edges]);
 
+          // Portapapeles interno de la app (no el del sistema): nodos copiados, sus relaciones internas y el tipo de diagrama.
+          // Se conserva al cambiar de diagrama, para pegar en otro del mismo tipo.
+          const clipboardRef = useRef(null);
+          const copySelection = (silent = false) => {
+            const selectedNodes = nodes.filter(n => n.selected);
+            if (!activeDiagram || selectedNodes.length === 0) return false;
+            const ids = new Set(selectedNodes.map(n => n.id));
+            clipboardRef.current = { type: activeDiagram.type, sourceId: activeDiagram.id, nodes: withoutSelection(selectedNodes), edges: withoutSelection(edges.filter(ed => ids.has(ed.source) && ids.has(ed.target))), pastes: {} };
+            if (!silent) showToast(`${selectedNodes.length} elemento(s) copiado(s)`, 'success');
+            return true;
+          };
+          const cutSelection = () => {
+            const count = nodes.filter(n => n.selected).length;
+            if (!copySelection(true)) return;
+            deleteSelection();
+            showToast(`${count} elemento(s) cortado(s)`, 'success');
+          };
+          const pasteClipboard = () => {
+            const clip = clipboardRef.current;
+            if (!clip || !activeDiagram) return;
+            if (clip.type !== activeDiagram.type) { showToast(`Solo se puede pegar en un diagrama del mismo tipo (${DIAGRAM_TYPE_NAMES[clip.type]})`, 'warning'); return; }
+            // Cada pegado se desplaza un poco más para no superponerse; en otro diagrama, el primero conserva la posición original
+            const count = clip.pastes[activeDiagram.id] || 0;
+            clip.pastes[activeDiagram.id] = count + 1;
+            const offset = 20 * (count + (activeDiagram.id === clip.sourceId ? 1 : 0));
+            const idMap = {};
+            const newNodes = clip.nodes.map(n => { const id = generateId(); idMap[n.id] = id; return { ...n, id, x: n.x + offset, y: n.y + offset, selected: true }; });
+            const newEdges = clip.edges.map(ed => ({ ...ed, id: generateId(), source: idMap[ed.source], target: idMap[ed.target] }));
+            updateDiagramState([...nodes.map(n => ({ ...n, selected: false })), ...newNodes], [...edges.map(ed => ({ ...ed, selected: false })), ...newEdges]);
+            showToast(`${newNodes.length} elemento(s) pegado(s)`, 'success');
+          };
+
           const deleteSelection = useCallback(() => {
               const newNodes = nodes.filter(n => !n.selected);
               const newEdges = edges.filter(ed => !ed.selected && newNodes.some(n => n.id === ed.source) && newNodes.some(n => n.id === ed.target));
@@ -1162,7 +1258,8 @@
             if (tool !== 'select' && tool !== 'pan') { addNode(getMousePos(e)); return; }
             if (e.target === svgRef.current) {
                 if (connectingNodeId) { setConnectingNodeId(null); setPendingConnection(null); return; }
-                setSelectionBox({ start: getMousePos(e), end: getMousePos(e) });
+                // Con Mayús, el recuadro suma a la selección que ya había
+                setSelectionBox({ start: getMousePos(e), end: getMousePos(e), keepIds: e.shiftKey ? nodes.filter(n => n.selected).map(n => n.id) : [] });
                 if (!e.shiftKey) {
                     setNodes(nodes.map(n => ({ ...n, selected: false })));
                     setEdges(edges.map(ed => ({ ...ed, selected: false })));
@@ -1235,7 +1332,7 @@
                 return;
             }
 
-            if (selectionBox) { setSelectionBox(prev => ({ ...prev, end: pos })); const x1 = Math.min(selectionBox.start.x, pos.x), y1 = Math.min(selectionBox.start.y, pos.y), x2 = Math.max(selectionBox.start.x, pos.x), y2 = Math.max(selectionBox.start.y, pos.y); setNodes(nodes.map(n => ({ ...n, selected: (n.x + n.width > x1 && n.x < x2 && n.y + n.height > y1 && n.y < y2) }))); return; }
+            if (selectionBox) { setSelectionBox(prev => ({ ...prev, end: pos })); const x1 = Math.min(selectionBox.start.x, pos.x), y1 = Math.min(selectionBox.start.y, pos.y), x2 = Math.max(selectionBox.start.x, pos.x), y2 = Math.max(selectionBox.start.y, pos.y); setNodes(nodes.map(n => ({ ...n, selected: selectionBox.keepIds.includes(n.id) || (n.x + n.width > x1 && n.x < x2 && n.y + n.height > y1 && n.y < y2) }))); return; }
 
             if (isDragging && !selectionBox && tool === 'select' && !isResizing) {
                 let dx = pos.x - dragStart.x;
@@ -1307,7 +1404,7 @@
             const handleWheel = (e) => {
                 const { scale: s, pan: p } = viewRef.current;
                 let next;
-                if (e.ctrlKey || e.metaKey || e.shiftKey) {
+                if (e.ctrlKey || e.metaKey) {
                     e.preventDefault(); e.stopPropagation();
                     const newScale = Math.min(Math.max(0.1, s + -e.deltaY * 0.001), 5);
                     // Zoom hacia el cursor: el punto bajo el ratón se mantiene fijo en pantalla
@@ -1315,6 +1412,10 @@
                     const mx = e.clientX - rect.left, my = e.clientY - rect.top;
                     const k = newScale / s;
                     next = { scale: newScale, pan: { x: mx - (mx - p.x) * k, y: my - (my - p.y) * k } };
+                } else if (e.shiftKey) {
+                    // Mayús + rueda: desplazamiento horizontal (algunos navegadores ya entregan el giro en deltaX)
+                    e.preventDefault();
+                    next = { scale: s, pan: { x: p.x - (e.deltaX || e.deltaY), y: p.y } };
                 } else {
                     next = { scale: s, pan: { x: p.x - e.deltaX, y: p.y - e.deltaY } };
                 }
@@ -1341,6 +1442,29 @@
                     if (!isEditingField) duplicateSelection();
                 }
 
+                // En campos de texto, copiar/cortar/pegar/seleccionar todo conservan su comportamiento normal
+                if (!isEditingField && activeDiagram) {
+                    if (mod && key === 'c' && nodes.some(n => n.selected)) { e.preventDefault(); copySelection(); }
+                    if (mod && key === 'x' && nodes.some(n => n.selected)) { e.preventDefault(); cutSelection(); }
+                    if (mod && key === 'v' && clipboardRef.current) { e.preventDefault(); pasteClipboard(); }
+                    if (mod && key === 'a') { e.preventDefault(); setNodes(nodes.map(n => ({ ...n, selected: true }))); setEdges(edges.map(ed => ({ ...ed, selected: false }))); }
+                }
+
+                // Ctrl+0: zoom al 100 % (sustituye al restablecimiento de zoom del navegador)
+                if (mod && key === '0') { e.preventDefault(); setScale(1); }
+
+                if (e.key === '?' && !isEditingField) { e.preventDefault(); setShowShortcuts(v => !v); }
+
+                // Esc: cierra la ayuda, cancela la conexión o la herramienta activa y, si no hay nada de eso, deselecciona
+                if (e.key === 'Escape' && !isEditingField) {
+                    if (showShortcuts) setShowShortcuts(false);
+                    else if (showInfoModal) setShowInfoModal(false);
+                    else if (pendingConnection) { setPendingConnection(null); setTool('select'); }
+                    else if (connectingNodeId) setConnectingNodeId(null);
+                    else if (tool !== 'select') setTool('select');
+                    else { setNodes(nodes.map(n => ({ ...n, selected: false }))); setEdges(edges.map(ed => ({ ...ed, selected: false }))); }
+                }
+
                 // En campos de texto se deja el deshacer/rehacer nativo del navegador
                 if (mod && (key === 'z' || key === 'y') && !isEditingField) {
                     e.preventDefault();
@@ -1357,7 +1481,8 @@
                 }
             };
             window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown);
-          }, [nodes, edges, history, editingLabelId, editingLabelText, duplicateSelection, deleteSelection]);
+            // Sin dependencias: se vuelve a registrar en cada render para leer siempre el estado actual
+          });
 
           // --- RENDERIZADO NODOS ---
           const renderResizeHandles = (node) => {
@@ -1727,19 +1852,20 @@
                 </div>
                 <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-2"></div>
                 <div className="flex space-x-1">
-                    <button onClick={handleUndo} disabled={history.past.length === 0} className="p-1 disabled:opacity-30 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Deshacer"><Undo size={18}/></button>
-                    <button onClick={handleRedo} disabled={history.future.length === 0} className="p-1 disabled:opacity-30 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Rehacer"><Redo size={18}/></button>
+                    <button onClick={handleUndo} disabled={history.past.length === 0} className="p-1 disabled:opacity-30 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title={`Deshacer (${MOD_KEY}+Z)`}><Undo size={18}/></button>
+                    <button onClick={handleRedo} disabled={history.future.length === 0} className="p-1 disabled:opacity-30 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title={`Rehacer (${MOD_KEY}+Mayús+Z)`}><Redo size={18}/></button>
                 </div>
                 <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-2"></div>
                 <div className="flex items-center space-x-2">
-                    <button onClick={() => setScale(s => Math.max(0.1, s - 0.1))} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Reducir zoom"><ZoomOut size={18}/></button>
-                    <span className="text-xs w-10 text-center select-none cursor-pointer" onClick={() => setScale(1)} title="Restablecer al 100%">{Math.round(scale * 100)}%</span>
-                    <button onClick={() => setScale(s => Math.min(5, s + 0.1))} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Ampliar zoom"><ZoomIn size={18}/></button>
+                    <button onClick={() => setScale(s => Math.max(0.1, s - 0.1))} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title={`Reducir zoom (${MOD_KEY}+rueda)`}><ZoomOut size={18}/></button>
+                    <span className="text-xs w-10 text-center select-none cursor-pointer" onClick={() => setScale(1)} title={`Restablecer al 100% (${MOD_KEY}+0)`}>{Math.round(scale * 100)}%</span>
+                    <button onClick={() => setScale(s => Math.min(5, s + 0.1))} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title={`Ampliar zoom (${MOD_KEY}+rueda)`}><ZoomIn size={18}/></button>
                     <button onClick={handleFitToScreen} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Ajustar a pantalla"><Maximize2 size={18}/></button>
                 </div>
               </div>
               <div className="flex items-center space-x-3">
                 <span className="text-xs opacity-50">{activeDiagram?.name || 'Sin diagrama abierto'}</span>
+                <button onClick={() => setShowShortcuts(true)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400" title="Atajos de teclado y ratón (?)"><Keyboard size={18} /></button>
                 <button onClick={() => setShowInfoModal(true)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400" title="Acerca de..."><Info size={18} /></button>
                 <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">{isDarkMode ? <Sun size={18} /> : <Moon size={18} />}</button>
                 <button onClick={handleShare} disabled={!activeDiagram} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600" title={activeDiagram ? 'Compartir este diagrama mediante un enlace' : 'Abre un diagrama para compartirlo'}>Compartir</button>
@@ -1812,7 +1938,7 @@
                     ))}
                 </div>
 
-                <div className="flex-1 p-2 overflow-y-auto border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"> <h3 className="text-xs font-semibold uppercase tracking-wider mb-2 opacity-50 ml-2">Herramientas</h3> <div className="grid grid-cols-2 gap-2"> <button onClick={() => setTool('select')} className={`p-2 rounded flex flex-col items-center justify-center border ${tool === 'select' ? 'bg-blue-50 border-blue-500 text-blue-600' : 'border-transparent hover:bg-gray-200 dark:hover:bg-gray-800'}`}> <MousePointer2 size={20} /> <span className="text-[10px] mt-1">Seleccionar</span> </button> <button onClick={() => setTool('pan')} className={`p-2 rounded flex flex-col items-center justify-center border ${tool === 'pan' ? 'bg-blue-50 border-blue-500 text-blue-600' : 'border-transparent hover:bg-gray-200 dark:hover:bg-gray-800'}`}> <Move size={20} /> <span className="text-[10px] mt-1">Mover Lienzo</span> </button> </div> <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4"> {activeDiagram ? ( <> <p className="text-xs text-center mb-2 font-mono opacity-50">{activeDiagram.type === 'dcu' ? 'Casos de Uso' : activeDiagram.type === 'dc' ? 'Clases' : 'Actividad'}</p> <div className="grid grid-cols-2 gap-2"> {activeDiagram.type === 'dcu' && ( <> <ToolBtn icon={<User/>} label="Actor" onClick={() => setTool('actor')} active={tool === 'actor'} /> <ToolBtn icon={<Circle/>} label="Caso Uso" onClick={() => setTool('usecase')} active={tool === 'usecase'} /> <ToolBtn icon={<Square/>} label="Límite" onClick={() => setTool('boundary')} active={tool === 'boundary'} /> </> )} {activeDiagram.type === 'dc' && ( <> <ToolBtn icon={<ClassToolIcon/>} label="Clase" onClick={() => setTool('class')} active={tool === 'class'} /> <ToolBtn icon={<InterfaceToolIcon/>} label="Interfaz" onClick={() => setTool('interface')} active={tool === 'interface'} /> </> )} {activeDiagram.type === 'da' && ( <> <ToolBtn icon={<Circle className="fill-current"/>} label="Inicio" onClick={() => setTool('start')} active={tool === 'start'} /> <ToolBtn icon={<Circle className="border-2"/>} label="Fin" onClick={() => setTool('end')} active={tool === 'end'} /> <ToolBtn icon={<Square className="rounded-lg"/>} label="Actividad" onClick={() => setTool('activity')} active={tool === 'activity'} /> <ToolBtn icon={<Diamond/>} label="Decisión" onClick={() => setTool('decision')} active={tool === 'decision'} /> <ToolBtn icon={<Minus className="rotate-90"/>} label="Bifurcación / Unión" onClick={() => setTool('fork')} active={tool === 'fork'} /> <ToolBtn icon={<GripVertical/>} label="Carril" onClick={() => setTool('swimlane')} active={tool === 'swimlane'} /> </> )} </div> </> ) : ( <p className="text-sm text-center opacity-50 mt-10">Selecciona o crea un diagrama para ver las herramientas.</p> )} </div> </div>
+                <div className="flex-1 p-2 overflow-y-auto border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"> <h3 className="text-xs font-semibold uppercase tracking-wider mb-2 opacity-50 ml-2">Herramientas</h3> <div className="grid grid-cols-2 gap-2"> <button onClick={() => setTool('select')} title="Seleccionar (Esc)" className={`p-2 rounded flex flex-col items-center justify-center border ${tool === 'select' ? 'bg-blue-50 border-blue-500 text-blue-600' : 'border-transparent hover:bg-gray-200 dark:hover:bg-gray-800'}`}> <MousePointer2 size={20} /> <span className="text-[10px] mt-1">Seleccionar</span> </button> <button onClick={() => setTool('pan')} title="Mover el lienzo (también con botón central o Alt+arrastrar)" className={`p-2 rounded flex flex-col items-center justify-center border ${tool === 'pan' ? 'bg-blue-50 border-blue-500 text-blue-600' : 'border-transparent hover:bg-gray-200 dark:hover:bg-gray-800'}`}> <Move size={20} /> <span className="text-[10px] mt-1">Mover Lienzo</span> </button> </div> <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4"> {activeDiagram ? ( <> <p className="text-xs text-center mb-2 font-mono opacity-50">{activeDiagram.type === 'dcu' ? 'Casos de Uso' : activeDiagram.type === 'dc' ? 'Clases' : 'Actividad'}</p> <div className="grid grid-cols-2 gap-2"> {activeDiagram.type === 'dcu' && ( <> <ToolBtn icon={<User/>} label="Actor" onClick={() => setTool('actor')} active={tool === 'actor'} /> <ToolBtn icon={<Circle/>} label="Caso Uso" onClick={() => setTool('usecase')} active={tool === 'usecase'} /> <ToolBtn icon={<Square/>} label="Límite" onClick={() => setTool('boundary')} active={tool === 'boundary'} /> </> )} {activeDiagram.type === 'dc' && ( <> <ToolBtn icon={<ClassToolIcon/>} label="Clase" onClick={() => setTool('class')} active={tool === 'class'} /> <ToolBtn icon={<InterfaceToolIcon/>} label="Interfaz" onClick={() => setTool('interface')} active={tool === 'interface'} /> </> )} {activeDiagram.type === 'da' && ( <> <ToolBtn icon={<Circle className="fill-current"/>} label="Inicio" onClick={() => setTool('start')} active={tool === 'start'} /> <ToolBtn icon={<Circle className="border-2"/>} label="Fin" onClick={() => setTool('end')} active={tool === 'end'} /> <ToolBtn icon={<Square className="rounded-lg"/>} label="Actividad" onClick={() => setTool('activity')} active={tool === 'activity'} /> <ToolBtn icon={<Diamond/>} label="Decisión" onClick={() => setTool('decision')} active={tool === 'decision'} /> <ToolBtn icon={<Minus className="rotate-90"/>} label="Bifurcación / Unión" onClick={() => setTool('fork')} active={tool === 'fork'} /> <ToolBtn icon={<GripVertical/>} label="Carril" onClick={() => setTool('swimlane')} active={tool === 'swimlane'} /> </> )} </div> </> ) : ( <p className="text-sm text-center opacity-50 mt-10">Selecciona o crea un diagrama para ver las herramientas.</p> )} </div> </div>
             </div>
           );
 
@@ -1858,15 +1984,15 @@
                             </div>
 
                             <button onClick={duplicateSelection} className={`w-full py-2 rounded text-sm font-medium flex items-center justify-center gap-2 transition-all ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'}`}>
-                                <Copy size={14}/> Duplicar Selección
+                                <Copy size={14}/> Duplicar Selección <span className="opacity-60 text-xs">({MOD_KEY}+D)</span>
                             </button>
 
                             <button onClick={deleteSelection} className="w-full py-2 bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200 rounded text-sm font-medium hover:opacity-80 flex items-center justify-center gap-2">
-                                <Trash2 size={14}/> Eliminar Todo
+                                <Trash2 size={14}/> Eliminar Todo <span className="opacity-60 text-xs">(Supr)</span>
                             </button>
 
                             <div className="text-xs text-center mt-4 opacity-50">
-                                Tip: Usa Ctrl+D para duplicar
+                                Pulsa ? para ver todos los atajos
                             </div>
                         </div>
                     )}
@@ -1897,10 +2023,10 @@
 
                              <div className="border-t pt-4 mt-4 border-gray-200 dark:border-gray-700 space-y-2">
                                 <button onClick={duplicateSelection} className={`w-full py-2 rounded text-sm font-medium flex items-center justify-center gap-2 transition-all ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'}`}>
-                                    <Copy size={14}/> Duplicar
+                                    <Copy size={14}/> Duplicar <span className="opacity-60 text-xs">({MOD_KEY}+D)</span>
                                 </button>
                                 <button onClick={() => deleteSelection()} className="w-full py-2 bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200 rounded text-sm font-medium hover:opacity-80 flex items-center justify-center gap-2">
-                                    <Trash2 size={14}/> Eliminar
+                                    <Trash2 size={14}/> Eliminar <span className="opacity-60 text-xs">(Supr)</span>
                                 </button>
                              </div>
                         </div>
@@ -2060,6 +2186,7 @@
                     />
 
                     <InfoModal isOpen={showInfoModal} onClose={() => setShowInfoModal(false)} isDarkMode={isDarkMode} />
+                    <ShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} isDarkMode={isDarkMode} />
 
                     <ShareLinkModal isOpen={shareLink !== undefined} link={shareLink} diagramName={activeDiagram?.name || ''} onCopy={handleCopyShareLink} onClose={() => setShareLink(undefined)} isDarkMode={isDarkMode} />
                     <ImportModeModal pendingImport={pendingImport} currentCount={folders.reduce((n, f) => n + f.diagrams.length, 0)} onAppend={() => applyImport(pendingImport, 'append')} onReplace={() => applyImport(pendingImport, 'replace')} onCancel={() => setPendingImport(null)} isDarkMode={isDarkMode} />

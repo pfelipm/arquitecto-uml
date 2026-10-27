@@ -23,10 +23,33 @@ Puedes utilizar el editor sin limitaciones y directamente en tu navegador accedi
         
         ![Ejemplo DA](readme-archivos/DA.png)
 *   **Gestión de Proyectos:** Organización mediante carpetas y múltiples diagramas.
-*   **Persistencia Local:** Guardado automático en el navegador (`localStorage`); al volver, se reabre el último diagrama abierto.
+*   **Persistencia Local:** Guardado automático en el navegador (`localStorage`); al volver, se reabre el último diagrama abierto. En la versión insertada en Google Sites el navegador no conserva los datos entre visitas, así que la aplicación lo avisa y recuerda exportar una copia JSON antes de salir.
 *   **Compartir por enlace:** El botón **Compartir** genera un enlace que contiene el diagrama abierto (comprimido y sin pasar por ningún servidor). Quien lo recibe lo pega en **Abrir diagrama compartido** y obtiene una copia en la carpeta «Diagramas compartidos», sin que se modifiquen sus otros diagramas. Si la aplicación se abre directamente (no insertada en Google Sites), basta con abrir el enlace.
 *   **Importar/Exportar:** Copias de seguridad completas en formato JSON (incluye un [kit de demostración](readme-archivos/kit-demo.json) para pruebas). Al importar una copia, puedes **añadir** sus carpetas a las tuyas o **reemplazar** todo tu contenido. También permite exportar diagramas a imágenes PNG en alta resolución.
-*   **Interfaz Moderna:** Diseño limpio con soporte para **modo oscuro**, zoom hacia el cursor, guías de alineación inteligentes y atajos de teclado (deshacer/rehacer con Ctrl+Z, Ctrl+Mayús+Z o Ctrl+Y; duplicar con Ctrl+D).
+*   **Interfaz Moderna:** Diseño limpio con soporte para **modo oscuro**, zoom hacia el cursor, guías de alineación inteligentes y atajos de teclado y ratón (consulta la tabla siguiente o pulsa **?** en la aplicación).
+
+## Atajos de Teclado y Ratón
+
+En macOS, usa ⌘ en lugar de Ctrl.
+
+| Atajo | Acción |
+|---|---|
+| **Ctrl+Z** | Deshacer |
+| **Ctrl+Mayús+Z** · **Ctrl+Y** | Rehacer |
+| **Ctrl+C** · **Ctrl+X** · **Ctrl+V** | Copiar, cortar y pegar elementos (también entre diagramas del mismo tipo) |
+| **Ctrl+D** | Duplicar la selección |
+| **Supr** · **Retroceso** | Eliminar la selección |
+| **Ctrl+A** | Seleccionar todos los elementos |
+| **Esc** | Cancelar la conexión o la herramienta activa; si no hay ninguna, deseleccionar |
+| **Flechas** / **Mayús+flechas** | Mover la selección 1 px / 10 px |
+| **Mayús+clic** | Añadir o quitar un elemento de la selección |
+| **Arrastrar en el fondo** | Seleccionar con un recuadro (con **Mayús**, añadir a la selección) |
+| **Doble clic** | Editar el texto de un elemento |
+| **Rueda** / **Mayús+rueda** | Desplazar el lienzo (en vertical / en horizontal) |
+| **Ctrl+rueda** | Zoom hacia el cursor |
+| **Ctrl+0** | Zoom al 100 % |
+| **Botón central** · **Alt+arrastrar** | Mover el lienzo (en algunos escritorios Linux, Alt+arrastrar mueve la ventana) |
+| **?** | Mostrar u ocultar la ayuda de atajos |
 
 ## Tecnologías Utilizadas
 
