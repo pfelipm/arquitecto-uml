@@ -17,13 +17,15 @@ Esfuerzo orientativo: **bajo** (unas horas), **medio** (un día aproximadamente)
 - **Propuesta:** sustituirlos por eventos de puntero (`onPointerDown`, etc.), que cubren ratón, dedo y lápiz, y añadir el gesto de pellizcar para hacer zoom y el de arrastrar con dos dedos para desplazar el lienzo.
 - **Esfuerzo:** medio.
 
-### 3. «Revisar diagrama»: comprobaciones UML con fines didácticos
-- **Propuesta:** un botón que analice el diagrama abierto y muestre una lista de avisos (sin bloquear nada). Al pulsar un aviso, se selecciona el elemento afectado.
-- **Comprobaciones posibles:**
-  - **DCU:** casos de uso sin ningún actor asociado; actores sin casos de uso; casos de uso fuera del límite del sistema.
-  - **DC:** clases sin nombre o con nombres repetidos; herencias circulares; clases abstractas sin subclases.
-  - **DA:** falta el nodo de inicio o de fin; decisiones con salidas sin condición (guarda); nodos inalcanzables desde el inicio; acciones a las que llegan varios flujos sin nodo de fusión (en UML 2 se interpretan como unión implícita).
-- **Esfuerzo:** medio.
+### 3. ✅ «Revisar diagrama»: comprobaciones UML con fines didácticos (hecho, versión 8.0)
+- **Funcionamiento:** el botón **Revisar** de la barra superior (o **F7**) abre un panel lateral con los problemas del diagrama abierto, clasificados en errores, avisos y sugerencias de estilo (estas se pueden ocultar). Al pulsar un problema se seleccionan los elementos afectados y la vista se centra en ellos. La revisión se actualiza mientras se edita y nunca modifica el diagrama.
+- **Comprobaciones:**
+  - **Comunes:** elementos sin nombre o con el nombre por defecto; nombres repetidos (DCU y DC).
+  - **DCU:** casos de uso sin actor (directo o heredado por inclusión, extensión o generalización); actores sin casos de uso; casos de uso fuera del límite y actores dentro; inclusiones y generalizaciones circulares; falta de límite del sistema y nombres de casos de uso que no empiezan por un verbo en infinitivo (sugerencias).
+  - **DC:** herencia circular; métodos abstractos en clases no abstractas; clases abstractas sin subclases; interfaces sin implementar o implementadas sin declarar todos sus métodos; herencia múltiple de clases; miembros sin visibilidad; partes compuestas en varios todos; clases aisladas; convenciones de mayúsculas (sugerencias).
+  - **DA:** falta de nodo inicial o final; varios nodos iniciales; flujos que entran en el inicial o salen del final; nodos inalcanzables y callejones sin salida; decisiones sin guardas, con guardas repetidas o con una sola salida; guardas sin corchetes (sugerencia); actividades con varias entradas o salidas sin nodo de fusión o barra; bifurcaciones y uniones desparejadas.
+- **Código:** la función pura `reviewDiagram` y el panel `renderReviewPanel` en `index.html`. La prueba automática comprueba las reglas con los diagramas de [`diagramas-revision.json`](.github/pruebas/diagramas-revision.json).
+- **Posibles ampliaciones:** comprobar multiplicidades y nombres de asociaciones, y permitir que el profesorado active o desactive reglas concretas.
 
 ### 4. ✅ Exportar a SVG (hecho)
 - Nuevo botón en la barra superior, junto al de PNG. Reutiliza la preparación de la exportación a PNG (encuadre del contenido, sin selección ni pan/zoom, fondo según el modo claro u oscuro) y descarga el SVG sin rasterizar, nítido a cualquier tamaño en documentos, presentaciones y LaTeX.

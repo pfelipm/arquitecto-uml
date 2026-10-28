@@ -1,0 +1,770 @@
+{
+ "version": "8.0",
+ "folders": [
+  {
+   "id": "rev",
+   "name": "Pruebas de revisión",
+   "isOpen": true,
+   "diagrams": [
+    {
+     "id": "rev-dc",
+     "name": "Revisión DC (con errores)",
+     "type": "dc",
+     "createdAt": 0,
+     "nodes": [
+      {
+       "id": "A",
+       "type": "class",
+       "x": 40,
+       "y": 40,
+       "width": 160,
+       "height": 100,
+       "text": "Animal",
+       "zIndex": 2,
+       "attributes": [
+        "- nombre: String"
+       ],
+       "methods": [
+        "+ comer(): void"
+       ]
+      },
+      {
+       "id": "B",
+       "type": "class",
+       "x": 260,
+       "y": 40,
+       "width": 160,
+       "height": 100,
+       "text": "Mamifero",
+       "zIndex": 2,
+       "attributes": [
+        "- pelo: bool"
+       ],
+       "methods": [
+        "+ mamar(): void"
+       ]
+      },
+      {
+       "id": "C",
+       "type": "class",
+       "x": 480,
+       "y": 40,
+       "width": 160,
+       "height": 100,
+       "text": "Figura",
+       "zIndex": 2,
+       "attributes": [
+        "- x: int"
+       ],
+       "methods": [
+        "+ abstract area(): double"
+       ]
+      },
+      {
+       "id": "D",
+       "type": "class",
+       "x": 700,
+       "y": 40,
+       "width": 160,
+       "height": 100,
+       "text": "Vehiculo",
+       "zIndex": 2,
+       "isAbstract": true,
+       "attributes": [
+        "# ruedas: int"
+       ],
+       "methods": [
+        "+ mover(): void"
+       ]
+      },
+      {
+       "id": "I",
+       "type": "interface",
+       "x": 40,
+       "y": 220,
+       "width": 160,
+       "height": 100,
+       "text": "Pagable",
+       "zIndex": 2,
+       "methods": [
+        "+ pagar(): void",
+        "+ Cobrar(): void"
+       ]
+      },
+      {
+       "id": "E",
+       "type": "class",
+       "x": 260,
+       "y": 220,
+       "width": 160,
+       "height": 100,
+       "text": "Factura",
+       "zIndex": 2,
+       "attributes": [
+        "- total: double"
+       ],
+       "methods": [
+        "+ pagar(): void"
+       ]
+      },
+      {
+       "id": "F",
+       "type": "class",
+       "x": 480,
+       "y": 220,
+       "width": 160,
+       "height": 100,
+       "text": "Anfibio",
+       "zIndex": 2,
+       "attributes": [
+        "- piel: String"
+       ],
+       "methods": [
+        "+ nadar(): void"
+       ]
+      },
+      {
+       "id": "G",
+       "type": "class",
+       "x": 700,
+       "y": 220,
+       "width": 160,
+       "height": 100,
+       "text": "Acuatico",
+       "zIndex": 2,
+       "attributes": [
+        "nombre: String"
+       ],
+       "methods": [
+        "+ Bucear(): void"
+       ]
+      },
+      {
+       "id": "H",
+       "type": "class",
+       "x": 920,
+       "y": 220,
+       "width": 160,
+       "height": 100,
+       "text": "Terrestre",
+       "zIndex": 2,
+       "attributes": [
+        "- patas: int"
+       ],
+       "methods": [
+        "+ andar(): void"
+       ]
+      },
+      {
+       "id": "P",
+       "type": "class",
+       "x": 40,
+       "y": 400,
+       "width": 160,
+       "height": 100,
+       "text": "Motor",
+       "zIndex": 2,
+       "attributes": [
+        "- cv: int"
+       ],
+       "methods": [
+        "+ arrancar(): void"
+       ]
+      },
+      {
+       "id": "W1",
+       "type": "class",
+       "x": 260,
+       "y": 400,
+       "width": 160,
+       "height": 100,
+       "text": "Coche",
+       "zIndex": 2,
+       "attributes": [
+        "- matricula: String"
+       ],
+       "methods": [
+        "+ conducir(): void"
+       ]
+      },
+      {
+       "id": "W2",
+       "type": "class",
+       "x": 480,
+       "y": 400,
+       "width": 160,
+       "height": 100,
+       "text": "Barco",
+       "zIndex": 2,
+       "attributes": [
+        "- eslora: int"
+       ],
+       "methods": [
+        "+ navegar(): void"
+       ]
+      },
+      {
+       "id": "L",
+       "type": "class",
+       "x": 700,
+       "y": 400,
+       "width": 160,
+       "height": 100,
+       "text": "persona",
+       "zIndex": 2,
+       "attributes": [
+        "- dni: String"
+       ],
+       "methods": [
+        "+ hablar(): void"
+       ]
+      },
+      {
+       "id": "K1",
+       "type": "class",
+       "x": 920,
+       "y": 400,
+       "width": 160,
+       "height": 100,
+       "text": "Cliente",
+       "zIndex": 2,
+       "attributes": [
+        "- id: int"
+       ],
+       "methods": [
+        "+ comprar(): void"
+       ]
+      },
+      {
+       "id": "K2",
+       "type": "class",
+       "x": 1140,
+       "y": 400,
+       "width": 160,
+       "height": 100,
+       "text": "Cliente",
+       "zIndex": 2,
+       "attributes": [
+        "- id: int"
+       ],
+       "methods": [
+        "+ comprar(): void"
+       ]
+      },
+      {
+       "id": "Z",
+       "type": "class",
+       "x": 1140,
+       "y": 40,
+       "width": 160,
+       "height": 100,
+       "text": "Clase",
+       "zIndex": 2,
+       "attributes": [
+        "- a: int"
+       ],
+       "methods": [
+        "+ b(): void"
+       ]
+      }
+     ],
+     "edges": [
+      {
+       "id": "e1",
+       "source": "A",
+       "target": "B",
+       "type": "generalization",
+       "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "e2",
+       "source": "B",
+       "target": "A",
+       "type": "generalization",
+       "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "e3",
+       "source": "E",
+       "target": "I",
+       "type": "implementation",
+       "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "e4",
+       "source": "F",
+       "target": "G",
+       "type": "generalization",
+       "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "e5",
+       "source": "F",
+       "target": "H",
+       "type": "generalization",
+       "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "e6",
+       "source": "P",
+       "target": "W1",
+       "type": "composition",
+       "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "e7",
+       "source": "P",
+       "target": "W2",
+       "type": "composition",
+       "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "e8",
+       "source": "K1",
+       "target": "K2",
+       "type": "association",
+       "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "e9",
+       "source": "Z",
+       "target": "C",
+       "type": "dependency",
+       "pathType": "straight",
+       "label": ""
+      }
+     ]
+    },
+    {
+     "id": "rev-dcu",
+     "name": "Revisión DCU (con errores)",
+     "type": "dcu",
+     "createdAt": 0,
+     "nodes": [
+      {
+       "id": "S",
+       "type": "boundary",
+       "x": 200,
+       "y": 20,
+       "width": 400,
+       "height": 420,
+       "text": "Tienda",
+       "zIndex": 0
+      },
+      {
+       "id": "a1",
+       "type": "actor",
+       "x": 40,
+       "y": 100,
+       "width": 40,
+       "height": 80,
+       "text": "Cliente",
+       "zIndex": 2
+      },
+      {
+       "id": "a2",
+       "type": "actor",
+       "x": 400,
+       "y": 300,
+       "width": 40,
+       "height": 80,
+       "text": "Intruso",
+       "zIndex": 2
+      },
+      {
+       "id": "a3",
+       "type": "actor",
+       "x": 40,
+       "y": 300,
+       "width": 40,
+       "height": 80,
+       "text": "Admin",
+       "zIndex": 2
+      },
+      {
+       "id": "u1",
+       "type": "usecase",
+       "x": 260,
+       "y": 60,
+       "width": 140,
+       "height": 60,
+       "text": "Pagar pedido",
+       "zIndex": 2
+      },
+      {
+       "id": "u2",
+       "type": "usecase",
+       "x": 260,
+       "y": 160,
+       "width": 140,
+       "height": 60,
+       "text": "Pago con tarjeta",
+       "zIndex": 2
+      },
+      {
+       "id": "u3",
+       "type": "usecase",
+       "x": 430,
+       "y": 60,
+       "width": 140,
+       "height": 60,
+       "text": "Validar datos",
+       "zIndex": 2
+      },
+      {
+       "id": "u4",
+       "type": "usecase",
+       "x": 700,
+       "y": 200,
+       "width": 140,
+       "height": 60,
+       "text": "Consultar catalogo",
+       "zIndex": 2
+      }
+     ],
+     "edges": [
+      {
+       "id": "f1",
+       "source": "a1",
+       "target": "u1",
+       "type": "association",
+       "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "f2",
+       "source": "a1",
+       "target": "u4",
+       "type": "association",
+       "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "f3",
+       "source": "u2",
+       "target": "u3",
+       "type": "include",
+       "pathType": "straight",
+       "label": "<<include>>"
+      },
+      {
+       "id": "f4",
+       "source": "u3",
+       "target": "u2",
+       "type": "include",
+       "pathType": "straight",
+       "label": "<<include>>"
+      }
+     ]
+    },
+    {
+     "id": "rev-da",
+     "name": "Revisión DA (con errores)",
+     "type": "da",
+     "createdAt": 0,
+     "nodes": [
+      {
+       "id": "x1",
+       "type": "activity",
+       "x": 40,
+       "y": 40,
+       "width": 140,
+       "height": 50,
+       "text": "Recibir pedido",
+       "zIndex": 2
+      },
+      {
+       "id": "x2",
+       "type": "activity",
+       "x": 40,
+       "y": 160,
+       "width": 140,
+       "height": 50,
+       "text": "Preparar envio",
+       "zIndex": 2
+      },
+      {
+       "id": "d1",
+       "type": "decision",
+       "x": 300,
+       "y": 40,
+       "width": 40,
+       "height": 40,
+       "text": "",
+       "zIndex": 2
+      },
+      {
+       "id": "x3",
+       "type": "activity",
+       "x": 300,
+       "y": 160,
+       "width": 140,
+       "height": 50,
+       "text": "Enviar",
+       "zIndex": 2
+      },
+      {
+       "id": "f1n",
+       "type": "end",
+       "x": 300,
+       "y": 300,
+       "width": 30,
+       "height": 30,
+       "text": "",
+       "zIndex": 2
+      },
+      {
+       "id": "k",
+       "type": "fork",
+       "x": 500,
+       "y": 40,
+       "width": 10,
+       "height": 60,
+       "text": "",
+       "zIndex": 2
+      },
+      {
+       "id": "x4",
+       "type": "activity",
+       "x": 600,
+       "y": 20,
+       "width": 140,
+       "height": 50,
+       "text": "Facturar",
+       "zIndex": 2
+      },
+      {
+       "id": "x5",
+       "type": "activity",
+       "x": 600,
+       "y": 100,
+       "width": 140,
+       "height": 50,
+       "text": "Avisar",
+       "zIndex": 2
+      }
+     ],
+     "edges": [
+      {
+       "id": "g1",
+       "source": "x1",
+       "target": "d1",
+       "type": "control",
+       "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "g2",
+       "source": "d1",
+       "target": "x2",
+       "type": "control",
+       "pathType": "straight",
+       "label": "[sí]"
+      },
+      {
+       "id": "g3",
+       "source": "d1",
+       "target": "x3",
+       "type": "control",
+       "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "g4",
+       "source": "x2",
+       "target": "x3",
+       "type": "control",
+       "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "g5",
+       "source": "x3",
+       "target": "f1n",
+       "type": "control",
+       "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "g6",
+       "source": "f1n",
+       "target": "x1",
+       "type": "control",
+       "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "g7",
+       "source": "x1",
+       "target": "k",
+       "type": "control",
+       "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "g8",
+       "source": "k",
+       "target": "x4",
+       "type": "control",
+       "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "g9",
+       "source": "k",
+       "target": "x5",
+       "type": "control",
+       "pathType": "straight",
+       "label": ""
+      }
+     ]
+    },
+    {
+     "id": "rev-ok",
+     "name": "Revisión DA (correcto)",
+     "type": "da",
+     "createdAt": 0,
+     "nodes": [
+      {
+       "id": "s",
+       "type": "start",
+       "x": 100,
+       "y": 20,
+       "width": 30,
+       "height": 30,
+       "text": "",
+       "zIndex": 2
+      },
+      {
+       "id": "o1",
+       "type": "activity",
+       "x": 60,
+       "y": 100,
+       "width": 140,
+       "height": 50,
+       "text": "Pedir cita",
+       "zIndex": 2
+      },
+      {
+       "id": "o2",
+       "type": "decision",
+       "x": 110,
+       "y": 200,
+       "width": 40,
+       "height": 40,
+       "text": "",
+       "zIndex": 2
+      },
+      {
+       "id": "o3",
+       "type": "activity",
+       "x": 0,
+       "y": 300,
+       "width": 140,
+       "height": 50,
+       "text": "Confirmar cita",
+       "zIndex": 2
+      },
+      {
+       "id": "o4",
+       "type": "activity",
+       "x": 200,
+       "y": 300,
+       "width": 140,
+       "height": 50,
+       "text": "Buscar otra fecha",
+       "zIndex": 2
+      },
+      {
+       "id": "m",
+       "type": "decision",
+       "x": 110,
+       "y": 400,
+       "width": 40,
+       "height": 40,
+       "text": "",
+       "zIndex": 2
+      },
+      {
+       "id": "z",
+       "type": "end",
+       "x": 115,
+       "y": 500,
+       "width": 30,
+       "height": 30,
+       "text": "",
+       "zIndex": 2
+      }
+     ],
+     "edges": [
+      {
+       "id": "h1",
+       "source": "s",
+       "target": "o1",
+       "type": "control",
+       "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "h2",
+       "source": "o1",
+       "target": "o2",
+       "type": "control",
+       "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "h3",
+       "source": "o2",
+       "target": "o3",
+       "type": "control",
+       "pathType": "straight",
+       "label": "[hay hueco]"
+      },
+      {
+       "id": "h4",
+       "source": "o2",
+       "target": "o4",
+       "type": "control",
+       "pathType": "straight",
+       "label": "[no hay hueco]"
+      },
+      {
+       "id": "h5",
+       "source": "o3",
+       "target": "m",
+       "type": "control",
+       "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "h6",
+       "source": "o4",
+       "target": "m",
+       "type": "control",
+       "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "h7",
+       "source": "m",
+       "target": "z",
+       "type": "control",
+       "pathType": "straight",
+       "label": ""
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "darkMode": false
+}

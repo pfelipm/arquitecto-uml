@@ -24,6 +24,7 @@ Puedes utilizar el editor sin limitaciones y directamente en tu navegador accedi
     *   **DA:** Diagramas de Actividad (Inicio, Fin, Actividades, Decisiones, Carriles).
         
         ![Ejemplo DA](readme-archivos/DA.png)
+*   **Revisar diagrama:** El botón **Revisar** (o **F7**) abre un panel que analiza el diagrama abierto y señala errores UML habituales, con fines didácticos: casos de uso sin actor o fuera del límite del sistema, herencias circulares, clases con métodos abstractos que no están marcadas como abstractas, interfaces sin implementar, diagramas de actividad sin nodo inicial, decisiones sin guardas, nodos inalcanzables, etc. Los problemas se clasifican en errores, avisos y sugerencias de estilo (que se pueden ocultar); al pulsar uno, se seleccionan en el lienzo los elementos afectados. La revisión se actualiza mientras editas y nunca modifica el diagrama.
 *   **Gestión de Proyectos:** Organización mediante carpetas y múltiples diagramas.
 *   **Persistencia Local:** Guardado automático en el navegador (`localStorage`); al volver, se reabre el último diagrama abierto. En la versión insertada en Google Sites el navegador no conserva los datos entre visitas, así que la aplicación lo avisa y recuerda exportar una copia JSON antes de salir.
 *   **Compartir por enlace:** El botón **Compartir** genera un enlace que contiene el diagrama abierto (comprimido y sin pasar por ningún servidor). Quien lo recibe lo pega en **Abrir diagrama compartido** y obtiene una copia en la carpeta «Diagramas compartidos», sin que se modifiquen sus otros diagramas. Si la aplicación se abre directamente (no insertada en Google Sites), basta con abrir el enlace.
@@ -50,6 +51,7 @@ En macOS, usa ⌘ en lugar de Ctrl.
 | **Rueda** / **Mayús+rueda** | Desplazar el lienzo (en vertical / en horizontal) |
 | **Ctrl+rueda** | Zoom hacia el cursor |
 | **Ctrl+0** | Zoom al 100 % |
+| **F7** | Mostrar u ocultar el panel de revisión del diagrama |
 | **Botón central** · **Alt+arrastrar** | Mover el lienzo (en algunos escritorios Linux, Alt+arrastrar mueve la ventana) |
 | **?** | Mostrar u ocultar la ayuda de atajos |
 

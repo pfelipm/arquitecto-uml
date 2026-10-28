@@ -1,8 +1,9 @@
 // Prueba de carga de Arquitecto Simple UML.
 // Sirve index.html en un servidor local, lo abre en Chromium sin interfaz y
 // comprueba que la aplicación arranca: que aparecen la barra superior y la
-// pantalla de bienvenida, que se puede crear un diagrama y que no hay errores
-// en la consola ni recursos de CDN que fallen.
+// pantalla de bienvenida, que se puede crear un diagrama, que «Revisar diagrama»
+// detecta los errores de diagramas-revision.json y que no hay errores en la
+// consola ni recursos de CDN que fallen.
 // Uso: node .github/pruebas/prueba-carga.mjs (desde la raíz del repositorio).
 
 import { createServer } from 'node:http';
@@ -60,6 +61,30 @@ try {
     await pagina.getByRole('button', { name: /Clases/ }).click();
     await pagina.getByText('Bienvenido a Arquitecto Simple UML').waitFor({ state: 'detached', timeout: 10_000 });
     console.log('✓ Diagrama creado');
+
+    // 4. «Revisar diagrama» detecta los errores de los diagramas de prueba y no protesta ante uno correcto.
+    const datos = JSON.parse(await readFile(join(RAIZ, '.github/pruebas/diagramas-revision.json'), 'utf8'));
+    await pagina.evaluate(d => localStorage.setItem('arquitecto_data', JSON.stringify({ folders: d.folders, darkMode: false, activeDiagramId: null })), datos);
+    await pagina.reload({ waitUntil: 'load' });
+    await pagina.getByText('Pruebas de revisión').waitFor({ timeout: TIEMPO_MAX });
+    const esperado = {
+        'Revisión DC (con errores)': ['Herencia circular', 'no está marcada como abstracta', 'no declara: Cobrar', 'hereda de varias clases', 'parte, por composición, de varios todos'],
+        'Revisión DCU (con errores)': ['Inclusión circular', 'dentro del límite del sistema', 'no está asociado a ningún actor', 'está fuera del límite'],
+        'Revisión DA (con errores)': ['Falta el nodo inicial', 'De un nodo final no puede salir', 'sin condición de guarda', 'llegan 2 flujos', '1 bifurcación y 0 uniones'],
+        'Revisión DA (correcto)': ['No se han encontrado problemas'],
+    };
+    let panelAbierto = false;
+    for (const [diagrama, mensajes] of Object.entries(esperado)) {
+        await pagina.getByText(diagrama, { exact: true }).click();
+        if (!panelAbierto) { await pagina.keyboard.press('F7'); panelAbierto = true; }
+        const panel = pagina.locator('aside[aria-label="Revisión del diagrama"]');
+        await panel.waitFor({ timeout: 10_000 });
+        await pagina.waitForTimeout(300);
+        const texto = await panel.innerText();
+        const faltan = mensajes.filter(m => !texto.includes(m));
+        if (faltan.length) errores.push(`Revisión de «${diagrama}»: no aparece ${faltan.map(m => `«${m}»`).join(', ')}`);
+    }
+    console.log('✓ Revisión del diagrama comprobada');
 
     // Margen para errores asíncronos tardíos.
     await pagina.waitForTimeout(1000);

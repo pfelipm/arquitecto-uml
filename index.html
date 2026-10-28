@@ -64,14 +64,15 @@
           Maximize2, Copy, User, Edit2, ArrowDownAZ,
           AlertTriangle, X, Link2, ArrowLeftRight, Italic,
           FolderPlus, FilePlus, Layout, Upload, Image as ImageIcon,
-          Info, Github, Linkedin, Keyboard, PenTool
+          Info, Github, Linkedin, Keyboard, PenTool,
+          ListChecks, XCircle, Lightbulb, CheckCircle2
         } from 'lucide-react';
 
         // --- CÓDIGO ORIGINAL DE LA APP (Sin modificaciones lógicas) ---
 
         /**
          * ARQUITECTO SIMPLE UML - SUITE DE MODELADO
-         * Versión 7.8 "Compartir"
+         * Versión 8.0 "Revisión"
          */
 
         // --- TIPOS Y CONSTANTES ---
@@ -295,6 +296,7 @@
                 ['Mayús+rueda', 'Desplazar el lienzo en horizontal'],
                 [`${MOD_KEY}+rueda`, 'Zoom hacia el cursor'],
                 [`${MOD_KEY}+0`, 'Zoom al 100 %'],
+                ['F7', 'Revisar el diagrama (mostrar u ocultar el panel de revisión)'],
                 ['Botón central  ·  Alt+arrastrar', 'Mover el lienzo (en algunos escritorios Linux, Alt+arrastrar mueve la ventana: usa el botón central)'],
                 ['?', 'Mostrar u ocultar esta ayuda'],
             ]},
@@ -447,6 +449,285 @@
                 rest = rest.slice(m[0].length);
             }
             return { text: visibility + rest, isStatic, isAbstract };
+        };
+
+        // --- REVISAR DIAGRAMA (comprobaciones UML con fines didácticos) ---
+        // Función pura: recibe un diagrama y devuelve la lista de problemas encontrados, sin modificar nada.
+        // Cada problema: { id, severity: 'error' | 'warning' | 'suggestion', message, nodeIds, edgeIds }.
+        // Convención del editor: las flechas y rombos se dibujan en el destino, así que una generalización va
+        // de la hija a la madre, una composición de la parte al todo y una inclusión del caso base al incluido.
+        const DEFAULT_NODE_TEXTS = { actor: 'Actor', usecase: 'Elemento', activity: 'Elemento', class: 'Clase', interface: 'Interfaz', boundary: 'Sistema', swimlane: 'Carril' };
+        const NAMED_NODE_TYPES = Object.keys(DEFAULT_NODE_TEXTS);
+        const SEVERITY_ORDER = { error: 0, warning: 1, suggestion: 2 };
+
+        const describeNode = (n) => {
+            const name = (n.text || '').trim();
+            const q = name ? ` «${name}»` : ' sin nombre';
+            switch (n.type) {
+                case 'actor': return `El actor${q}`;
+                case 'usecase': return `El caso de uso${q}`;
+                case 'boundary': return `El límite del sistema${q}`;
+                case 'class': return `La clase${q}`;
+                case 'interface': return `La interfaz${q}`;
+                case 'activity': return `La actividad${q}`;
+                case 'swimlane': return `El carril${q}`;
+                case 'start': return 'El nodo inicial';
+                case 'end': return 'Un nodo final';
+                case 'decision': return name ? `La decisión «${name}»` : 'Una decisión';
+                case 'fork': case 'join': return 'Una barra de bifurcación o unión';
+                default: return `El elemento${q}`;
+            }
+        };
+        // Igual que describeNode, pero en minúscula para usarlo en mitad de una frase
+        const nodeRef = (n) => { const d = describeNode(n); return d.charAt(0).toLowerCase() + d.slice(1); };
+
+        // Nombre de un atributo («nombre: tipo») o método («nombre(params): tipo») sin visibilidad ni modificadores
+        const memberName = (line) => {
+            const text = parseMember(line).text.replace(/^[+\-#~]\s*/, '');
+            return text.split(/[(:\s]/)[0].trim();
+        };
+        const isMethodLine = (line) => (line || '').includes('(');
+
+        const centerInside = (n, box) => {
+            const cx = n.x + n.width / 2, cy = n.y + n.height / 2;
+            return cx >= box.x && cx <= box.x + box.width && cy >= box.y && cy <= box.y + box.height;
+        };
+
+        // Busca ciclos dirigidos en las relaciones indicadas; devuelve cada ciclo como lista de ids de nodo
+        const findCycles = (nodeIds, edgeList) => {
+            const adj = new Map(nodeIds.map(id => [id, []]));
+            edgeList.forEach(e => { if (adj.has(e.source) && adj.has(e.target) && e.source !== e.target) adj.get(e.source).push(e.target); });
+            const state = new Map(), cycles = [], seen = new Set();
+            const stack = [];
+            const visit = (id) => {
+                state.set(id, 1); stack.push(id);
+                for (const next of adj.get(id)) {
+                    if (state.get(next) === 1) {
+                        const cycle = stack.slice(stack.indexOf(next));
+                        const key = [...cycle].sort().join('|');
+                        if (!seen.has(key)) { seen.add(key); cycles.push(cycle); }
+                    } else if (!state.get(next)) visit(next);
+                }
+                stack.pop(); state.set(id, 2);
+            };
+            nodeIds.forEach(id => { if (!state.get(id)) visit(id); });
+            return cycles;
+        };
+
+        // Nodos alcanzables desde los de inicio siguiendo las relaciones (en sentido directo o inverso)
+        const reachableFrom = (startIds, edgeList, reverse = false) => {
+            const seen = new Set(startIds), queue = [...startIds];
+            while (queue.length) {
+                const id = queue.shift();
+                edgeList.forEach(e => {
+                    const [from, to] = reverse ? [e.target, e.source] : [e.source, e.target];
+                    if (from === id && !seen.has(to)) { seen.add(to); queue.push(to); }
+                });
+            }
+            return seen;
+        };
+
+        // Componentes conexas (sin tener en cuenta el sentido) de un subconjunto de nodos
+        const connectedGroups = (nodeIds, edgeList) => {
+            const groupOf = new Map();
+            nodeIds.forEach(id => {
+                if (groupOf.has(id)) return;
+                const group = reachableFrom([id], edgeList.flatMap(e => [e, { source: e.target, target: e.source }]));
+                group.forEach(m => groupOf.set(m, group));
+            });
+            return groupOf;
+        };
+
+        const reviewDiagram = (diagram) => {
+            const issues = [];
+            const nodes = diagram?.nodes || [];
+            const byId = new Map(nodes.map(n => [n.id, n]));
+            // Se ignoran las relaciones que apuntan a elementos inexistentes
+            const edges = (diagram?.edges || []).filter(e => byId.has(e.source) && byId.has(e.target));
+            const add = (severity, key, message, nodeIds = [], edgeIds = []) => issues.push({ id: `${key}|${nodeIds.join(',')}|${edgeIds.join(',')}`, severity, message, nodeIds, edgeIds });
+            const ofType = (...types) => nodes.filter(n => types.includes(n.type));
+            const edgesOfType = (...types) => edges.filter(e => types.includes(e.type));
+            const incoming = (id, list = edges) => list.filter(e => e.target === id);
+            const outgoing = (id, list = edges) => list.filter(e => e.source === id);
+            const touching = (id, list = edges) => list.filter(e => e.source === id || e.target === id);
+
+            // --- Comunes: nombres vacíos, por defecto o repetidos ---
+            nodes.filter(n => NAMED_NODE_TYPES.includes(n.type)).forEach(n => {
+                const name = (n.text || '').trim();
+                if (!name) add('warning', 'sin-nombre', `${describeNode(n)}: falta el nombre.`, [n.id]);
+                else if (name === DEFAULT_NODE_TEXTS[n.type]) add('warning', 'nombre-defecto', `${describeNode(n)} conserva el nombre por defecto; ponle un nombre significativo.`, [n.id]);
+            });
+            if (diagram?.type !== 'da') {
+                const groups = new Map();
+                nodes.filter(n => NAMED_NODE_TYPES.includes(n.type) && (n.text || '').trim() && (n.text || '').trim() !== DEFAULT_NODE_TEXTS[n.type]).forEach(n => {
+                    const key = `${n.type === 'interface' ? 'class' : n.type}|${n.text.trim().toLowerCase()}`;
+                    groups.set(key, [...(groups.get(key) || []), n]);
+                });
+                groups.forEach(list => {
+                    if (list.length < 2) return;
+                    add('warning', 'nombre-repetido', `Hay ${list.length} elementos llamados «${list[0].text.trim()}»: si son el mismo, usa uno solo; si son distintos, cambia el nombre.`, list.map(n => n.id));
+                });
+            }
+
+            // --- Casos de uso ---
+            if (diagram?.type === 'dcu') {
+                const actors = ofType('actor'), useCases = ofType('usecase'), boundaries = ofType('boundary');
+                const associations = edgesOfType('association');
+                const ucLinks = edges.filter(e => byId.get(e.source).type === 'usecase' && byId.get(e.target).type === 'usecase');
+                const actorLinks = edgesOfType('generalization').filter(e => byId.get(e.source).type === 'actor' && byId.get(e.target).type === 'actor');
+
+                // Un caso de uso está cubierto si él, o alguno relacionado por inclusión, extensión o generalización, tiene actor
+                const ucGroups = connectedGroups(useCases.map(n => n.id), ucLinks);
+                const withActor = new Set(useCases.filter(uc => associations.some(e => (e.source === uc.id || e.target === uc.id))).map(n => n.id));
+                useCases.forEach(uc => {
+                    if (![...ucGroups.get(uc.id)].some(id => withActor.has(id))) add('warning', 'cu-sin-actor', `${describeNode(uc)} no está asociado a ningún actor (ni directamente ni a través de otro caso de uso).`, [uc.id]);
+                });
+
+                // Un actor hereda los casos de uso de sus antecesores (y se acepta también que los tengan sus descendientes)
+                const actorGroups = connectedGroups(actors.map(n => n.id), actorLinks);
+                const actorsWithUC = new Set(actors.filter(a => associations.some(e => e.source === a.id || e.target === a.id)).map(n => n.id));
+                actors.forEach(a => {
+                    if (![...actorGroups.get(a.id)].some(id => actorsWithUC.has(id))) add('warning', 'actor-sin-cu', `${describeNode(a)} no participa en ningún caso de uso.`, [a.id]);
+                });
+
+                if (boundaries.length > 0) {
+                    useCases.forEach(uc => { if (!boundaries.some(b => centerInside(uc, b))) add('warning', 'cu-fuera', `${describeNode(uc)} está fuera del límite del sistema.`, [uc.id]); });
+                    actors.forEach(a => { if (boundaries.some(b => centerInside(a, b))) add('error', 'actor-dentro', `${describeNode(a)} está dentro del límite del sistema, pero los actores son externos al sistema.`, [a.id]); });
+                } else if (useCases.length > 0) {
+                    add('suggestion', 'sin-limite', 'Añade un límite del sistema que agrupe los casos de uso.');
+                }
+
+                findCycles(useCases.map(n => n.id), edgesOfType('include')).forEach(c =>
+                    add('error', 'ciclo-include', `Inclusión circular entre ${c.map(id => `«${byId.get(id).text}»`).join(', ')}: un caso de uso no puede incluirse a sí mismo, ni directa ni indirectamente.`, c));
+                findCycles(nodes.map(n => n.id), edgesOfType('generalization')).forEach(c =>
+                    add('error', 'ciclo-gen', `Generalización circular entre ${c.map(id => `«${byId.get(id).text}»`).join(', ')}.`, c));
+
+                // Los casos de uso se nombran con un verbo en infinitivo («Pagar pedido», «Registrarse»)
+                useCases.forEach(uc => {
+                    const first = (uc.text || '').trim().split(/\s+/)[0].toLowerCase();
+                    if (!first || uc.text.trim() === DEFAULT_NODE_TEXTS.usecase) return;
+                    if (!/(ar|er|ir|ír)(se|lo|la|los|las|le|les|me|te|nos)?$/.test(first)) add('suggestion', 'cu-verbo', `${describeNode(uc)} debería empezar por un verbo en infinitivo (por ejemplo, «Pagar pedido»).`, [uc.id]);
+                });
+            }
+
+            // --- Clases ---
+            if (diagram?.type === 'dc') {
+                const classes = ofType('class'), interfaces = ofType('interface'), types = [...classes, ...interfaces];
+                const generalizations = edgesOfType('generalization'), implementations = edgesOfType('implementation');
+
+                findCycles(types.map(n => n.id), generalizations).forEach(c =>
+                    add('error', 'herencia-circular', `Herencia circular entre ${c.map(id => `«${byId.get(id).text}»`).join(', ')}: una clase no puede heredar de sí misma, ni directa ni indirectamente.`, c));
+
+                // Antecesores por generalización (para heredar métodos)
+                const ancestors = (id) => [...reachableFrom([id], generalizations)].filter(a => a !== id).map(a => byId.get(a));
+
+                classes.forEach(c => {
+                    const members = [...(c.attributes || []), ...(c.methods || [])].filter(l => (l || '').trim());
+
+                    if (!c.isAbstract) {
+                        const abstractMethods = (c.methods || []).filter(m => (m || '').trim() && parseMember(m).isAbstract);
+                        if (abstractMethods.length) add('error', 'metodo-abstracto', `${describeNode(c)} tiene métodos abstractos (${abstractMethods.map(memberName).join(', ')}) pero no está marcada como abstracta.`, [c.id]);
+                    } else if (!generalizations.some(e => e.target === c.id)) {
+                        add('warning', 'abstracta-sin-hijas', `${describeNode(c)} es abstracta pero no tiene subclases, así que no se podrá usar.`, [c.id]);
+                    }
+
+                    const parents = outgoing(c.id, generalizations).filter(e => byId.get(e.target).type === 'class');
+                    if (parents.length > 1) add('warning', 'herencia-multiple', `${describeNode(c)} hereda de varias clases (${parents.map(e => `«${byId.get(e.target).text}»`).join(', ')}); muchos lenguajes, como Java o C#, no lo permiten.`, [c.id], parents.map(e => e.id));
+
+                    const noVisibility = members.filter(l => !parseMember(l).text.trim().match(/^[+\-#~]/));
+                    if (noVisibility.length) add('warning', 'sin-visibilidad', `${describeNode(c)} tiene miembros sin visibilidad (+, -, #, ~): ${noVisibility.map(memberName).join(', ')}.`, [c.id]);
+
+                    const capitalized = members.filter(l => /^\p{Lu}/u.test(memberName(l)));
+                    if (capitalized.length) add('suggestion', 'miembro-mayuscula', `${describeNode(c)}: los nombres de atributos y métodos suelen empezar por minúscula (${capitalized.map(memberName).join(', ')}).`, [c.id]);
+
+                    // Una clase concreta debe declarar (o heredar) los métodos de las interfaces que implementa
+                    if (!c.isAbstract) {
+                        const lineage = [c, ...ancestors(c.id)];
+                        const own = new Set(lineage.flatMap(n => (n.methods || []).filter(isMethodLine).map(memberName)));
+                        const ifaceIds = new Set(lineage.flatMap(n => outgoing(n.id, implementations).map(e => e.target)));
+                        const ifaces = [...ifaceIds].flatMap(id => [byId.get(id), ...ancestors(id)]);
+                        const missing = [...new Set(ifaces.flatMap(i => (i.methods || []).filter(isMethodLine).map(memberName)))].filter(m => m && !own.has(m));
+                        if (missing.length) add('warning', 'interfaz-incompleta', `${describeNode(c)} implementa ${ifaceIds.size > 1 ? 'interfaces' : `la interfaz «${byId.get([...ifaceIds][0]).text}»`} pero no declara: ${missing.join(', ')}.`, [c.id]);
+                    }
+                });
+
+                interfaces.forEach(i => {
+                    if (!implementations.some(e => e.target === i.id) && !generalizations.some(e => e.target === i.id)) add('warning', 'interfaz-sin-uso', `${describeNode(i)} no la implementa ninguna clase.`, [i.id]);
+                    const capitalized = (i.methods || []).filter(l => (l || '').trim() && /^\p{Lu}/u.test(memberName(l)));
+                    if (capitalized.length) add('suggestion', 'miembro-mayuscula', `${describeNode(i)}: los nombres de los métodos suelen empezar por minúscula (${capitalized.map(memberName).join(', ')}).`, [i.id]);
+                });
+
+                types.forEach(t => {
+                    const name = (t.text || '').trim();
+                    if (name && /^\p{Ll}/u.test(name)) add('suggestion', 'tipo-minuscula', `${describeNode(t)}: los nombres de clases e interfaces suelen empezar por mayúscula.`, [t.id]);
+                });
+
+                // En una composición, cada parte pertenece a un único todo
+                classes.forEach(c => {
+                    const wholes = outgoing(c.id, edgesOfType('composition'));
+                    if (wholes.length > 1) add('warning', 'composicion-doble', `${describeNode(c)} es parte, por composición, de varios todos (${wholes.map(e => `«${byId.get(e.target).text}»`).join(', ')}); una parte compuesta solo puede pertenecer a uno. ¿Quizá es una agregación?`, [c.id], wholes.map(e => e.id));
+                });
+
+                if (types.length > 1) types.forEach(t => {
+                    if (touching(t.id).length === 0) add('warning', 'aislada', `${describeNode(t)} no tiene ninguna relación con el resto del diagrama.`, [t.id]);
+                });
+            }
+
+            // --- Actividades ---
+            if (diagram?.type === 'da') {
+                const flows = edgesOfType('control');
+                const starts = ofType('start'), ends = ofType('end');
+                const flowNodes = nodes.filter(n => n.type !== 'swimlane');
+
+                if (flowNodes.length > 0 && starts.length === 0) add('error', 'sin-inicio', 'Falta el nodo inicial: todo diagrama de actividad empieza en uno.');
+                if (starts.length > 1) add('warning', 'varios-inicios', `Hay ${starts.length} nodos iniciales; lo habitual es que la actividad empiece en uno solo.`, starts.map(n => n.id));
+                if (flowNodes.length > 0 && ends.length === 0) add('warning', 'sin-fin', 'Falta un nodo final que indique dónde termina la actividad.');
+                starts.forEach(s => { const inc = incoming(s.id, flows); if (inc.length) add('error', 'inicio-entrada', 'Al nodo inicial no puede llegar ningún flujo.', [s.id], inc.map(e => e.id)); });
+                ends.forEach(f => { const out = outgoing(f.id, flows); if (out.length) add('error', 'fin-salida', 'De un nodo final no puede salir ningún flujo.', [f.id], out.map(e => e.id)); });
+
+                const unreachable = new Set();
+                if (starts.length) {
+                    const reached = reachableFrom(starts.map(n => n.id), flows);
+                    flowNodes.filter(n => !reached.has(n.id)).forEach(n => { unreachable.add(n.id); add('warning', 'inalcanzable', `No se puede llegar a ${nodeRef(n)} desde el nodo inicial.`, [n.id]); });
+                }
+                if (ends.length) {
+                    const canFinish = reachableFrom(ends.map(n => n.id), flows, true);
+                    flowNodes.filter(n => n.type !== 'end' && !canFinish.has(n.id) && !unreachable.has(n.id)).forEach(n => add('warning', 'sin-salida', `Desde ${nodeRef(n)} no se puede llegar a ningún nodo final.`, [n.id]));
+                }
+
+                ofType('decision').forEach(d => {
+                    const out = outgoing(d.id, flows), inc = incoming(d.id, flows);
+                    if (out.length >= 2) {
+                        const unguarded = out.filter(e => !(e.label || '').trim());
+                        if (unguarded.length) add('error', 'sin-guarda', `Una decisión tiene ${unguarded.length === 1 ? 'una salida' : `${unguarded.length} salidas`} sin condición de guarda (por ejemplo, [sí] / [no]).`, [d.id], unguarded.map(e => e.id));
+                        const labels = out.map(e => (e.label || '').trim().toLowerCase()).filter(Boolean);
+                        const repeated = out.filter(e => (e.label || '').trim() && labels.filter(l => l === e.label.trim().toLowerCase()).length > 1);
+                        if (repeated.length) add('error', 'guarda-repetida', `Una decisión tiene varias salidas con la misma guarda («${repeated[0].label.trim()}»); deben ser excluyentes.`, [d.id], repeated.map(e => e.id));
+                        const noBrackets = out.filter(e => (e.label || '').trim() && !/^\[.*\]$/.test(e.label.trim()));
+                        if (noBrackets.length) add('suggestion', 'guarda-corchetes', 'En UML las guardas se escriben entre corchetes, por ejemplo [sí].', [d.id], noBrackets.map(e => e.id));
+                    } else if (out.length === 1 && inc.length <= 1) {
+                        add('warning', 'decision-una-salida', 'Una decisión tiene una sola salida: o le falta una alternativa o sobra el rombo.', [d.id]);
+                    }
+                });
+
+                ofType('activity').forEach(a => {
+                    const inc = incoming(a.id, flows), out = outgoing(a.id, flows);
+                    if (inc.length > 1) add('warning', 'union-implicita', `A ${nodeRef(a)} llegan ${inc.length} flujos; en UML eso significa esperar a todos. Si es una alternativa, únelos antes con un nodo de fusión (rombo); si es concurrencia, con una barra de unión.`, [a.id], inc.map(e => e.id));
+                    if (out.length > 1) add('warning', 'bifurcacion-implicita', `De ${nodeRef(a)} salen ${out.length} flujos; usa una decisión (rombo) si es una alternativa o una barra de bifurcación si es concurrencia.`, [a.id], out.map(e => e.id));
+                });
+
+                const bars = ofType('fork', 'join');
+                let forks = 0, joins = 0;
+                bars.forEach(b => {
+                    const inc = incoming(b.id, flows).length, out = outgoing(b.id, flows).length;
+                    if (inc <= 1 && out > 1) forks++;
+                    else if (inc > 1 && out <= 1) joins++;
+                    else if (inc === 1 && out === 1) add('warning', 'barra-inutil', 'Una barra tiene una sola entrada y una sola salida, así que no bifurca ni une nada.', [b.id]);
+                });
+                if (forks !== joins) add('warning', 'barras-desparejadas', `Hay ${forks} ${forks === 1 ? 'bifurcación' : 'bifurcaciones'} y ${joins} ${joins === 1 ? 'unión' : 'uniones'}: normalmente cada bifurcación se cierra con una barra de unión.`, bars.map(n => n.id));
+            }
+
+            return issues.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
         };
 
         const getEdgeLabel = (type) => {
@@ -602,7 +883,7 @@
                             </div>
                             <div>
                                 <h2 className="text-xl font-bold">Arquitecto Simple UML</h2>
-                                <p className="text-xs opacity-60 font-mono">Versión 7.8 "Compartir"</p>
+                                <p className="text-xs opacity-60 font-mono">Versión 8.0 "Revisión"</p>
                                 <p className="text-[10px] opacity-50 mt-1">Actualizado: 28 de octubre de 2026</p>
                             </div>
                         </div>
@@ -725,6 +1006,10 @@
 
           const [showInfoModal, setShowInfoModal] = useState(false);
           const [showShortcuts, setShowShortcuts] = useState(false);
+          // Panel «Revisar diagrama»
+          const [showReview, setShowReview] = useState(false);
+          const [showSuggestions, setShowSuggestions] = useState(true);
+          const [activeIssueId, setActiveIssueId] = useState(null);
 
           // Compartir: shareLink es undefined (modal cerrado), null (generando) o el enlace
           const [shareLink, setShareLink] = useState(undefined);
@@ -809,6 +1094,10 @@
 
           const activeDiagram = useMemo(() => folders.flatMap(f => f.diagrams).find(d => d.id === activeDiagramId) || null, [folders, activeDiagramId]);
 
+          // La revisión solo se calcula con el panel abierto y se actualiza sola al editar
+          const reviewIssues = useMemo(() => (showReview && activeDiagram) ? reviewDiagram({ type: activeDiagram.type, nodes, edges }) : [], [showReview, activeDiagram?.type, nodes, edges]);
+          useEffect(() => { setActiveIssueId(null); }, [activeDiagramId]);
+
           useEffect(() => {
             if (activeDiagram) {
               setNodes(withoutSelection(activeDiagram.nodes));
@@ -829,7 +1118,7 @@
 
           // --- PERSISTENCIA JSON (Importar/Exportar) ---
           const handleExportJSON = () => {
-            const dataStr = JSON.stringify({ version: "7.8", folders: foldersWithoutSelection(folders), darkMode: isDarkMode }, null, 2);
+            const dataStr = JSON.stringify({ version: "8.0", folders: foldersWithoutSelection(folders), darkMode: isDarkMode }, null, 2);
             const blob = new Blob([dataStr], { type: "application/json" });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -1257,6 +1546,26 @@
           const handleUndo = () => { if (history.past.length === 0) return; const prev = history.past[history.past.length - 1]; setHistory({ past: history.past.slice(0, -1), future: [{ nodes, edges }, ...history.future] }); setNodes(prev.nodes); setEdges(prev.edges); updateDiagramState(prev.nodes, prev.edges, false); };
           const handleRedo = () => { if (history.future.length === 0) return; const next = history.future[0]; setHistory({ past: [...history.past, { nodes, edges }].slice(-MAX_HISTORY), future: history.future.slice(1) }); setNodes(next.nodes); setEdges(next.edges); updateDiagramState(next.nodes, next.edges, false); };
 
+          // Selecciona los elementos de un problema de la revisión y centra la vista en ellos
+          const focusIssue = (issue) => {
+              setActiveIssueId(issue.id);
+              const edgeSet = new Set(issue.edgeIds);
+              // Se centra en los elementos del problema; si solo afecta a relaciones, en sus extremos
+              const nodeSet = new Set(issue.nodeIds.length ? issue.nodeIds : edges.filter(e => edgeSet.has(e.id)).flatMap(e => [e.source, e.target]));
+              if (nodeSet.size === 0) return;
+              setNodes(nodes.map(n => ({ ...n, selected: issue.nodeIds.includes(n.id) })));
+              setEdges(edges.map(e => ({ ...e, selected: edgeSet.has(e.id) })));
+              const involved = nodes.filter(n => nodeSet.has(n.id));
+              const cx = (Math.min(...involved.map(n => n.x)) + Math.max(...involved.map(n => n.x + n.width))) / 2;
+              const cy = (Math.min(...involved.map(n => n.y)) + Math.max(...involved.map(n => n.y + n.height))) / 2;
+              // Se espera al siguiente fotograma: al seleccionar aparece el panel de propiedades y el lienzo se estrecha
+              requestAnimationFrame(() => {
+                  if (!canvasRef.current) return;
+                  const s = viewRef.current.scale;
+                  setPan({ x: canvasRef.current.clientWidth / 2 - cx * s, y: canvasRef.current.clientHeight / 2 - cy * s });
+              });
+          };
+
           const handleFitToScreen = () => {
               if (nodes.length === 0 || !canvasRef.current) { setScale(1); setPan({ x: 0, y: 0 }); return; }
               let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -1498,6 +1807,7 @@
                 if (mod && key === '0') { e.preventDefault(); setScale(1); }
 
                 if (e.key === '?' && !isEditingField) { e.preventDefault(); setShowShortcuts(v => !v); }
+                if (e.key === 'F7') { e.preventDefault(); if (activeDiagram) setShowReview(v => !v); }
 
                 // Esc: cierra la ayuda, cancela la conexión o la herramienta activa y, si no hay nada de eso, deselecciona
                 if (e.key === 'Escape' && !isEditingField) {
@@ -1912,6 +2222,7 @@
               </div>
               <div className="flex items-center space-x-3">
                 <span className="text-xs opacity-50">{activeDiagram?.name || 'Sin diagrama abierto'}</span>
+                <button onClick={() => setShowReview(v => !v)} disabled={!activeDiagram} aria-pressed={showReview} className={`px-3 py-1 rounded text-sm font-medium flex items-center gap-1 border disabled:opacity-50 disabled:cursor-not-allowed ${showReview ? (isDarkMode ? 'bg-blue-900 border-blue-500 text-blue-100' : 'bg-blue-50 border-blue-500 text-blue-700') : (isDarkMode ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-300 hover:bg-gray-100')}`} title={activeDiagram ? 'Revisar el diagrama en busca de errores UML habituales (F7)' : 'Abre un diagrama para revisarlo'}><ListChecks size={16}/> Revisar</button>
                 <button onClick={() => setShowShortcuts(true)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400" title="Atajos de teclado y ratón (?)"><Keyboard size={18} /></button>
                 <button onClick={() => setShowInfoModal(true)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400" title="Acerca de..."><Info size={18} /></button>
                 <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">{isDarkMode ? <Sun size={18} /> : <Moon size={18} />}</button>
@@ -1988,6 +2299,65 @@
                 <div className="flex-1 p-2 overflow-y-auto border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"> <h3 className="text-xs font-semibold uppercase tracking-wider mb-2 opacity-50 ml-2">Herramientas</h3> <div className="grid grid-cols-2 gap-2"> <button onClick={() => setTool('select')} title="Seleccionar (Esc)" className={`p-2 rounded flex flex-col items-center justify-center border ${tool === 'select' ? 'bg-blue-50 border-blue-500 text-blue-600' : 'border-transparent hover:bg-gray-200 dark:hover:bg-gray-800'}`}> <MousePointer2 size={20} /> <span className="text-[10px] mt-1">Seleccionar</span> </button> <button onClick={() => setTool('pan')} title="Mover el lienzo (también con botón central o Alt+arrastrar)" className={`p-2 rounded flex flex-col items-center justify-center border ${tool === 'pan' ? 'bg-blue-50 border-blue-500 text-blue-600' : 'border-transparent hover:bg-gray-200 dark:hover:bg-gray-800'}`}> <Move size={20} /> <span className="text-[10px] mt-1">Mover Lienzo</span> </button> </div> <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4"> {activeDiagram ? ( <> <p className="text-xs text-center mb-2 font-mono opacity-50">{activeDiagram.type === 'dcu' ? 'Casos de Uso' : activeDiagram.type === 'dc' ? 'Clases' : 'Actividad'}</p> <div className="grid grid-cols-2 gap-2"> {activeDiagram.type === 'dcu' && ( <> <ToolBtn icon={<User/>} label="Actor" onClick={() => setTool('actor')} active={tool === 'actor'} /> <ToolBtn icon={<Circle/>} label="Caso Uso" onClick={() => setTool('usecase')} active={tool === 'usecase'} /> <ToolBtn icon={<Square/>} label="Límite" onClick={() => setTool('boundary')} active={tool === 'boundary'} /> </> )} {activeDiagram.type === 'dc' && ( <> <ToolBtn icon={<ClassToolIcon/>} label="Clase" onClick={() => setTool('class')} active={tool === 'class'} /> <ToolBtn icon={<InterfaceToolIcon/>} label="Interfaz" onClick={() => setTool('interface')} active={tool === 'interface'} /> </> )} {activeDiagram.type === 'da' && ( <> <ToolBtn icon={<Circle className="fill-current"/>} label="Inicio" onClick={() => setTool('start')} active={tool === 'start'} /> <ToolBtn icon={<Circle className="border-2"/>} label="Fin" onClick={() => setTool('end')} active={tool === 'end'} /> <ToolBtn icon={<Square className="rounded-lg"/>} label="Actividad" onClick={() => setTool('activity')} active={tool === 'activity'} /> <ToolBtn icon={<Diamond/>} label="Decisión" onClick={() => setTool('decision')} active={tool === 'decision'} /> <ToolBtn icon={<Minus className="rotate-90"/>} label="Bifurcación / Unión" onClick={() => setTool('fork')} active={tool === 'fork'} /> <ToolBtn icon={<GripVertical/>} label="Carril" onClick={() => setTool('swimlane')} active={tool === 'swimlane'} /> </> )} </div> </> ) : ( <p className="text-sm text-center opacity-50 mt-10">Selecciona o crea un diagrama para ver las herramientas.</p> )} </div> </div>
             </div>
           );
+
+          const SEVERITY_INFO = {
+              error: { label: 'errores', one: 'error', Icon: XCircle, color: isDarkMode ? 'text-red-400' : 'text-red-700' },
+              warning: { label: 'avisos', one: 'aviso', Icon: AlertTriangle, color: isDarkMode ? 'text-amber-400' : 'text-amber-700' },
+              suggestion: { label: 'sugerencias', one: 'sugerencia', Icon: Lightbulb, color: isDarkMode ? 'text-sky-300' : 'text-sky-700' },
+          };
+
+          const renderReviewPanel = () => {
+              if (!activeDiagram) return null;
+              const visible = reviewIssues.filter(i => showSuggestions || i.severity !== 'suggestion');
+              const counts = { error: 0, warning: 0, suggestion: 0 };
+              reviewIssues.forEach(i => counts[i.severity]++);
+              const isEmpty = nodes.length === 0;
+              return (
+                <aside aria-label="Revisión del diagrama" className={`w-72 border-l flex flex-col ${isDarkMode ? 'bg-gray-900 border-gray-700 text-gray-200' : 'bg-white border-gray-200 text-gray-800'}`}>
+                    <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                        <h3 className="text-sm font-semibold flex items-center gap-2"><ListChecks size={16}/> Revisión del diagrama</h3>
+                        <button onClick={() => setShowReview(false)} className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700" title="Cerrar la revisión (F7)"><X size={16}/></button>
+                    </div>
+                    {!isEmpty && (
+                        <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 space-y-2">
+                            <div className="flex gap-3 text-xs font-medium" aria-live="polite">
+                                {['error', 'warning', 'suggestion'].map(sev => { const { Icon, color, label, one } = SEVERITY_INFO[sev]; return (
+                                    <span key={sev} className={`flex items-center gap-1 ${counts[sev] ? color : 'opacity-50'}`}><Icon size={14}/> {counts[sev]} {counts[sev] === 1 ? one : label}</span>
+                                ); })}
+                            </div>
+                            <label className="flex items-center gap-2 text-xs cursor-pointer">
+                                <input type="checkbox" checked={showSuggestions} onChange={(e) => setShowSuggestions(e.target.checked)} className="rounded text-blue-600 focus:ring-blue-500"/>
+                                Mostrar sugerencias de estilo
+                            </label>
+                        </div>
+                    )}
+                    <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                        {isEmpty ? (
+                            <p className="text-sm opacity-70 p-3 text-center">El diagrama está vacío. Añade elementos y la revisión se irá actualizando mientras trabajas.</p>
+                        ) : visible.length === 0 ? (
+                            <div className="p-4 text-center">
+                                <CheckCircle2 size={32} className={`mx-auto mb-2 ${isDarkMode ? 'text-green-400' : 'text-green-700'}`}/>
+                                <p className="text-sm font-medium">No se han encontrado problemas.</p>
+                                {counts.suggestion > 0 && <p className="text-xs opacity-70 mt-1">Hay {counts.suggestion} {counts.suggestion === 1 ? 'sugerencia oculta' : 'sugerencias ocultas'}.</p>}
+                            </div>
+                        ) : visible.map(issue => {
+                            const { Icon, color, one } = SEVERITY_INFO[issue.severity];
+                            const clickable = issue.nodeIds.length > 0 || issue.edgeIds.length > 0;
+                            const isActive = issue.id === activeIssueId;
+                            return (
+                                <button key={issue.id} onClick={() => clickable && focusIssue(issue)} disabled={!clickable}
+                                    className={`w-full text-left flex gap-2 p-2 rounded text-sm border ${isActive ? (isDarkMode ? 'border-blue-500 bg-blue-900/40' : 'border-blue-500 bg-blue-50') : 'border-transparent'} ${clickable ? (isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100') : 'cursor-default'}`}
+                                    title={clickable ? 'Seleccionar en el diagrama' : undefined}>
+                                    <Icon size={16} className={`flex-shrink-0 mt-0.5 ${color}`} aria-label={one}/>
+                                    <span>{issue.message}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <p className="p-3 border-t border-gray-200 dark:border-gray-700 text-[11px] opacity-70 leading-snug">La revisión detecta problemas habituales de forma y coherencia, pero no comprueba si el modelo responde al enunciado ni sustituye la corrección del profesorado.</p>
+                </aside>
+              );
+          };
 
           const renderPropertiesPanel = () => {
             const sN = nodes.filter(n => n.selected), sE = edges.filter(e => e.selected);
@@ -2241,6 +2611,7 @@
                     <OpenSharedModal isOpen={openSharedText !== null} initialText={openSharedText} onOpen={handleOpenShared} onClose={() => setOpenSharedText(null)} isDarkMode={isDarkMode} />
                 </div>
                 {showProperties && renderPropertiesPanel()}
+                {showReview && renderReviewPanel()}
 
                 {deleteConfirm && (
                     <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm" onMouseDown={(e)=>e.stopPropagation()}>
