@@ -419,7 +419,10 @@
                 if (source.type === 'interface' && target.type === 'class') return [];
                 return ['association', 'directed_association', 'generalization', 'composition', 'aggregation', 'dependency'];
             }
-            if (diagramType === 'da') return ['control'];
+            if (diagramType === 'da') {
+                if (source.type === 'swimlane' || target.type === 'swimlane') return [];
+                return ['control'];
+            }
             return ['association'];
         };
 
@@ -712,7 +715,7 @@
 
                 ofType('activity').forEach(a => {
                     const inc = incoming(a.id, flows), out = outgoing(a.id, flows);
-                    if (inc.length > 1) add('warning', 'union-implicita', `A ${nodeRef(a)} llegan ${inc.length} flujos; en UML eso significa esperar a todos. Si son caminos alternativos, únelos antes con un nodo de fusión (herramienta «Decisión / Fusión»); si se ejecutan a la vez, con una barra de unión.`, [a.id], inc.map(e => e.id));
+                    if (inc.length > 1) add('warning', 'union-implicita', `A ${nodeRef(a)} llegan ${inc.length} flujos. En UML 2 eso significa que la acción espera a que lleguen todos (unión implícita), y si son caminos alternativos, como un bucle de reintento, la actividad se bloquea. Únelos antes con un nodo de fusión (herramienta «Decisión / Fusión») o, si se ejecutan a la vez, con una barra de unión. En los diagramas de flujo clásicos se dibuja sin fusión.`, [a.id], inc.map(e => e.id));
                     if (out.length > 1) add('warning', 'bifurcacion-implicita', `De ${nodeRef(a)} salen ${out.length} flujos; usa un nodo de decisión (con guardas) si son caminos alternativos o una barra de bifurcación si se ejecutan a la vez.`, [a.id], out.map(e => e.id));
                 });
 
@@ -728,6 +731,30 @@
             }
 
             return issues.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
+        };
+
+        // --- MENSAJES AL CONECTAR: explican por qué no se permite una relación y qué hacer ---
+        const explainInvalidConnection = (source, target, diagramType) => {
+            if (source.id === target.id) {
+                if (diagramType === 'dc') return 'Solo las clases pueden relacionarse consigo mismas (relación reflexiva); las interfaces no.';
+                if (diagramType === 'da') return 'Un flujo no puede salir y volver al mismo elemento. Para repetir una acción, usa una decisión y un nodo de fusión (herramienta «Decisión / Fusión»).';
+                return 'Un elemento no puede relacionarse consigo mismo en un diagrama de casos de uso.';
+            }
+            if (source.type === 'boundary' || target.type === 'boundary') return 'El límite del sistema no se conecta con nada: coloca los casos de uso dentro de él y relaciónalos con los actores.';
+            if (source.type === 'swimlane' || target.type === 'swimlane') return 'Los carriles no se conectan con flujos: coloca las acciones dentro del carril que las realiza y conecta las acciones entre sí.';
+            if (diagramType === 'dc' && source.type === 'interface' && target.type === 'class') return `Una interfaz no puede heredar de una clase ni depender de ella. Si «${target.text}» implementa «${source.text}», crea la relación desde la clase hacia la interfaz.`;
+            return `No se puede relacionar ${nodeRef(source)} con ${nodeRef(target)} en este tipo de diagrama.`;
+        };
+
+        const explainExistingRelation = (source, target, existing, diagramType) => {
+            if (diagramType === 'da') {
+                const reverse = existing.some(e => e.source === target.id && e.target === source.id);
+                if (reverse && target.type === 'activity') return `Ya hay un flujo de ${nodeRef(target)} a ${nodeRef(source)}. Con este flujo de vuelta, a ${nodeRef(target)} le llegarían dos flujos, y en UML 2 eso significa esperar a ambos (unión implícita): el bucle se bloquearía. Dirige el flujo a un nodo de fusión (herramienta «Decisión / Fusión») colocado antes de la acción.`;
+                if (reverse) return `Ya hay un flujo de ${nodeRef(target)} a ${nodeRef(source)}, y entre dos elementos solo se admite uno. Para cerrar el bucle, pasa por un nodo de fusión (herramienta «Decisión / Fusión»).`;
+                return `Ya hay un flujo de ${nodeRef(source)} a ${nodeRef(target)}.`;
+            }
+            if (diagramType === 'dc') return `Ya existen entre ${nodeRef(source)} y ${nodeRef(target)} todas las relaciones de este tipo que se admiten. Para cambiar una, selecciónala y elige otro tipo en el panel de propiedades.`;
+            return `Ya hay una relación entre ${nodeRef(source)} y ${nodeRef(target)}, y en un diagrama de casos de uso solo se admite una entre dos elementos. Para cambiar su tipo, selecciónala y elige otro en el panel de propiedades.`;
         };
 
         const getEdgeLabel = (type) => {
@@ -1113,7 +1140,9 @@
           const showToast = (msg, kind = 'info') => {
             setToastMessage({ text: msg, kind });
             clearTimeout(toastTimerRef.current);
-            toastTimerRef.current = setTimeout(() => setToastMessage(null), kind === 'error' ? 5000 : 3000);
+            // Los mensajes largos (explicaciones) se muestran más tiempo: unos 60 ms por carácter, hasta 15 s
+            const duration = Math.min(15000, Math.max(kind === 'error' ? 5000 : 3000, msg.length * 60));
+            toastTimerRef.current = setTimeout(() => setToastMessage(null), duration);
           };
 
           // --- PERSISTENCIA JSON (Importar/Exportar) ---
@@ -1880,9 +1909,10 @@
                         const src = nodes.find(n => n.id === connectingNodeId);
                         if (!src) return;
                         const allValidTypes = getValidConnectionTypes(src, node, activeDiagram?.type || 'dcu');
-                        if (allValidTypes.length === 0) { showToast("Conexión no válida", 'warning'); return; }
-                        const validTypes = filterTypesByExisting(allValidTypes, getEdgesBetween(edges, src.id, node.id), activeDiagram?.type || 'dcu');
-                        if (validTypes.length === 0) { showToast("Relación ya existente", 'warning'); return; }
+                        if (allValidTypes.length === 0) { showToast(explainInvalidConnection(src, node, activeDiagram?.type || 'dcu'), 'warning'); return; }
+                        const existingEdges = getEdgesBetween(edges, src.id, node.id);
+                        const validTypes = filterTypesByExisting(allValidTypes, existingEdges, activeDiagram?.type || 'dcu');
+                        if (validTypes.length === 0) { showToast(explainExistingRelation(src, node, existingEdges, activeDiagram?.type || 'dcu'), 'warning'); return; }
 
                         if (validTypes.length > 1) {
                             setPendingConnection({ source: src, target: node, validTypes });
@@ -2555,7 +2585,7 @@
                         </g>
                     </svg>
                     {connectingNodeId && ( <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center space-x-3 z-50 animate-bounce-in"> <Link2 size={18} className="animate-pulse"/> <span className="text-sm font-medium">Modo Conexión: Selecciona el destino</span> <button onClick={() => setConnectingNodeId(null)} className="ml-2 bg-blue-700 p-1 rounded-full hover:bg-blue-800"><X size={14}/></button> </div> )}
-                    {toastMessage && ( <div role={toastMessage.kind === 'error' ? 'alert' : 'status'} className={`absolute top-4 left-1/2 transform -translate-x-1/2 px-4 py-2 rounded shadow-lg z-[110] text-sm font-medium max-w-[90%] text-center ${TOAST_STYLES[toastMessage.kind] || TOAST_STYLES.info}`}> {toastMessage.text} </div> )}
+                    {toastMessage && ( <div role={toastMessage.kind === 'error' ? 'alert' : 'status'} onClick={() => setToastMessage(null)} title="Clic para cerrar" className={`absolute top-4 left-1/2 transform -translate-x-1/2 px-4 py-2 rounded shadow-lg z-[110] text-sm font-medium max-w-[min(90%,42rem)] text-center cursor-pointer ${TOAST_STYLES[toastMessage.kind] || TOAST_STYLES.info}`}> {toastMessage.text} </div> )}
                     {!activeDiagram && ( <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 text-white z-50"> <div className="bg-gray-800 p-8 rounded shadow-2xl text-center"> <h2 className="text-2xl font-bold mb-4">Bienvenido a Arquitecto Simple UML</h2>
                         {folders.some(f => f.diagrams.length > 0) ? (<>
                             <p className="mb-4">Selecciona un diagrama a la izquierda o crea uno nuevo.</p>
