@@ -6,11 +6,11 @@ Esfuerzo orientativo: **bajo** (unas horas), **medio** (un día aproximadamente)
 
 ## Prioritarias
 
-### 1. Prueba automática diaria de carga
+### 1. ✅ Prueba automática diaria de carga (hecho)
 - **Problema:** la aplicación depende de bibliotecas cargadas desde CDN. En octubre de 2026 la URL sin versión de Babel pasó a servir Babel 8 y la aplicación quedó en blanco sin que nadie lo detectara. Ahora todas las versiones están fijadas, pero un CDN puede seguir fallando o retirar una versión.
-- **Propuesta:** una tarea de GitHub Actions programada (diaria y en cada push) que abra `index.html` en un navegador sin interfaz (Playwright o Puppeteer) y compruebe que la aplicación arranca: que aparece la barra superior y que no hay errores en la consola. Si falla, GitHub avisa por correo.
-- **Alcance:** un archivo en `.github/workflows/`; no toca la aplicación.
-- **Esfuerzo:** bajo.
+- **Solución:** la tarea de GitHub Actions [`prueba-carga.yml`](.github/workflows/prueba-carga.yml) se ejecuta cada día, en cada push a `main` y en cada pull request (también a mano desde la pestaña *Actions*). Abre `index.html` en Chromium sin interfaz con Playwright ([`prueba-carga.mjs`](.github/pruebas/prueba-carga.mjs)) y comprueba que aparecen la barra superior y la pantalla de bienvenida, que Tailwind aplica los estilos y que se puede crear un diagrama, sin errores en la consola ni recursos que fallen. Si falla, GitHub avisa por correo.
+- **Para probar en local:** `npm install --no-save playwright && npx playwright install chromium && node .github/pruebas/prueba-carga.mjs`.
+- **A tener en cuenta:** GitHub desactiva las tareas programadas de los repositorios sin actividad durante 60 días; si ocurre, basta con reactivarla en *Actions*.
 
 ### 2. Soporte táctil (tabletas y Chromebooks)
 - **Problema:** la interacción usa solo eventos de ratón (`onMouseDown`, `onMouseMove`, `onMouseUp`), así que en pantallas táctiles no se pueden seleccionar, mover ni redimensionar elementos, ni desplazar el lienzo.

@@ -2,6 +2,8 @@
 
 # Arquitecto Simple UML
 
+[![Prueba de carga](https://github.com/pfelipm/arquitecto-uml/actions/workflows/prueba-carga.yml/badge.svg)](https://github.com/pfelipm/arquitecto-uml/actions/workflows/prueba-carga.yml)
+
 **Arquitecto Simple UML (AS-UML)** es un editor de UML ligero, experimental y diseñado con fines didácticos para crear diagramas de manera sencilla. Es una Single Page Application (SPA) contenida en un único archivo HTML, lo que facilita su distribución y uso sin instalaciones complejas.
 
 ## Demo Online
@@ -61,7 +63,7 @@ Esta herramienta funciona directamente en el navegador sin backend ("serverless"
 
 ## Uso
 
-Simplemente abre el archivo `index.html` en cualquier navegador web moderno. Aunque no se requiere instalar dependencias locales (Node.js, npm, etc.), **se necesita conexión a Internet** para descargar las bibliotecas y estilos a través de CDN.
+Simplemente abre el archivo `index.html` en cualquier navegador web moderno. Aunque no se requiere instalar dependencias locales (Node.js, npm, etc.), **se necesita conexión a Internet** para descargar las bibliotecas y estilos a través de CDN. Una [prueba automática](.github/workflows/prueba-carga.yml) comprueba cada día que la aplicación sigue arrancando con las versiones que sirven los CDN.
 
 ## Autor
 

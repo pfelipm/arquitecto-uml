@@ -1,0 +1,27 @@
+# Prueba diaria de carga: comprueba que la aplicación arranca con las bibliotecas
+# que sirven hoy los CDN. Si falla, GitHub avisa por correo.
+name: Prueba de carga
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '17 5 * * *'   # cada día a las 05:17 UTC
+  workflow_dispatch:        # ejecución manual desde la pestaña Actions
+
+jobs:
+  prueba:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Instalar Playwright y Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.64.1
+          npx playwright install --with-deps chromium
+      - name: Abrir la aplicación y comprobar que arranca
+        run: node .github/pruebas/prueba-carga.mjs
