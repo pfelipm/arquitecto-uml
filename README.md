@@ -21,7 +21,7 @@ Puedes utilizar el editor sin limitaciones y directamente en tu navegador accedi
     *   **DC:** Diagramas de Clases (Clases, Interfaces, Relaciones). Admite varias asociaciones entre las mismas clases (por ejemplo, *origen* y *destino*), que se dibujan separadas. Los miembros que empiezan por `static` se muestran subrayados y los que empiezan por `abstract`, en cursiva, siguiendo la notación UML (por ejemplo, `+ static total: int`).
         
         ![Ejemplo DC](readme-archivos/DC.png)
-    *   **DA:** Diagramas de Actividad (Inicio, Fin, Actividades, Decisiones, Carriles).
+    *   **DA:** Diagramas de Actividad (Inicio, Fin, Actividades, Decisión / Fusión, Bifurcación / Unión, Carriles).
         
         ![Ejemplo DA](readme-archivos/DA.png)
 *   **Revisar diagrama:** El botón **Revisar** (o **F7**) abre un panel que analiza el diagrama abierto y señala errores UML habituales, con fines didácticos: casos de uso sin actor o fuera del límite del sistema, herencias circulares, clases con métodos abstractos que no están marcadas como abstractas, interfaces sin implementar, diagramas de actividad sin nodo inicial, decisiones sin guardas, nodos inalcanzables, etc. Los problemas se clasifican en errores, avisos y sugerencias de estilo (que se pueden ocultar); al pulsar uno, se seleccionan en el lienzo los elementos afectados. La revisión se actualiza mientras editas y nunca modifica el diagrama.
