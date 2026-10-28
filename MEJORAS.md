@@ -25,17 +25,15 @@ Esfuerzo orientativo: **bajo** (unas horas), **medio** (un día aproximadamente)
   - **DA:** falta el nodo de inicio o de fin; decisiones con salidas sin condición (guarda); nodos inalcanzables desde el inicio; acciones a las que llegan varios flujos sin nodo de fusión (en UML 2 se interpretan como unión implícita).
 - **Esfuerzo:** medio.
 
-### 4. Exportar a SVG
-- Además de PNG, exportar el diagrama como imagen vectorial, nítida a cualquier tamaño en documentos, presentaciones y LaTeX. El diagrama ya se dibuja en SVG; se puede reutilizar la lógica de la exportación a PNG (`exportPNGNow`).
-- **Esfuerzo:** bajo.
+### 4. ✅ Exportar a SVG (hecho)
+- Nuevo botón en la barra superior, junto al de PNG. Reutiliza la preparación de la exportación a PNG (encuadre del contenido, sin selección ni pan/zoom, fondo según el modo claro u oscuro) y descarga el SVG sin rasterizar, nítido a cualquier tamaño en documentos, presentaciones y LaTeX.
 
 ### 5. Notas UML
 - Nuevo elemento «Nota» (rectángulo con la esquina doblada) unido con una línea discontinua al elemento que comenta. Útil en enunciados y correcciones. Disponible en los tres tipos de diagrama.
 - **Esfuerzo:** medio.
 
-### 6. Notación de miembros estáticos y abstractos
-- Subrayar atributos y métodos estáticos y poner en cursiva los métodos abstractos, siguiendo la notación UML. Por ejemplo, mediante un prefijo al escribirlos (`static`, `abstract`) que no se muestre en el diagrama.
-- **Esfuerzo:** bajo.
+### 6. ✅ Notación de miembros estáticos y abstractos (hecho)
+- Los atributos y métodos que empiezan por `static` se subrayan y los que empiezan por `abstract` van en cursiva, como en UML. El prefijo no se muestra en el diagrama y puede ir antes o después del símbolo de visibilidad (`+ static total: int` o `static + total: int`). El panel de propiedades lo recuerda bajo los campos de atributos y métodos.
 
 ## Otras mejoras
 

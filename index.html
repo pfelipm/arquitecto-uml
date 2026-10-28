@@ -64,7 +64,7 @@
           Maximize2, Copy, User, Edit2, ArrowDownAZ,
           AlertTriangle, X, Link2, ArrowLeftRight, Italic,
           FolderPlus, FilePlus, Layout, Upload, Image as ImageIcon,
-          Info, Github, Linkedin, Keyboard
+          Info, Github, Linkedin, Keyboard, PenTool
         } from 'lucide-react';
 
         // --- CÓDIGO ORIGINAL DE LA APP (Sin modificaciones lógicas) ---
@@ -433,6 +433,22 @@
             return validTypes.filter(t => ASSOCIATION_TYPES.includes(t) || !existing.some(ed => ed.type === t));
         };
 
+        // Miembros de clase: el prefijo «static» o «abstract» (delante o detrás del símbolo de visibilidad)
+        // no se muestra; los estáticos se subrayan y los abstractos van en cursiva, como en UML
+        // Miembros de clase: los prefijos «static» y «abstract» no se muestran; los miembros estáticos
+        // se subrayan y los abstractos van en cursiva, como en UML
+        const parseMember = (line) => {
+            let rest = line || '', visibility = '', isStatic = false, isAbstract = false, m;
+            // Modificadores y símbolo de visibilidad, en cualquier orden, al principio de la línea
+            while ((m = /^\s*(static|abstract)\s+/i.exec(rest)) || (!visibility && (m = /^\s*[+\-#~]\s*/.exec(rest)))) {
+                if (!m[1]) visibility = m[0].trimStart();
+                else if (m[1].toLowerCase() === 'static') isStatic = true;
+                else isAbstract = true;
+                rest = rest.slice(m[0].length);
+            }
+            return { text: visibility + rest, isStatic, isAbstract };
+        };
+
         const getEdgeLabel = (type) => {
             if (type === 'association') return 'Asociación simple';
             if (type === 'directed_association') return 'Asociación dirigida';
@@ -729,7 +745,7 @@
           const [deleteConfirm, setDeleteConfirm] = useState(null);
 
           const [toastMessage, setToastMessage] = useState(null);
-          // Durante la exportación a PNG se renderiza sin resaltado de selección ni tiradores
+          // Durante la exportación ('png' o 'svg') se renderiza sin resaltado de selección ni tiradores
           const [isExporting, setIsExporting] = useState(false);
 
           const [nodes, setNodes] = useState([]);
@@ -930,24 +946,34 @@
             event.target.value = '';
           };
 
-          // --- EXPORTAR PNG ---
-          const handleExportPNG = () => {
+          // --- EXPORTAR IMAGEN (PNG o SVG) ---
+          const handleExportImage = (format) => {
               if (!svgRef.current || nodes.length === 0) {
                   showToast("El diagrama está vacío", 'warning');
                   return;
               }
               // Se vuelve a renderizar sin selección; el efecto de abajo clona el SVG ya actualizado
-              setIsExporting(true);
+              setIsExporting(format);
           };
 
           useEffect(() => {
               if (!isExporting) return;
-              exportPNGNow();
+              if (isExporting === 'svg') exportSVGNow(); else exportPNGNow();
               setIsExporting(false);
           }, [isExporting]);
 
-          const exportPNGNow = () => {
-              if (!svgRef.current) return;
+          const downloadUrl = (url, filename) => {
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = filename;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+          };
+
+          // Copia autónoma del diagrama encuadrada en su contenido, sin pan/zoom y con fondo
+          const buildExportSVG = () => {
+              if (!svgRef.current) return null;
 
               // 1. Calcular Bounding Box de todo el contenido dibujado (nodos, relaciones, bucles reflexivos y etiquetas)
               const mainGroupEl = svgRef.current.querySelector(':scope > g');
@@ -995,9 +1021,30 @@
                   svgClone.appendChild(bgRect);
               }
 
-              // 3. Serializar y Renderizar a Canvas
-              const serializer = new XMLSerializer();
-              const svgString = serializer.serializeToString(svgClone);
+              // Las clases de Tailwind no tienen efecto fuera de la aplicación
+              svgClone.removeAttribute('class');
+              svgClone.querySelectorAll('[class]').forEach(el => el.removeAttribute('class'));
+
+              const svgString = new XMLSerializer().serializeToString(svgClone);
+              return { svgString, width, height };
+          };
+
+          const exportSVGNow = () => {
+              const result = buildExportSVG();
+              if (!result) return;
+              const blob = new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n' + result.svgString], { type: 'image/svg+xml;charset=utf-8' });
+              const url = URL.createObjectURL(blob);
+              downloadUrl(url, `${activeDiagram?.name || 'diagrama'}.svg`);
+              URL.revokeObjectURL(url);
+              showToast("Imagen SVG exportada correctamente", 'success');
+          };
+
+          const exportPNGNow = () => {
+              const result = buildExportSVG();
+              if (!result) return;
+              const { svgString, width, height } = result;
+
+              // Renderizar a Canvas
               const img = new Image();
               const svgBlob = new Blob([svgString], {type: 'image/svg+xml;charset=utf-8'});
               const url = URL.createObjectURL(svgBlob);
@@ -1014,13 +1061,7 @@
                       ctx.drawImage(img, 0, 0, width, height);
                       const pngUrl = canvas.toDataURL('image/png');
 
-                      // Descargar
-                      const link = document.createElement('a');
-                      link.href = pngUrl;
-                      link.download = `${activeDiagram?.name || 'diagrama'}.png`;
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
+                      downloadUrl(pngUrl, `${activeDiagram?.name || 'diagrama'}.png`);
                       URL.revokeObjectURL(url);
                       showToast("Imagen exportada correctamente", 'success');
                   }
@@ -1596,15 +1637,15 @@
                             {/* Sección Atributos (Solo Clases) */}
                             {node.type !== 'interface' && (<>
                                 <line x1={0} y1={node.height*0.6} x2={node.width} y2={node.height*0.6} stroke={strokeColor}/>
-                                {node.attributes?.slice(0, maxAttrLines).map((a, i) => (
-                                    <text key={`a-${i}`} x={5} y={35 + 10 + (i * lineHeight)} fill={attrTextColor} fontSize={10} style={{pointerEvents: 'none'}}>{a}</text>
-                                ))}
+                                {node.attributes?.slice(0, maxAttrLines).map((a, i) => { const pm = parseMember(a); return (
+                                    <text key={`a-${i}`} x={5} y={35 + 10 + (i * lineHeight)} fill={attrTextColor} fontSize={10} textDecoration={pm.isStatic ? 'underline' : undefined} fontStyle={pm.isAbstract ? 'italic' : undefined} style={{pointerEvents: 'none'}}>{pm.text}</text>
+                                ); })}
                             </>)}
 
                             {/* Sección Métodos */}
-                            {node.methods?.slice(0, maxMethodLines).map((m, i) => (
-                                <text key={`m-${i}`} x={5} y={methodStartY + 10 + (i * lineHeight)} fill={attrTextColor} fontSize={10} style={{pointerEvents: 'none'}}>{m}</text>
-                            ))}
+                            {node.methods?.slice(0, maxMethodLines).map((m, i) => { const pm = parseMember(m); return (
+                                <text key={`m-${i}`} x={5} y={methodStartY + 10 + (i * lineHeight)} fill={attrTextColor} fontSize={10} textDecoration={pm.isStatic ? 'underline' : undefined} fontStyle={pm.isAbstract ? 'italic' : undefined} style={{pointerEvents: 'none'}}>{pm.text}</text>
+                            ); })}
                         </g>);
                     // --- FIN CAMBIO QUIRÚRGICO ---
 
@@ -1849,8 +1890,11 @@
                     <button onClick={() => setOpenSharedText('')} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded" title="Abrir diagrama compartido (pegar enlace)">
                         <Link2 size={18}/>
                     </button>
-                    <button onClick={handleExportPNG} className={`p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded ${!activeDiagram ? 'opacity-50 cursor-not-allowed' : ''}`} title="Exportar como imagen (PNG)">
+                    <button onClick={() => handleExportImage('png')} className={`p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded ${!activeDiagram ? 'opacity-50 cursor-not-allowed' : ''}`} title="Exportar como imagen (PNG)">
                         <ImageIcon size={18}/>
+                    </button>
+                    <button onClick={() => handleExportImage('svg')} className={`p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded ${!activeDiagram ? 'opacity-50 cursor-not-allowed' : ''}`} title="Exportar como imagen vectorial (SVG)">
+                        <PenTool size={18}/>
                     </button>
                 </div>
                 <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-2"></div>
@@ -2013,7 +2057,8 @@
                                 {sN[0].type !== 'interface' && (
                                     <div><label className="block text-xs font-medium mb-1">Atributos</label><textarea rows={3} value={sN[0].attributes?.join('\n')} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes.map(n => n.id === sN[0].id ? { ...n, attributes: e.target.value.split('\n') } : n), edges)} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`} /></div>
                                 )}
-                                <div><label className="block text-xs font-medium mb-1">Métodos</label><textarea rows={3} value={sN[0].methods?.join('\n')} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes.map(n => n.id === sN[0].id ? { ...n, methods: e.target.value.split('\n') } : n), edges)} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`} /></div> </>
+                                <div><label className="block text-xs font-medium mb-1">Métodos</label><textarea rows={3} value={sN[0].methods?.join('\n')} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes.map(n => n.id === sN[0].id ? { ...n, methods: e.target.value.split('\n') } : n), edges)} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`} /></div>
+                                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Escribe <code>static</code> delante de un miembro para subrayarlo o <code>abstract</code> para ponerlo en cursiva (p. ej. <code>+ static total: int</code>).</p> </>
                             )}
                             {sN[0].type !== 'boundary' && sN[0].type !== 'swimlane' && (
                                 <button

@@ -18,7 +18,7 @@ Puedes utilizar el editor sin limitaciones y directamente en tu navegador accedi
     *   **DCU:** Diagramas de Casos de Uso (Actores, Casos de uso, Límites).
         
         ![Ejemplo DCU](readme-archivos/DCU.png)
-    *   **DC:** Diagramas de Clases (Clases, Interfaces, Relaciones). Admite varias asociaciones entre las mismas clases (por ejemplo, *origen* y *destino*), que se dibujan separadas.
+    *   **DC:** Diagramas de Clases (Clases, Interfaces, Relaciones). Admite varias asociaciones entre las mismas clases (por ejemplo, *origen* y *destino*), que se dibujan separadas. Los miembros que empiezan por `static` se muestran subrayados y los que empiezan por `abstract`, en cursiva, siguiendo la notación UML (por ejemplo, `+ static total: int`).
         
         ![Ejemplo DC](readme-archivos/DC.png)
     *   **DA:** Diagramas de Actividad (Inicio, Fin, Actividades, Decisiones, Carriles).
@@ -27,7 +27,7 @@ Puedes utilizar el editor sin limitaciones y directamente en tu navegador accedi
 *   **Gestión de Proyectos:** Organización mediante carpetas y múltiples diagramas.
 *   **Persistencia Local:** Guardado automático en el navegador (`localStorage`); al volver, se reabre el último diagrama abierto. En la versión insertada en Google Sites el navegador no conserva los datos entre visitas, así que la aplicación lo avisa y recuerda exportar una copia JSON antes de salir.
 *   **Compartir por enlace:** El botón **Compartir** genera un enlace que contiene el diagrama abierto (comprimido y sin pasar por ningún servidor). Quien lo recibe lo pega en **Abrir diagrama compartido** y obtiene una copia en la carpeta «Diagramas compartidos», sin que se modifiquen sus otros diagramas. Si la aplicación se abre directamente (no insertada en Google Sites), basta con abrir el enlace.
-*   **Importar/Exportar:** Copias de seguridad completas en formato JSON (incluye un [kit de demostración](readme-archivos/kit-demo.json) para pruebas). Al importar una copia, puedes **añadir** sus carpetas a las tuyas o **reemplazar** todo tu contenido. También permite exportar diagramas a imágenes PNG en alta resolución.
+*   **Importar/Exportar:** Copias de seguridad completas en formato JSON (incluye un [kit de demostración](readme-archivos/kit-demo.json) para pruebas). Al importar una copia, puedes **añadir** sus carpetas a las tuyas o **reemplazar** todo tu contenido. También permite exportar diagramas como imagen PNG en alta resolución o como imagen vectorial SVG, nítida a cualquier tamaño en documentos, presentaciones y LaTeX.
 *   **Interfaz Moderna:** Diseño limpio con soporte para **modo oscuro**, zoom hacia el cursor, guías de alineación inteligentes y atajos de teclado y ratón (consulta la tabla siguiente o pulsa **?** en la aplicación).
 
 ## Atajos de Teclado y Ratón
