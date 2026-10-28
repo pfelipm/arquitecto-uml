@@ -198,6 +198,24 @@
               "isAbstract": true,
               "zIndex": 2,
               "selected": false
+            },
+            {
+              "id": "class_pago_tarjeta",
+              "type": "class",
+              "x": 650,
+              "y": 350,
+              "width": 160,
+              "height": 120,
+              "text": "PagoTarjeta",
+              "attributes": [
+                "- numeroTarjeta: string",
+                "- titular: string"
+              ],
+              "methods": [
+                "+ procesarPago(): bool"
+              ],
+              "zIndex": 2,
+              "selected": false
             }
           ],
           "edges": [
@@ -228,6 +246,14 @@
               "type": "dependency",
               "pathType": "straight",
               "label": ""
+            },
+            {
+              "id": "edge_tarjeta_pago",
+              "source": "class_pago_tarjeta",
+              "target": "interface_pago",
+              "type": "implementation",
+              "pathType": "straight",
+              "label": ""
             }
           ]
         },
@@ -249,10 +275,21 @@
               "selected": false
             },
             {
+              "id": "node_merge",
+              "type": "decision",
+              "x": 395,
+              "y": 110,
+              "width": 40,
+              "height": 40,
+              "text": "",
+              "zIndex": 2,
+              "selected": false
+            },
+            {
               "id": "act_ingresar",
               "type": "activity",
               "x": 355,
-              "y": 120,
+              "y": 190,
               "width": 120,
               "height": 60,
               "text": "Ingresar Datos",
@@ -263,7 +300,7 @@
               "id": "node_decision",
               "type": "decision",
               "x": 395,
-              "y": 220,
+              "y": 290,
               "width": 40,
               "height": 40,
               "text": "¿Validos?",
@@ -274,7 +311,7 @@
               "id": "act_error",
               "type": "activity",
               "x": 550,
-              "y": 210,
+              "y": 100,
               "width": 120,
               "height": 60,
               "text": "Mostrar Error",
@@ -285,7 +322,7 @@
               "id": "act_home",
               "type": "activity",
               "x": 355,
-              "y": 320,
+              "y": 390,
               "width": 120,
               "height": 60,
               "text": "Ir a Inicio",
@@ -296,7 +333,7 @@
               "id": "node_end_success",
               "type": "end",
               "x": 400,
-              "y": 420,
+              "y": 490,
               "width": 30,
               "height": 30,
               "text": "",
@@ -306,8 +343,16 @@
           ],
           "edges": [
             {
-              "id": "edge_start_ingresar",
+              "id": "edge_start_merge",
               "source": "node_start",
+              "target": "node_merge",
+              "type": "control",
+              "pathType": "orthogonal",
+              "label": ""
+            },
+            {
+              "id": "edge_merge_ingresar",
+              "source": "node_merge",
               "target": "act_ingresar",
               "type": "control",
               "pathType": "orthogonal",
@@ -334,13 +379,13 @@
               "source": "node_decision",
               "target": "act_error",
               "type": "control",
-              "pathType": "orthogonal",
+              "pathType": "straight",
               "label": "[No]"
             },
             {
-              "id": "edge_error_ingresar",
+              "id": "edge_error_merge",
               "source": "act_error",
-              "target": "act_ingresar",
+              "target": "node_merge",
               "type": "control",
               "pathType": "orthogonal",
               "label": ""
