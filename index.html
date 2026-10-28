@@ -71,7 +71,7 @@
 
         /**
          * ARQUITECTO SIMPLE UML - SUITE DE MODELADO
-         * Versión 7.7 "Compartir"
+         * Versión 7.8 "Compartir"
          */
 
         // --- TIPOS Y CONSTANTES ---
@@ -602,7 +602,7 @@
                             </div>
                             <div>
                                 <h2 className="text-xl font-bold">Arquitecto Simple UML</h2>
-                                <p className="text-xs opacity-60 font-mono">Versión 7.7 "Compartir"</p>
+                                <p className="text-xs opacity-60 font-mono">Versión 7.8 "Compartir"</p>
                                 <p className="text-[10px] opacity-50 mt-1">Actualizado: 28 de octubre de 2026</p>
                             </div>
                         </div>
@@ -829,7 +829,7 @@
 
           // --- PERSISTENCIA JSON (Importar/Exportar) ---
           const handleExportJSON = () => {
-            const dataStr = JSON.stringify({ version: "7.7", folders: foldersWithoutSelection(folders), darkMode: isDarkMode }, null, 2);
+            const dataStr = JSON.stringify({ version: "7.8", folders: foldersWithoutSelection(folders), darkMode: isDarkMode }, null, 2);
             const blob = new Blob([dataStr], { type: "application/json" });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
