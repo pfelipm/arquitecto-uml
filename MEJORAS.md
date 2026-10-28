@@ -1,21 +1,54 @@
 # Mejoras propuestas
 
-Ideas para próximas versiones de Arquitecto Simple UML, recogidas tras la versión 7.7 "Compartir" (28 de octubre de 2026). Todas son compatibles con la distribución en un único archivo `index.html` insertado en Google Sites, salvo que se indique lo contrario.
+Ideas para próximas versiones de Arquitecto Simple UML, recogidas a partir de la versión 7.7 "Compartir" y actualizadas tras la versión 8.0 "Revisión" (28 de octubre de 2026). Todas son compatibles con la distribución en un único archivo `index.html` insertado en Google Sites, salvo que se indique lo contrario. Los números identifican cada mejora y no cambian aunque cambie el orden.
 
 Esfuerzo orientativo: **bajo** (unas horas), **medio** (un día aproximadamente), **alto** (varios días).
 
-## Prioritarias
+## Próximas mejoras, por orden
+
+Contexto que fija el orden: el alumnado usa sobre todo portátiles (algunos, tabletas), y la herramienta se centra en los tres tipos de diagrama de la asignatura.
+
+### 2. Soporte táctil (tabletas)
+- **Problema:** la interacción usa solo eventos de ratón (`onMouseDown`, `onMouseMove`, `onMouseUp`), así que en pantallas táctiles no se pueden seleccionar, mover ni redimensionar elementos, ni desplazar el lienzo.
+- **Propuesta:** sustituirlos por eventos de puntero (`onPointerDown`, etc.), que cubren ratón, dedo y lápiz, y añadir el gesto de pellizcar para hacer zoom y el de arrastrar con dos dedos para desplazar el lienzo.
+- **Detalles:** tiradores más grandes en pantallas táctiles y alternativa al doble clic (el texto ya se puede editar en el panel de propiedades). Eliminar, duplicar y conectar ya tienen botón en el panel, así que no dependen del teclado. Con ratón todo debe seguir funcionando igual.
+- **Motivo del orden:** el alumnado usa sobre todo portátiles, pero algunos estudiantes trabajan con tabletas. Es una mejora corta y deja preparada la base para los puntos de paso (8), que añaden arrastres nuevos: si se escriben ya con eventos de puntero, funcionarán también en tabletas sin trabajo adicional.
+- **Esfuerzo:** medio (un día aproximadamente).
+
+### 8. Puntos de paso en las relaciones
+- **Problema:** el trazado ortogonal siempre sale en horizontal, gira en el punto medio y entra en horizontal. Cuando dos relaciones unen los mismos dos niveles (por ejemplo, la ida y la vuelta de un bucle de reintento en un DA), sus tramos se superponen; en el kit de demostración hubo que usar una diagonal para evitarlo. En diagramas de clases con muchas relaciones aparecen cruces que el alumno no puede deshacer.
+- **Propuesta:** añadir, arrastrar y eliminar puntos intermedios en las relaciones para trazarlas a mano. El modelo de datos ya incluye un campo `waypoints` en `EdgeData` que no se usa todavía.
+- **Alcance:**
+  - Interacción: añadir un punto (por ejemplo, con doble clic sobre la línea), arrastrarlo y eliminarlo, con tiradores que no se confundan con los de redimensionar.
+  - Geometría: trazados recto y ortogonal a través de los puntos; flecha o rombo orientados según el último tramo; posición de etiquetas y multiplicidades; convivencia con las relaciones paralelas y los bucles reflexivos.
+  - Coherencia: mover los puntos con los elementos cuando se mueven ambos extremos; deshacer, copiar, pegar y duplicar; exportaciones y enlaces compartidos (que validan los datos recibidos).
+- **Motivo del orden:** es la mejora con más impacto en la claridad de los diagramas, y un diagrama confuso enseña peor.
+- **Esfuerzo:** medio-alto (varios días).
+
+### 5. Notas UML
+- Nuevo elemento «Nota» (rectángulo con la esquina doblada) unido con una línea discontinua al elemento que comenta. Útil en enunciados y correcciones. Disponible en los tres tipos de diagrama.
+- **Motivo del orden:** útil sobre todo para el profesorado al preparar enunciados y corregir, pero no limita lo que el alumnado puede modelar.
+- **Esfuerzo:** medio.
+
+### 7. Nombres de rol en los extremos de las asociaciones (DC)
+- Ahora cada asociación tiene multiplicidades y una etiqueta central. UML sitúa además el nombre del rol en cada extremo (por ejemplo, *origen* y *destino* junto a Aeropuerto). Se añadirían dos campos al panel de propiedades y se dibujarían junto a las multiplicidades.
+- **Motivo del orden:** completa la notación del diagrama de clases; mientras tanto, la etiqueta central de la asociación permite distinguir varias asociaciones entre las mismas clases.
+- **Esfuerzo:** bajo-medio.
+
+## Descartadas
+
+### 9. Diagramas de secuencia
+- Un cuarto tipo de diagrama: líneas de vida, mensajes síncronos y asíncronos, respuestas y fragmentos combinados (`alt`, `loop`). Es la mejora más costosa, porque su disposición es temporal y distinta de la de los otros tres tipos.
+- **Motivo:** los contenidos oficiales de la asignatura no incluyen diagramas de secuencia. Solo se retomaría si cambia el temario.
+- **Esfuerzo:** alto.
+
+## Hechas
 
 ### 1. ✅ Prueba automática diaria de carga (hecho)
 - **Problema:** la aplicación depende de bibliotecas cargadas desde CDN. En octubre de 2026 la URL sin versión de Babel pasó a servir Babel 8 y la aplicación quedó en blanco sin que nadie lo detectara. Ahora todas las versiones están fijadas, pero un CDN puede seguir fallando o retirar una versión.
 - **Solución:** la tarea de GitHub Actions [`prueba-carga.yml`](.github/workflows/prueba-carga.yml) se ejecuta cada día, en cada push a `main` y en cada pull request (también a mano desde la pestaña *Actions*). Abre `index.html` en Chromium sin interfaz con Playwright ([`prueba-carga.mjs`](.github/pruebas/prueba-carga.mjs)) y comprueba que aparecen la barra superior y la pantalla de bienvenida, que Tailwind aplica los estilos y que se puede crear un diagrama, sin errores en la consola ni recursos que fallen. Si falla, GitHub avisa por correo.
 - **Para probar en local:** `npm install --no-save playwright && npx playwright install chromium && node .github/pruebas/prueba-carga.mjs`.
 - **A tener en cuenta:** GitHub desactiva las tareas programadas de los repositorios sin actividad durante 60 días; si ocurre, basta con reactivarla en *Actions*.
-
-### 2. Soporte táctil (tabletas y Chromebooks)
-- **Problema:** la interacción usa solo eventos de ratón (`onMouseDown`, `onMouseMove`, `onMouseUp`), así que en pantallas táctiles no se pueden seleccionar, mover ni redimensionar elementos, ni desplazar el lienzo.
-- **Propuesta:** sustituirlos por eventos de puntero (`onPointerDown`, etc.), que cubren ratón, dedo y lápiz, y añadir el gesto de pellizcar para hacer zoom y el de arrastrar con dos dedos para desplazar el lienzo.
-- **Esfuerzo:** medio.
 
 ### 3. ✅ «Revisar diagrama»: comprobaciones UML con fines didácticos (hecho, versión 8.0)
 - **Funcionamiento:** el botón **Revisar** de la barra superior (o **F7**) abre un panel lateral con los problemas del diagrama abierto, clasificados en errores, avisos y sugerencias de estilo (estas se pueden ocultar). Al pulsar un problema se seleccionan los elementos afectados y la vista se centra en ellos. La revisión se actualiza mientras se edita y nunca modifica el diagrama.
@@ -30,26 +63,8 @@ Esfuerzo orientativo: **bajo** (unas horas), **medio** (un día aproximadamente)
 ### 4. ✅ Exportar a SVG (hecho)
 - Nuevo botón en la barra superior, junto al de PNG. Reutiliza la preparación de la exportación a PNG (encuadre del contenido, sin selección ni pan/zoom, fondo según el modo claro u oscuro) y descarga el SVG sin rasterizar, nítido a cualquier tamaño en documentos, presentaciones y LaTeX.
 
-### 5. Notas UML
-- Nuevo elemento «Nota» (rectángulo con la esquina doblada) unido con una línea discontinua al elemento que comenta. Útil en enunciados y correcciones. Disponible en los tres tipos de diagrama.
-- **Esfuerzo:** medio.
-
 ### 6. ✅ Notación de miembros estáticos y abstractos (hecho)
 - Los atributos y métodos que empiezan por `static` se subrayan y los que empiezan por `abstract` van en cursiva, como en UML. El prefijo no se muestra en el diagrama y puede ir antes o después del símbolo de visibilidad (`+ static total: int` o `static + total: int`). El panel de propiedades lo recuerda bajo los campos de atributos y métodos.
-
-## Otras mejoras
-
-### 7. Nombres de rol en los extremos de las asociaciones (DC)
-- Ahora cada asociación tiene multiplicidades y una etiqueta central. UML sitúa además el nombre del rol en cada extremo (por ejemplo, *origen* y *destino* junto a Aeropuerto). Se añadirían dos campos al panel de propiedades y se dibujarían junto a las multiplicidades.
-- **Esfuerzo:** bajo-medio.
-
-### 8. Puntos de paso en las relaciones
-- Permitir añadir y arrastrar puntos intermedios en las relaciones para trazarlas a mano y evitar cruces. El modelo de datos ya incluye un campo `waypoints` en `EdgeData` que no se usa todavía.
-- **Esfuerzo:** medio-alto.
-
-### 9. Diagramas de secuencia
-- Un cuarto tipo de diagrama, muy habitual en Ingeniería del Software: líneas de vida, mensajes síncronos y asíncronos, respuestas y fragmentos combinados (`alt`, `loop`). Es la mejora más costosa, porque su disposición es temporal y distinta de la de los otros tres tipos.
-- **Esfuerzo:** alto.
 
 ## Decisión pendiente: publicación en GitHub Pages
 
