@@ -8,12 +8,10 @@ Esfuerzo orientativo: **bajo** (unas horas), **medio** (un día aproximadamente)
 
 Contexto que fija el orden: el alumnado usa sobre todo portátiles (algunos, tabletas), y la herramienta se centra en los tres tipos de diagrama de la asignatura.
 
-### 2. Soporte táctil (tabletas)
-- **Problema:** la interacción usa solo eventos de ratón (`onMouseDown`, `onMouseMove`, `onMouseUp`), así que en pantallas táctiles no se pueden seleccionar, mover ni redimensionar elementos, ni desplazar el lienzo.
-- **Propuesta:** sustituirlos por eventos de puntero (`onPointerDown`, etc.), que cubren ratón, dedo y lápiz, y añadir el gesto de pellizcar para hacer zoom y el de arrastrar con dos dedos para desplazar el lienzo.
-- **Detalles:** tiradores más grandes en pantallas táctiles y alternativa al doble clic (el texto ya se puede editar en el panel de propiedades). Eliminar, duplicar y conectar ya tienen botón en el panel, así que no dependen del teclado. Con ratón todo debe seguir funcionando igual.
-- **Motivo del orden:** el alumnado usa sobre todo portátiles, pero algunos estudiantes trabajan con tabletas. Es una mejora corta y deja preparada la base para los puntos de paso (8), que añaden arrastres nuevos: si se escriben ya con eventos de puntero, funcionarán también en tabletas sin trabajo adicional.
-- **Esfuerzo:** medio (un día aproximadamente).
+### 2. ✅ Soporte táctil (tabletas) (hecho en la rama `v9`, pendiente de publicar en la versión 9.0)
+- **Solución:** el lienzo, los elementos y los tiradores usan eventos de puntero, que cubren ratón, dedo y lápiz con el mismo código; con ratón todo funciona igual que antes. Con el dedo: tocar selecciona, el doble toque edita el texto y arrastrar con un dedo mueve elementos o, sobre el fondo, dibuja el recuadro de selección (como con el ratón). Con dos dedos se pellizca para el zoom y se desplaza el lienzo; al apoyar el segundo dedo se cancela lo que hacía el primero. Tras un toque, los tiradores de redimensionar y la zona sensible de las relaciones se agrandan.
+- **Limitaciones:** reordenar diagramas arrastrándolos en la barra lateral sigue siendo solo con ratón; la selección múltiple con el dedo se hace con el recuadro (no hay Mayús).
+- **Pruebas:** la prueba automática comprueba el gesto de pellizcar.
 
 ### 8. Puntos de paso en las relaciones
 - **Problema:** el trazado ortogonal siempre sale en horizontal, gira en el punto medio y entra en horizontal. Cuando dos relaciones unen los mismos dos niveles (por ejemplo, la ida y la vuelta de un bucle de reintento en un DA), sus tramos se superponen; en el kit de demostración hubo que usar una diagonal para evitarlo. En diagramas de clases con muchas relaciones aparecen cruces que el alumno no puede deshacer.

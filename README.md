@@ -55,6 +55,8 @@ En macOS, usa ⌘ en lugar de Ctrl.
 | **Botón central** · **Alt+arrastrar** | Mover el lienzo (en algunos escritorios Linux, Alt+arrastrar mueve la ventana) |
 | **?** | Mostrar u ocultar la ayuda de atajos |
 
+En tabletas y pantallas táctiles: **toca** para seleccionar, haz **doble toque** para editar el texto, **arrastra con un dedo** para mover elementos (o, sobre el fondo, seleccionar con un recuadro), **pellizca** para el zoom y **arrastra con dos dedos** para desplazar el lienzo. Las acciones que en el ordenador se hacen con el teclado (eliminar, duplicar, conectar) tienen su botón en el panel de propiedades.
+
 ## Tecnologías Utilizadas
 
 Esta herramienta funciona directamente en el navegador sin backend ("serverless") gracias a:
