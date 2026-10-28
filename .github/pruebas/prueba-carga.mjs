@@ -2,8 +2,9 @@
 // Sirve index.html en un servidor local, lo abre en Chromium sin interfaz y
 // comprueba que la aplicación arranca: que aparecen la barra superior y la
 // pantalla de bienvenida, que se puede crear un diagrama, que «Revisar diagrama»
-// detecta los errores de diagramas-revision.json y que no hay errores en la
-// consola ni recursos de CDN que fallen.
+// detecta los errores de diagramas-revision.json, que el gesto de pellizcar
+// amplía el zoom y que no hay errores en la consola ni recursos de CDN que
+// fallen.
 // Uso: node .github/pruebas/prueba-carga.mjs (desde la raíz del repositorio).
 
 import { createServer } from 'node:http';
@@ -85,6 +86,22 @@ try {
         if (faltan.length) errores.push(`Revisión de «${diagrama}»: no aparece ${faltan.map(m => `«${m}»`).join(', ')}`);
     }
     console.log('✓ Revisión del diagrama comprobada');
+
+    // 5. Pantalla táctil: pellizcar con dos dedos amplía el zoom.
+    const zoomTactil = await pagina.evaluate(async () => {
+        const esperar = ms => new Promise(r => setTimeout(r, ms));
+        const zoom = () => [...document.querySelectorAll('span')].find(s => /^\d+%$/.test(s.textContent))?.textContent;
+        const svg = document.querySelector('svg.touch-none'), r = svg.getBoundingClientRect();
+        const evento = (tipo, x, y, id) => svg.dispatchEvent(new PointerEvent(tipo, { bubbles: true, cancelable: true, pointerId: id, pointerType: 'touch', clientX: x, clientY: y, button: 0, buttons: tipo === 'pointerup' ? 0 : 1 }));
+        const cx = r.x + r.width / 2, cy = r.y + r.height / 2, antes = zoom();
+        evento('pointerdown', cx - 50, cy, 1); await esperar(50);
+        evento('pointerdown', cx + 50, cy, 2); await esperar(50);
+        for (let i = 1; i <= 5; i++) { evento('pointermove', cx - 50 - 10 * i, cy, 1); evento('pointermove', cx + 50 + 10 * i, cy, 2); await esperar(30); }
+        evento('pointerup', cx - 100, cy, 1); evento('pointerup', cx + 100, cy, 2); await esperar(100);
+        return { antes, despues: zoom() };
+    });
+    if (zoomTactil.antes !== '100%' || zoomTactil.despues !== '200%') errores.push(`Pellizcar no amplía el zoom como se espera (de ${zoomTactil.antes} a ${zoomTactil.despues}; se esperaba de 100% a 200%)`);
+    else console.log('✓ Gesto de pellizcar comprobado');
 
     // Margen para errores asíncronos tardíos.
     await pagina.waitForTimeout(1000);

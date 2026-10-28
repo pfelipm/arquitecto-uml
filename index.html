@@ -300,13 +300,20 @@
                 ['Botón central  ·  Alt+arrastrar', 'Mover el lienzo (en algunos escritorios Linux, Alt+arrastrar mueve la ventana: usa el botón central)'],
                 ['?', 'Mostrar u ocultar esta ayuda'],
             ]},
+            { title: 'Pantalla táctil', items: [
+                ['Tocar', 'Seleccionar un elemento o una relación'],
+                ['Doble toque', 'Editar el texto de un elemento'],
+                ['Arrastrar con un dedo', 'Mover elementos o, sobre el fondo, seleccionar con un recuadro'],
+                ['Pellizcar', 'Ampliar o reducir el zoom'],
+                ['Arrastrar con dos dedos', 'Desplazar el lienzo'],
+            ]},
         ];
 
         const ShortcutsModal = ({ isOpen, onClose, isDarkMode }) => {
             if (!isOpen) return null;
             const kbd = `inline-block px-1.5 py-0.5 rounded border text-xs font-mono whitespace-nowrap ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-100 border-gray-300'}`;
             return (
-                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onMouseDown={e => e.stopPropagation()} onClick={onClose}>
+                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()} onClick={onClose}>
                     <div className={`p-6 rounded-lg shadow-xl border w-[40rem] max-w-[95%] max-h-[90%] overflow-y-auto ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`} onClick={e => e.stopPropagation()}>
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-bold flex items-center gap-2"><Keyboard size={18} className="text-blue-500"/> Atajos de teclado y ratón</h3>
@@ -806,7 +813,7 @@
             if (!isOpen) return null;
 
             return (
-                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onMouseDown={e => e.stopPropagation()}>
+                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
                     <div className={`p-6 rounded-lg shadow-xl border w-96 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
                         <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                             <Edit2 size={18} className="text-blue-500"/>
@@ -845,7 +852,7 @@
         const NewDiagramModal = ({ isOpen, onClose, onCreate, isDarkMode }) => {
             if (!isOpen) return null;
             return (
-                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm" onMouseDown={(e) => e.stopPropagation()}>
+                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
                     <div className={`p-8 rounded-xl shadow-2xl max-w-4xl w-full mx-4 ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}`}>
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-2xl font-bold">Crear nuevo diagrama</h2>
@@ -875,7 +882,7 @@
             const currentType = validTypes.includes(selectedType) ? selectedType : validTypes[0];
 
             return (
-                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-20 backdrop-blur-sm" onMouseDown={(e) => e.stopPropagation()}>
+                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-20 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
                     <div className={`p-6 rounded-lg shadow-xl border w-80 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
                         <h3 className="text-lg font-bold mb-4">Nueva Conexión</h3>
                         <div className="space-y-2 mb-6">
@@ -951,7 +958,7 @@
             if (!isOpen) return null;
             const fieldClass = `w-full p-2 rounded border font-mono text-xs break-all resize-none focus:ring-2 focus:ring-blue-500 outline-none ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-black'}`;
             return (
-                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onMouseDown={e => e.stopPropagation()}>
+                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
                     <div className={`p-6 rounded-lg shadow-xl border w-[28rem] max-w-[95%] ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
                         <h3 className="text-lg font-bold mb-3 flex items-center gap-2"><Link2 size={18} className="text-blue-500"/> Compartir «{diagramName}»</h3>
                         {link === null ? (
@@ -981,7 +988,7 @@
             }, [isOpen, initialText]);
             if (!isOpen) return null;
             return (
-                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onMouseDown={e => e.stopPropagation()}>
+                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
                     <div className={`p-6 rounded-lg shadow-xl border w-[28rem] max-w-[95%] ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
                         <h3 className="text-lg font-bold mb-3 flex items-center gap-2"><Link2 size={18} className="text-blue-500"/> Abrir diagrama compartido</h3>
                         <p className="text-xs opacity-70 mb-2">Pega el enlace que te han compartido. Se añadirá una copia a la carpeta «{SHARED_FOLDER_NAME}».</p>
@@ -1000,7 +1007,7 @@
             const folderCount = pendingImport.folders.length;
             const diagramCount = pendingImport.folders.reduce((n, f) => n + f.diagrams.length, 0);
             return (
-                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onMouseDown={e => e.stopPropagation()}>
+                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
                     <div className={`p-6 rounded-lg shadow-xl border w-[28rem] max-w-[95%] ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
                         <h3 className="text-lg font-bold mb-3 flex items-center gap-2"><Upload size={18} className="text-blue-500"/> Importar copia de seguridad</h3>
                         <p className="text-sm mb-1">El archivo contiene <strong>{diagramCount} {diagramCount === 1 ? 'diagrama' : 'diagramas'}</strong> en {folderCount} {folderCount === 1 ? 'carpeta' : 'carpetas'}.</p>
@@ -1092,6 +1099,11 @@
           const fileInputRef = useRef(null);
 
           const lastClickRef = useRef({id: '', time: 0});
+          // Pantallas táctiles: con el dedo, tiradores y zonas de toque más grandes
+          const [touchMode, setTouchMode] = useState(false);
+          // Dedos apoyados en el lienzo y gesto de dos dedos en curso (pellizcar / desplazar)
+          const touchPointsRef = useRef(new Map());
+          const gestureRef = useRef(null);
           // Estado previo a un arrastre/redimensionado, para poder deshacerlo
           const dragSnapshotRef = useRef(null);
           // Indica si la edición de texto en curso ya ha guardado su punto de deshacer
@@ -1631,7 +1643,7 @@
             setTool('select');
           };
 
-          // --- MOUSE HANDLERS ---
+          // --- MANEJADORES DE PUNTERO (ratón, dedo y lápiz) ---
           const handleMouseDown = (e) => {
             if (e.button === 1 || (e.button === 0 && e.altKey) || tool === 'pan') { setIsDragging(true); setDragStart({ x: e.clientX, y: e.clientY }); return; }
             if (tool !== 'select' && tool !== 'pan') { addNode(getMousePos(e)); return; }
@@ -1772,6 +1784,67 @@
             if (changed) setHistory(prev => ({ past: [...prev.past, snap].slice(-MAX_HISTORY), future: [] }));
           };
 
+          // --- GESTOS TÁCTILES DE DOS DEDOS ---
+          // Se gestionan en fase de captura, antes que los manejadores de nodos y lienzo: al apoyar el segundo
+          // dedo se cancela lo que hacía el primero (arrastre, recuadro…) y los dos dedos pasan a hacer zoom
+          // (pellizcar) y a desplazar el lienzo. El gesto dura hasta que se levantan todos los dedos.
+          const isCanvasTarget = (target) => svgRef.current?.contains(target) || target === canvasRef.current;
+
+          const cancelPointerOperation = () => {
+              const snap = dragSnapshotRef.current;
+              if (snap) { setNodes(snap.nodes); setEdges(snap.edges); dragSnapshotRef.current = null; }
+              setIsDragging(false); setIsResizing(false); setResizeHandle(null); setActiveNodeId(null);
+              setInitialNodeGeom(null); setSelectionBox(null); setSmartGuides([]);
+          };
+
+          const handlePointerDownCapture = (e) => {
+              setTouchMode(e.pointerType !== 'mouse');
+              if (e.pointerType !== 'touch' || !isCanvasTarget(e.target)) return;
+              const points = touchPointsRef.current;
+              points.set(e.pointerId, { x: e.clientX, y: e.clientY });
+              if (gestureRef.current) { e.stopPropagation(); return; }
+              if (points.size === 2) {
+                  e.stopPropagation();
+                  cancelPointerOperation();
+                  const [[idA, a], [idB, b]] = [...points.entries()];
+                  const rect = svgRef.current.getBoundingClientRect();
+                  gestureRef.current = {
+                      ids: [idA, idB],
+                      dist: Math.hypot(b.x - a.x, b.y - a.y) || 1,
+                      mid: { x: (a.x + b.x) / 2 - rect.left, y: (a.y + b.y) / 2 - rect.top },
+                      ...viewRef.current,
+                  };
+              }
+          };
+
+          const handlePointerMoveCapture = (e) => {
+              const points = touchPointsRef.current;
+              if (e.pointerType !== 'touch' || !points.has(e.pointerId)) return;
+              points.set(e.pointerId, { x: e.clientX, y: e.clientY });
+              const g = gestureRef.current;
+              if (!g) return;
+              e.stopPropagation();
+              const a = points.get(g.ids[0]), b = points.get(g.ids[1]);
+              if (!a || !b) return;
+              const rect = svgRef.current.getBoundingClientRect();
+              const mid = { x: (a.x + b.x) / 2 - rect.left, y: (a.y + b.y) / 2 - rect.top };
+              const newScale = Math.min(Math.max(0.1, g.scale * Math.hypot(b.x - a.x, b.y - a.y) / g.dist), 5);
+              // El punto del diagrama que estaba entre los dos dedos sigue entre ellos
+              const worldX = (g.mid.x - g.pan.x) / g.scale, worldY = (g.mid.y - g.pan.y) / g.scale;
+              const next = { scale: newScale, pan: { x: mid.x - worldX * newScale, y: mid.y - worldY * newScale } };
+              viewRef.current = next;
+              setScale(next.scale); setPan(next.pan);
+          };
+
+          const handlePointerUpCapture = (e) => {
+              if (e.pointerType !== 'touch') return;
+              touchPointsRef.current.delete(e.pointerId);
+              if (gestureRef.current) {
+                  e.stopPropagation();
+                  if (touchPointsRef.current.size === 0) gestureRef.current = null;
+              }
+          };
+
           const handleMouseUp = () => { commitDragHistory(); setIsDragging(false); setIsResizing(false); setResizeHandle(null); setActiveNodeId(null); setInitialNodeGeom(null); setSelectionBox(null); setSmartGuides([]); if (isDragging || isResizing) saveCurrentDiagram(nodes, edges); };
           // Listener nativo no pasivo: el onWheel de React es pasivo y no puede impedir el zoom de la página con Ctrl+rueda
           // Copia de zoom y desplazamiento accesible desde el listener (que se registra una sola vez)
@@ -1869,19 +1942,20 @@
 
           // --- RENDERIZADO NODOS ---
           const renderResizeHandles = (node) => {
-              const s = 8;
+              // Con el dedo, tiradores el doble de grandes
+              const s = touchMode ? 16 : 8, o = s / 2;
               const h = [
-                  { id: 'nw', x: -4, y: -4, cursor: 'nw-resize' },
-                  { id: 'ne', x: node.width - 4, y: -4, cursor: 'ne-resize' },
-                  { id: 'sw', x: -4, y: node.height - 4, cursor: 'sw-resize' },
-                  { id: 'se', x: node.width - 4, y: node.height - 4, cursor: 'se-resize' },
-                  { id: 'n', x: node.width / 2 - 4, y: -4, cursor: 'n-resize' },
-                  { id: 's', x: node.width / 2 - 4, y: node.height - 4, cursor: 's-resize' },
-                  { id: 'e', x: node.width - 4, y: node.height / 2 - 4, cursor: 'e-resize' },
-                  { id: 'w', x: -4, y: node.height / 2 - 4, cursor: 'w-resize' }
+                  { id: 'nw', x: -o, y: -o, cursor: 'nw-resize' },
+                  { id: 'ne', x: node.width - o, y: -o, cursor: 'ne-resize' },
+                  { id: 'sw', x: -o, y: node.height - o, cursor: 'sw-resize' },
+                  { id: 'se', x: node.width - o, y: node.height - o, cursor: 'se-resize' },
+                  { id: 'n', x: node.width / 2 - o, y: -o, cursor: 'n-resize' },
+                  { id: 's', x: node.width / 2 - o, y: node.height - o, cursor: 's-resize' },
+                  { id: 'e', x: node.width - o, y: node.height / 2 - o, cursor: 'e-resize' },
+                  { id: 'w', x: -o, y: node.height / 2 - o, cursor: 'w-resize' }
               ];
 
-              return ( <g> {h.map((pos) => ( <rect key={pos.id} x={pos.x} y={pos.y} width={s} height={s} fill="white" stroke={COLORS.selection} strokeWidth={1} style={{ cursor: pos.cursor }} onMouseDown={(e) => { e.stopPropagation(); dragSnapshotRef.current = { nodes, edges }; setIsResizing(true); setResizeHandle(pos.id); setActiveNodeId(node.id); setDragStart(getMousePos(e)); setInitialNodeGeom({ x: node.x, y: node.y, w: node.width, h: node.height }); }} /> ))} </g> );
+              return ( <g> {h.map((pos) => ( <rect key={pos.id} x={pos.x} y={pos.y} width={s} height={s} fill="white" stroke={COLORS.selection} strokeWidth={1} style={{ cursor: pos.cursor }} onPointerDown={(e) => { e.stopPropagation(); dragSnapshotRef.current = { nodes, edges }; setIsResizing(true); setResizeHandle(pos.id); setActiveNodeId(node.id); setDragStart(getMousePos(e)); setInitialNodeGeom({ x: node.x, y: node.y, w: node.width, h: node.height }); }} /> ))} </g> );
           };
 
           const renderNode = (node) => {
@@ -1891,7 +1965,7 @@
             const fill = isDarkMode ? COLORS.nodeBgDark : COLORS.nodeBg;
             const textFill = isDarkMode ? COLORS.textDark : COLORS.text;
 
-            const commonProps = { key: node.id, onMouseDown: (e) => {
+            const commonProps = { key: node.id, onPointerDown: (e) => {
                     if (tool !== 'select' && tool !== 'pan' && !connectingNodeId) return;
                     e.stopPropagation();
 
@@ -2069,7 +2143,7 @@
 
                      return (
                         <g key={edge.id} onClick={(e) => { e.stopPropagation(); setNodes(nodes.map(n => ({...n, selected: false}))); setEdges(edges.map(ed => ({...ed, selected: ed.id === edge.id}))); }} className="cursor-pointer">
-                            <path d={d} fill="none" stroke="transparent" strokeWidth={15} />
+                            <path d={d} fill="none" stroke="transparent" strokeWidth={touchMode ? 28 : 15} />
                             <path d={d} fill="none" stroke={strokeColor} strokeWidth={2} markerEnd={marker} strokeDasharray={dashed} />
                             {edge.label && <text x={labelPos.x} y={labelPos.y} textAnchor={labelAnchor} fill={strokeColor} fontSize={11} paintOrder="stroke" stroke={isDarkMode ? COLORS.nodeBgDark : COLORS.nodeBg} strokeWidth="3px">{edge.label}</text>}
                         </g>
@@ -2189,7 +2263,7 @@
                         setNodes(nodes.map(n => ({...n, selected: false})));
                         setEdges(edges.map(ed => ({...ed, selected: ed.id === edge.id})));
                     }} className="cursor-pointer">
-                        <path d={d} fill="none" stroke="transparent" strokeWidth={15} />
+                        <path d={d} fill="none" stroke="transparent" strokeWidth={touchMode ? 28 : 15} />
                         <path d={d} fill="none" stroke={strokeColor} strokeWidth={2} markerEnd={marker} strokeDasharray={dashed} />
                         {showLabel && <text x={labelPos.x} y={labelPos.y} textAnchor={labelAnchor} {...textStyle} strokeWidth="4px" style={{}}>{edge.label}</text>}
 
@@ -2548,7 +2622,7 @@
               {renderStorageNotice()}
               <div className="flex flex-1 overflow-hidden relative">
                 {renderSidebar()}
-                <div ref={canvasRef} className={`flex-1 relative overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} ${connectingNodeId ? 'cursor-crosshair' : (tool === 'pan' || (isDragging && tool === 'pan')) ? 'cursor-grab' : 'default'}`} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
+                <div ref={canvasRef} className={`flex-1 relative overflow-hidden touch-none ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} ${connectingNodeId ? 'cursor-crosshair' : (tool === 'pan' || (isDragging && tool === 'pan')) ? 'cursor-grab' : 'default'}`} onPointerDownCapture={handlePointerDownCapture} onPointerMoveCapture={handlePointerMoveCapture} onPointerUpCapture={handlePointerUpCapture} onPointerCancelCapture={handlePointerUpCapture} onPointerDown={handleMouseDown} onPointerMove={handleMouseMove} onPointerUp={handleMouseUp} onPointerCancel={handleMouseUp} onPointerLeave={handleMouseUp}>
                     <div className="absolute inset-0 pointer-events-none opacity-20" style={{ backgroundImage: `radial-gradient(${isDarkMode ? '#6b7280' : '#9ca3af'} 1px, transparent 1px)`, backgroundSize: `${20 * scale}px ${20 * scale}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }} />
                     <svg ref={svgRef} className="w-full h-full block touch-none" xmlns="http://www.w3.org/2000/svg">
                         <defs>
@@ -2644,7 +2718,7 @@
                 {showReview && renderReviewPanel()}
 
                 {deleteConfirm && (
-                    <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm" onMouseDown={(e)=>e.stopPropagation()}>
+                    <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
                         <div className={`p-6 rounded-lg shadow-xl border w-80 text-center transform transition-all scale-100 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
                             <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4"><AlertTriangle className="h-6 w-6 text-red-600" /></div>
                             <h3 className="text-lg leading-6 font-medium mb-2">¿Eliminar {deleteConfirm.type === 'folder' ? 'carpeta' : 'diagrama'}?</h3>
