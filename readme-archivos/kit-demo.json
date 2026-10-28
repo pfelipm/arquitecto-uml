@@ -223,20 +223,20 @@
               "id": "edge_cliente_orden",
               "source": "class_cliente",
               "target": "class_orden",
-              "type": "composition",
+              "type": "association",
               "pathType": "straight",
               "sourceLabel": "1",
               "targetLabel": "0..*",
               "label": "realiza"
             },
             {
-              "id": "edge_orden_producto",
-              "source": "class_orden",
-              "target": "class_producto",
+              "id": "edge_producto_orden",
+              "source": "class_producto",
+              "target": "class_orden",
               "type": "aggregation",
               "pathType": "straight",
-              "sourceLabel": "0..*",
-              "targetLabel": "1..*",
+              "sourceLabel": "1..*",
+              "targetLabel": "0..*",
               "label": "contiene"
             },
             {
