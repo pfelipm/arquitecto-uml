@@ -66,20 +66,9 @@ Contexto que fija el orden: el alumnado usa sobre todo portátiles (algunos, tab
 ### 6. ✅ Notación de miembros estáticos y abstractos (hecho)
 - Los atributos y métodos que empiezan por `static` se subrayan y los que empiezan por `abstract` van en cursiva, como en UML. El prefijo no se muestra en el diagrama y puede ir antes o después del símbolo de visibilidad (`+ static total: int` o `static + total: int`). El panel de propiedades lo recuerda bajo los campos de atributos y métodos.
 
-## Decisión pendiente: publicación en GitHub Pages
+## Publicación en GitHub Pages (hecho)
 
-No es una función nueva, pero condiciona varias de las anteriores.
-
-- **Situación actual:** la versión oficial está insertada como código en Google Sites (`umlsimple.pablofelip.online`). Sites ejecuta ese código en un subdominio aleatorio que cambia en cada carga (`…-atari-embeds.googleusercontent.com`), por lo que el navegador no conserva los diagramas entre visitas. La aplicación lo avisa y recuerda exportar una copia JSON. Además, los enlaces compartidos no se abren con un clic: hay que pegarlos en «Abrir diagrama compartido».
-- **Propuesta:** publicar `index.html` en GitHub Pages (`pfelipm.github.io/arquitecto-uml`) e insertarlo en Sites por URL en lugar de por código. Sites seguiría siendo la dirección oficial, pero la aplicación tendría un origen estable.
-- **Ventajas:**
-  - Los diagramas se conservarían entre visitas.
-  - Los enlaces compartidos se abrirían con un clic.
-  - Cada push a `main` actualizaría la aplicación sin tener que pegar código en Sites.
-- **A tener en cuenta:**
-  - Los diagramas guardados en cada dirección son independientes; para pasar de una a otra hay que exportar e importar una copia JSON.
-  - Hay que comprobar en la práctica que la inserción por URL en Sites conserva los datos.
-- **Pasos:**
-  1. Activar Pages en GitHub: Settings → Pages → *Deploy from a branch* → `main` / *(root)*.
-  2. Cambiar la base de los enlaces compartidos (`APP_URL` y `getShareBaseUrl` en `index.html`).
-  3. Sustituir en Sites el bloque de código por una inserción de URL.
+- **Situación:** desde el 5 de noviembre de 2026 la aplicación se publica también en GitHub Pages (`https://pfelipm.github.io/arquitecto-uml/`), desde la rama `main` y su raíz; cada push a `main` la actualiza. La versión oficial sigue insertada como código en Google Sites (`umlsimple.pablofelip.online`).
+- **Diferencias:** en Sites el código se ejecuta en un subdominio aleatorio (`…-atari-embeds.googleusercontent.com`), así que el navegador no conserva los diagramas entre visitas y los enlaces compartidos hay que pegarlos en «Abrir diagrama compartido». En Pages los diagramas se conservan y los enlaces se abren con un clic. La aplicación detecta dónde se ejecuta (`SHARE_OPENS_DIRECTLY` en `index.html`) y genera el enlace y el texto del modal de compartir que corresponden.
+- **A tener en cuenta:** los diagramas guardados en cada dirección son independientes (para pasar de una a otra, exportar e importar una copia JSON). El almacenamiento del navegador se comparte con cualquier otro proyecto que se publique en `pfelipm.github.io`.
+- **Pendiente a medio plazo:** llevar el subdominio `umlsimple.pablofelip.online` a GitHub Pages (dominio propio en los ajustes de Pages y registro DNS apuntando a GitHub). No hará falta cambiar el código: al no ejecutarse en `googleusercontent.com`, los enlaces con ese dominio se abrirán con un clic.
