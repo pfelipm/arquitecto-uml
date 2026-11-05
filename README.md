@@ -10,7 +10,9 @@
 
 Puedes utilizar el editor sin limitaciones y directamente en tu navegador accediendo a:
 
-👉 **[https://umlsimple.pablofelip.online](https://umlsimple.pablofelip.online)**
+👉 **[https://umlsimple.pablofelip.online](https://umlsimple.pablofelip.online)** (versión oficial, en Google Sites)
+
+👉 **[https://pfelipm.github.io/arquitecto-uml](https://pfelipm.github.io/arquitecto-uml/)** (GitHub Pages): la misma aplicación, pero **el navegador conserva los diagramas** aunque recargues la página o vuelvas otro día, y los enlaces compartidos se abren con un clic.
 
 ## Características Principales
 
@@ -26,8 +28,8 @@ Puedes utilizar el editor sin limitaciones y directamente en tu navegador accedi
         ![Ejemplo DA](readme-archivos/DA.png)
 *   **Revisar diagrama:** El botón **Revisar** (o **F7**) abre un panel que analiza el diagrama abierto y señala errores UML habituales, con fines didácticos: casos de uso sin actor o fuera del límite del sistema, herencias circulares, clases con métodos abstractos que no están marcadas como abstractas, interfaces sin implementar, diagramas de actividad sin nodo inicial, decisiones sin guardas, nodos inalcanzables, etc. Los problemas se clasifican en errores, avisos y sugerencias de estilo (que se pueden ocultar); al pulsar uno, se seleccionan en el lienzo los elementos afectados. La revisión se actualiza mientras editas y nunca modifica el diagrama.
 *   **Gestión de Proyectos:** Organización mediante carpetas y múltiples diagramas.
-*   **Persistencia Local:** Guardado automático en el navegador (`localStorage`); al volver, se reabre el último diagrama abierto. En la versión insertada en Google Sites el navegador no conserva los datos entre visitas, así que la aplicación lo avisa y recuerda exportar una copia JSON antes de salir.
-*   **Compartir por enlace:** El botón **Compartir** genera un enlace que contiene el diagrama abierto (comprimido y sin pasar por ningún servidor). Quien lo recibe lo pega en **Abrir diagrama compartido** y obtiene una copia en la carpeta «Diagramas compartidos», sin que se modifiquen sus otros diagramas. Si la aplicación se abre directamente (no insertada en Google Sites), basta con abrir el enlace.
+*   **Persistencia Local:** Guardado automático en el navegador (`localStorage`); al volver, se reabre el último diagrama abierto. En la versión insertada en Google Sites el navegador no conserva los datos entre visitas, así que la aplicación lo avisa y recuerda exportar una copia JSON antes de salir; en la versión de GitHub Pages sí se conservan.
+*   **Compartir por enlace:** El botón **Compartir** genera un enlace que contiene el diagrama abierto (comprimido y sin pasar por ningún servidor). Quien lo recibe lo pega en **Abrir diagrama compartido** y obtiene una copia en la carpeta «Diagramas compartidos», sin que se modifiquen sus otros diagramas. Los enlaces generados desde GitHub Pages (o cualquier copia abierta directamente, no insertada en Google Sites) abren el diagrama con un clic.
 *   **Importar/Exportar:** Copias de seguridad completas en formato JSON (incluye un [kit de demostración](readme-archivos/kit-demo.json) para pruebas). Al importar una copia, puedes **añadir** sus carpetas a las tuyas o **reemplazar** todo tu contenido. También permite exportar diagramas como imagen PNG en alta resolución o como imagen vectorial SVG, nítida a cualquier tamaño en documentos, presentaciones y LaTeX.
 *   **Interfaz Moderna:** Diseño limpio con soporte para **modo oscuro**, zoom hacia el cursor, guías de alineación inteligentes y atajos de teclado y ratón (consulta la tabla siguiente o pulsa **?** en la aplicación).
 

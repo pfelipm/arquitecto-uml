@@ -254,11 +254,11 @@
         };
 
         // Fuera de Google Sites (alojamiento directo o servidor local) el enlace apunta a la propia página y se abre solo
-        const getShareBaseUrl = () => {
-            const { protocol, hostname, origin, pathname } = window.location;
-            const direct = (protocol === 'http:' || protocol === 'https:') && !hostname.endsWith('googleusercontent.com');
-            return direct ? origin + pathname : APP_URL + '/';
-        };
+        // Servida en una dirección propia (GitHub Pages, servidor local…), la aplicación genera enlaces con esa
+        // dirección, que abren el diagrama con un clic. Insertada como código en Google Sites se ejecuta en un
+        // subdominio de googleusercontent.com: el enlace usa APP_URL y quien lo recibe lo pega en la aplicación.
+        const SHARE_OPENS_DIRECTLY = (window.location.protocol === 'http:' || window.location.protocol === 'https:') && !window.location.hostname.endsWith('googleusercontent.com');
+        const getShareBaseUrl = () => SHARE_OPENS_DIRECTLY ? window.location.origin + window.location.pathname : APP_URL + '/';
 
         // Copia primero con execCommand (funciona en iframes sin permiso de portapapeles) y, si no, con la API moderna
         const copyFromField = async (field) => {
@@ -966,7 +966,11 @@
                         ) : (<>
                             <textarea ref={fieldRef} readOnly rows={4} value={link} onFocus={e => e.target.select()} className={fieldClass} />
                             <p className="text-xs opacity-70 mt-2">Quien reciba el enlace podrá añadir una copia de este diagrama a los suyos; los cambios que hagas después no se reflejan en el enlace.</p>
-                            <p className="text-xs opacity-70 mt-2">Si al abrirlo no aparece el diagrama (por ejemplo, desde la web pública), basta con pegar el enlace en <strong>Abrir diagrama compartido</strong> <Link2 size={11} className="inline"/>, en la barra superior.</p>
+                            {SHARE_OPENS_DIRECTLY ? (
+                                <p className="text-xs opacity-70 mt-2">Al abrir el enlace se ofrece añadir el diagrama directamente. En otra versión del editor (por ejemplo, la de {APP_URL.replace('https://', '')}), basta con pegarlo en <strong>Abrir diagrama compartido</strong> <Link2 size={11} className="inline"/>, en la barra superior.</p>
+                            ) : (
+                                <p className="text-xs opacity-70 mt-2">Quien lo reciba debe pegarlo en <strong>Abrir diagrama compartido</strong> <Link2 size={11} className="inline"/>, en la barra superior del editor.</p>
+                            )}
                             {link.length > SHARE_LONG_LINK && (
                                 <p className={`text-xs mt-2 p-2 rounded flex gap-2 ${isDarkMode ? 'bg-amber-900/40 text-amber-200' : 'bg-amber-50 text-amber-800'}`}><AlertTriangle size={14} className="flex-shrink-0 mt-0.5"/> El enlace es muy largo ({link.length.toLocaleString('es-ES')} caracteres) y algunos servicios podrían recortarlo. Para diagramas grandes es más fiable exportar una copia JSON.</p>
                             )}
