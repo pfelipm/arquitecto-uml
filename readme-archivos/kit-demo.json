@@ -3,12 +3,12 @@
   "folders": [
     {
       "id": "folder_demo_kit",
-      "name": "Kit de Demostración",
+      "name": "Kit de demostración",
       "isOpen": true,
       "diagrams": [
         {
           "id": "diag_dcu_demo",
-          "name": "DCU - Gestión Biblioteca",
+          "name": "DCU - Gestión de biblioteca",
           "type": "dcu",
           "createdAt": 1765715100000,
           "nodes": [
@@ -41,7 +41,7 @@
               "y": 50,
               "width": 500,
               "height": 434.82142857142856,
-              "text": "Sistema de Biblioteca",
+              "text": "Sistema de biblioteca",
               "zIndex": 0,
               "selected": false
             },
@@ -52,7 +52,7 @@
               "y": 120,
               "width": 120,
               "height": 80,
-              "text": "Buscar Libro",
+              "text": "Buscar libro",
               "zIndex": 2,
               "selected": false
             },
@@ -63,7 +63,7 @@
               "y": 250,
               "width": 120,
               "height": 80,
-              "text": "Reservar Libro",
+              "text": "Reservar libro",
               "zIndex": 2,
               "selected": false
             },
@@ -140,7 +140,7 @@
         },
         {
           "id": "diag_dc_demo",
-          "name": "DC - Sistema E-Commerce",
+          "name": "DC - Comercio electrónico",
           "type": "dc",
           "createdAt": 1765715200000,
           "nodes": [
@@ -300,7 +300,7 @@
         },
         {
           "id": "diag_da_demo",
-          "name": "DA - Proceso de Login",
+          "name": "DA - Proceso de inicio de sesión",
           "type": "da",
           "createdAt": 1765715300000,
           "nodes": [
@@ -333,7 +333,7 @@
               "y": 190,
               "width": 120,
               "height": 60,
-              "text": "Ingresar Datos",
+              "text": "Ingresar datos",
               "zIndex": 2,
               "selected": false
             },
@@ -344,7 +344,7 @@
               "y": 290,
               "width": 40,
               "height": 40,
-              "text": "¿Validos?",
+              "text": "¿Válidos?",
               "zIndex": 2,
               "selected": false
             },
@@ -355,7 +355,7 @@
               "y": 280,
               "width": 120,
               "height": 60,
-              "text": "Mostrar Error",
+              "text": "Mostrar error",
               "zIndex": 2,
               "selected": false
             },
@@ -366,7 +366,7 @@
               "y": 390,
               "width": 120,
               "height": 60,
-              "text": "Ir a Inicio",
+              "text": "Ir a inicio",
               "zIndex": 2,
               "selected": false
             },
@@ -413,7 +413,7 @@
               "target": "act_home",
               "type": "control",
               "pathType": "orthogonal",
-              "label": "[Si]"
+              "label": "[sí]"
             },
             {
               "id": "edge_decision_error",
@@ -421,7 +421,7 @@
               "target": "act_error",
               "type": "control",
               "pathType": "orthogonal",
-              "label": "[No]"
+              "label": "[no]"
             },
             {
               "id": "edge_error_merge",
