@@ -209,6 +209,10 @@
 
         // Insertada como código en Google Sites, la app corre en un subdominio aleatorio que cambia en cada carga
         // (p. ej. 167002356-atari-embeds.googleusercontent.com), así que localStorage empieza vacío en cada visita
+        // Versión en desarrollo (rama v9, publicada en GitHub Pages mientras dura el desarrollo): muestra un aviso.
+        // Al publicar la 9.0 se pone a false antes de fusionar en main.
+        const IS_DEV_BUILD = true;
+
         const IS_EPHEMERAL_STORAGE = /-atari-embeds\.googleusercontent\.com$/.test(window.location.hostname);
 
         // La selección es estado de interfaz: no debe exportarse ni restaurarse al abrir un diagrama
@@ -2641,6 +2645,11 @@
 
           return (
             <div className={`flex flex-col h-screen w-full overflow-hidden select-none ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-black'}`}>
+              {IS_DEV_BUILD && (
+                  <div role="note" className={`px-4 py-1 text-xs text-center border-b ${isDarkMode ? 'bg-amber-900/50 text-amber-100 border-amber-800' : 'bg-amber-100 text-amber-900 border-amber-300'}`}>
+                      <strong>Versión en desarrollo (9.0):</strong> puede contener errores. Para trabajar en clase, usa la versión oficial en <a href={APP_URL} target="_blank" rel="noreferrer" className="underline font-medium">{APP_URL.replace('https://', '')}</a>.
+                  </div>
+              )}
               {renderToolbar()}
               {renderStorageNotice()}
               <div className="flex flex-1 overflow-hidden relative">
