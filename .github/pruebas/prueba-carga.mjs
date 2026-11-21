@@ -70,7 +70,7 @@ try {
     await pagina.getByText('Pruebas de revisión').waitFor({ timeout: TIEMPO_MAX });
     const esperado = {
         'Revisión DC (con errores)': ['Herencia circular', 'no está marcada como abstracta', 'no declara: Cobrar', 'hereda de varias clases', 'parte, por composición, de varios todos'],
-        'Revisión DCU (con errores)': ['Inclusión circular', 'dentro del límite del sistema', 'no está asociado a ningún actor', 'está fuera del límite'],
+        'Revisión DCU (con errores)': ['Inclusión circular', 'dentro del límite del sistema', 'no está asociado a ningún actor', 'está fuera del límite', 'La extensión de «Mostrar ayuda» sobre «Pagar pedido» no indica'],
         'Revisión DA (con errores)': ['Falta el nodo inicial', 'De un nodo final no puede salir', 'sin condición de guarda', 'llegan 2 flujos', '1 bifurcación y 0 uniones'],
         'Revisión DA (correcto)': ['No se han encontrado problemas'],
     };

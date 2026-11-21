@@ -13,6 +13,11 @@ Contexto que fija el orden: el alumnado usa sobre todo portátiles (algunos, tab
 - **Limitaciones:** reordenar diagramas arrastrándolos en la barra lateral sigue siendo solo con ratón; la selección múltiple con el dedo se hace con el recuadro (no hay Mayús).
 - **Pruebas:** la prueba automática comprueba el gesto de pellizcar.
 
+### 10. ✅ Condición de las relaciones `<<extend>>` (DCU) (hecho en la rama `v9`, pendiente de publicar en la versión 9.0)
+- **Necesidad:** en UML 2 una extensión puede indicar la situación en la que el caso de uso extendido se ejecuta (por ejemplo, «el cliente pulsa Ayuda»), y en clase conviene anotarla.
+- **Solución (primera parte):** campo «Condición de la extensión» en el panel de propiedades de las relaciones `<<extend>>`. Se dibuja en cursiva bajo la línea, entre llaves (`{el cliente pulsa Ayuda}`), porque en UML la condición es una restricción; los corchetes quedan para las guardas de los diagramas de actividad. Si el usuario escribe las llaves o corchetes, no se duplican. La revisión sugiere añadir la condición cuando falta.
+- **Segunda parte (con las notas UML, mejora 5):** opción de mostrar la condición con la notación oficial, en una nota unida a la flecha (`Condition: {…}` y, si se quiere, `extension point: …`). Usará el mismo campo, así que no habrá que rehacer los diagramas.
+
 ### 8. Puntos de paso en las relaciones
 - **Problema:** el trazado ortogonal siempre sale en horizontal, gira en el punto medio y entra en horizontal. Cuando dos relaciones unen los mismos dos niveles (por ejemplo, la ida y la vuelta de un bucle de reintento en un DA), sus tramos se superponen; en el kit de demostración hubo que usar una diagonal para evitarlo. En diagramas de clases con muchas relaciones aparecen cruces que el alumno no puede deshacer.
 - **Propuesta:** añadir, arrastrar y eliminar puntos intermedios en las relaciones para trazarlas a mano. El modelo de datos ya incluye un campo `waypoints` en `EdgeData` que no se usa todavía.

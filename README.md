@@ -17,7 +17,7 @@ Puedes utilizar el editor sin limitaciones y directamente en tu navegador accedi
 ## Características Principales
 
 *   **Tipos de Diagramas Soportados:**
-    *   **DCU:** Diagramas de Casos de Uso (Actores, Casos de uso, Límites).
+    *   **DCU:** Diagramas de Casos de Uso (Actores, Casos de uso, Límites). Las relaciones `<<extend>>` pueden indicar su condición, que se muestra entre llaves junto a la flecha.
         
         ![Ejemplo DCU](readme-archivos/DCU.png)
     *   **DC:** Diagramas de Clases (Clases, Interfaces, Relaciones). Admite varias asociaciones entre las mismas clases (por ejemplo, *origen* y *destino*), que se dibujan separadas. Los miembros que empiezan por `static` se muestran subrayados y los que empiezan por `abstract`, en cursiva, siguiendo la notación UML (por ejemplo, `+ static total: int`).

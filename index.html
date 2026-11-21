@@ -110,6 +110,7 @@
           pathType: PathType;
           label?: string;
           sourceLabel?: string;
+          condition?: string; // Solo en <<extend>>: situación en la que se produce la extensión
           targetLabel?: string;
           waypoints?: Point[];
           selected?: boolean;
@@ -612,6 +613,9 @@
                 findCycles(nodes.map(n => n.id), edgesOfType('generalization')).forEach(c =>
                     add('error', 'ciclo-gen', `Generalización circular entre ${c.map(id => `«${byId.get(id).text}»`).join(', ')}.`, c));
 
+                edgesOfType('extend').filter(e => !extendCondition(e)).forEach(e =>
+                    add('suggestion', 'extend-sin-condicion', `La extensión de «${byId.get(e.source).text}» sobre «${byId.get(e.target).text}» no indica en qué situación se produce; añade la condición en el panel de propiedades.`, [], [e.id]));
+
                 // Los casos de uso se nombran con un verbo en infinitivo («Pagar pedido», «Registrarse»)
                 useCases.forEach(uc => {
                     const first = (uc.text || '').trim().split(/\s+/)[0].toLowerCase();
@@ -763,6 +767,9 @@
             if (diagramType === 'dc') return `Ya existen entre ${nodeRef(source)} y ${nodeRef(target)} todas las relaciones de este tipo que se admiten. Para cambiar una, selecciónala y elige otro tipo en el panel de propiedades.`;
             return `Ya hay una relación entre ${nodeRef(source)} y ${nodeRef(target)}, y en un diagrama de casos de uso solo se admite una entre dos elementos. Para cambiar su tipo, selecciónala y elige otro en el panel de propiedades.`;
         };
+
+        // Condición de una relación <<extend>> sin las llaves o corchetes que haya podido escribir el usuario
+        const extendCondition = (edge) => (edge.condition || '').trim().replace(/^[{\[]\s*/, '').replace(/\s*[}\]]$/, '');
 
         const getEdgeLabel = (type) => {
             if (type === 'association') return 'Asociación simple';
@@ -2270,6 +2277,10 @@
                         <path d={d} fill="none" stroke="transparent" strokeWidth={touchMode ? 28 : 15} />
                         <path d={d} fill="none" stroke={strokeColor} strokeWidth={2} markerEnd={marker} strokeDasharray={dashed} />
                         {showLabel && <text x={labelPos.x} y={labelPos.y} textAnchor={labelAnchor} {...textStyle} strokeWidth="4px" style={{}}>{edge.label}</text>}
+                        {edge.type === 'extend' && extendCondition(edge) && (
+                            // Condición de la extensión (en UML, una restricción: va entre llaves), bajo la línea; en relaciones paralelas, bajo el estereotipo
+                            <text x={offset === 0 ? mid.x : labelPos.x} y={offset === 0 ? mid.y + 16 : labelPos.y + 13} textAnchor={offset === 0 ? 'middle' : labelAnchor} {...textStyle} fontWeight={400} fontStyle="italic" strokeWidth="4px">{`{${extendCondition(edge)}}`}</text>
+                        )}
 
                         {/* Etiquetas de Multiplicidad */}
                         {activeDiagram?.type === 'dc' && edge.sourceLabel && ['association', 'directed_association', 'aggregation', 'composition'].includes(edge.type) && (
@@ -2571,6 +2582,14 @@
                             <div> <label className="block text-xs font-medium mb-1">Estilo de línea</label> <select value={sE[0].pathType} onChange={(e) => updateDiagramState(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, pathType: e.target.value } : ed))} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}> <option value="straight">Recta</option> <option value="orthogonal">Ortogonal</option> </select> </div>
 
                             {!(activeDiagram?.type === 'dcu' && (sE[0].type === 'association' || sE[0].type === 'generalization')) && ( <div> <label className="block text-xs font-medium mb-1">Etiqueta</label> <input type="text" disabled={sE[0].type === 'include' || sE[0].type === 'extend'} value={sE[0].label || ''} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, label: e.target.value } : ed))} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'} disabled:opacity-50`}/> </div> )}
+
+                            {sE[0].type === 'extend' && (
+                                <div>
+                                    <label className="block text-xs font-medium mb-1">Condición de la extensión</label>
+                                    <input type="text" placeholder="p. ej. el cliente pulsa Ayuda" value={sE[0].condition || ''} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, condition: e.target.value } : ed))} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/>
+                                    <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Situación en la que el caso de uso extendido se ejecuta. Se muestra entre llaves junto a la relación, como las restricciones de UML.</p>
+                                </div>
+                            )}
 
                             {hasDuplicateAssociationLabel && (
                                 <div className={`p-2 rounded text-xs flex gap-2 ${isDarkMode ? 'bg-amber-900/40 text-amber-200' : 'bg-amber-50 text-amber-800'}`}>

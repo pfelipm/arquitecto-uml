@@ -428,6 +428,26 @@
        "height": 60,
        "text": "Consultar catalogo",
        "zIndex": 2
+      },
+      {
+       "id": "u5",
+       "type": "usecase",
+       "x": 430,
+       "y": 260,
+       "width": 140,
+       "height": 60,
+       "text": "Mostrar ayuda",
+       "zIndex": 2
+      },
+      {
+       "id": "u6",
+       "type": "usecase",
+       "x": 260,
+       "y": 340,
+       "width": 140,
+       "height": 60,
+       "text": "Aplicar cupón",
+       "zIndex": 2
       }
      ],
      "edges": [
@@ -462,6 +482,23 @@
        "type": "include",
        "pathType": "straight",
        "label": "<<include>>"
+      },
+      {
+       "id": "f5",
+       "source": "u5",
+       "target": "u1",
+       "type": "extend",
+       "pathType": "straight",
+       "label": "<<extend>>"
+      },
+      {
+       "id": "f6",
+       "source": "u6",
+       "target": "u1",
+       "type": "extend",
+       "pathType": "straight",
+       "label": "<<extend>>",
+       "condition": "el cliente tiene un cupón"
       }
      ]
     },
