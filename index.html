@@ -65,7 +65,7 @@
           AlertTriangle, X, Link2, ArrowLeftRight, Italic,
           FolderPlus, FilePlus, Layout, Upload, Image as ImageIcon,
           Info, Github, Linkedin, Keyboard, PenTool,
-          ListChecks, XCircle, Lightbulb, CheckCircle2
+          ListChecks, XCircle, Lightbulb, CheckCircle2, RouteOff
         } from 'lucide-react';
 
         // --- CÓDIGO ORIGINAL DE LA APP (Sin modificaciones lógicas) ---
@@ -2761,7 +2761,7 @@
                                 <div className="space-y-2">
                                     <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Para trazar la línea a mano, haz doble clic (o doble toque) sobre ella para añadir un punto de paso y arrástralo; doble clic sobre un punto para quitarlo.</p>
                                     {validWaypoints(sE[0]).length > 0 && (
-                                        <button onClick={() => updateDiagramState(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, waypoints: [] } : ed))} title="Quitar todos los puntos de paso de la relación" className="w-full py-2 px-3 rounded text-sm font-medium flex items-center justify-center gap-2 transition-all bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"><Minus size={14}/> Enderezar <span className="opacity-60 text-xs">({validWaypoints(sE[0]).length === 1 ? '1 punto' : `${validWaypoints(sE[0]).length} puntos`})</span></button>
+                                        <button onClick={() => updateDiagramState(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, waypoints: [] } : ed))} title="Quitar todos los puntos de paso de la relación" className="w-full py-2 px-3 rounded text-sm font-medium flex items-center justify-center gap-2 transition-all bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"><RouteOff size={14}/> Enderezar <span className="opacity-60 text-xs">({validWaypoints(sE[0]).length === 1 ? '1 punto' : `${validWaypoints(sE[0]).length} puntos`})</span></button>
                                     )}
                                 </div>
                             )}
