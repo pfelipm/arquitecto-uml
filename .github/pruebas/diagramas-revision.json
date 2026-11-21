@@ -1231,6 +1231,119 @@
        "label": ""
       }
      ]
+    },
+    {
+     "id": "rev-carriles",
+     "name": "Carriles (con errores)",
+     "type": "da",
+     "createdAt": 0,
+     "nodes": [
+      {
+       "id": "L1",
+       "type": "swimlane",
+       "x": 0,
+       "y": 0,
+       "width": 220,
+       "height": 420,
+       "text": "Cliente",
+       "zIndex": 0
+      },
+      {
+       "id": "L2",
+       "type": "swimlane",
+       "x": 220,
+       "y": 0,
+       "width": 220,
+       "height": 420,
+       "text": ":Pedido",
+       "isObject": true,
+       "zIndex": 0
+      },
+      {
+       "id": "s",
+       "type": "start",
+       "x": 95,
+       "y": 50,
+       "width": 30,
+       "height": 30,
+       "text": "",
+       "zIndex": 2
+      },
+      {
+       "id": "a1",
+       "type": "activity",
+       "x": 50,
+       "y": 110,
+       "width": 120,
+       "height": 50,
+       "text": "Hacer pedido",
+       "zIndex": 2
+      },
+      {
+       "id": "a2",
+       "type": "activity",
+       "x": 270,
+       "y": 180,
+       "width": 120,
+       "height": 50,
+       "text": "Registrar pedido",
+       "zIndex": 2
+      },
+      {
+       "id": "a3",
+       "type": "activity",
+       "x": 500,
+       "y": 260,
+       "width": 120,
+       "height": 50,
+       "text": "Pagar",
+       "zIndex": 2
+      },
+      {
+       "id": "e",
+       "type": "end",
+       "x": 95,
+       "y": 360,
+       "width": 30,
+       "height": 30,
+       "text": "",
+       "zIndex": 2
+      }
+     ],
+     "edges": [
+      {
+       "id": "c1",
+       "source": "s",
+       "target": "a1",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c2",
+       "source": "a1",
+       "target": "a2",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c3",
+       "source": "a2",
+       "target": "a3",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c4",
+       "source": "a3",
+       "target": "e",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      }
+     ]
     }
    ]
   }

@@ -99,6 +99,7 @@
           attributes?: string[];
           methods?: string[];
           isAbstract?: boolean;
+          isObject?: boolean; // Carril: el responsable es una clase u objeto (nombre subrayado)
           zIndex: number;
           selected?: boolean;
         }
@@ -462,6 +463,18 @@
             });
         };
         const isBar = (n) => n.type === 'fork' || n.type === 'join';
+        // Carriles (DA) y límites del sistema (DCU) se comportan como contenedores: al moverlos, arrastran los
+        // elementos cuyo centro está dentro (salvo otros contenedores)
+        const isContainer = (n) => n.type === 'swimlane' || n.type === 'boundary';
+        const containedIds = (containers, allNodes, exclude = new Set()) => {
+            const ids = new Set();
+            containers.filter(isContainer).forEach(c => allNodes.forEach(n => {
+                if (isContainer(n) || exclude.has(n.id)) return;
+                const cx = n.x + n.width / 2, cy = n.y + n.height / 2;
+                if (cx >= c.x && cx <= c.x + c.width && cy >= c.y && cy <= c.y + c.height) ids.add(n.id);
+            }));
+            return ids;
+        };
 
         // Quita los puntos repetidos seguidos (un tramo de longitud cero desorientaría la flecha final)
         const dedupePoints = (pts) => pts.filter((p, i) => i === 0 || Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y) > 0.5);
@@ -851,6 +864,13 @@
                 if (ends.length) {
                     const canFinish = reachableFrom(ends.map(n => n.id), flows, true);
                     flowNodes.filter(n => n.type !== 'end' && !canFinish.has(n.id) && !unreachable.has(n.id)).forEach(n => add('warning', 'sin-salida', `Desde ${nodeRef(n)} no se puede llegar a ningún nodo final.`, [n.id]));
+                }
+
+                const lanes = ofType('swimlane');
+                if (lanes.length > 0) {
+                    ofType('activity').forEach(a => {
+                        if (!lanes.some(l => centerInside(a, l))) add('warning', 'fuera-carril', `${describeNode(a)} está fuera de los carriles: colócala en el carril de quien la realiza.`, [a.id]);
+                    });
                 }
 
                 ofType('decision').forEach(d => {
@@ -1279,6 +1299,8 @@
           const [draggingWaypoint, setDraggingWaypoint] = useState(null);
           // Nota de la condición de un <<extend>> que se está arrastrando ({ edgeId, start, offset })
           const [draggingCondNote, setDraggingCondNote] = useState(null);
+          // Arrastre en curso: elementos que arrastran los contenedores seleccionados y altura original del carril
+          const containerDragRef = useRef(null);
           const lastEdgeClickRef = useRef({ id: '', time: 0 });
           const lastHandleClickRef = useRef({ key: '', time: 0 });
           const gestureRef = useRef(null);
@@ -1920,8 +1942,11 @@
                 let dx = pos.x - dragStart.x;
                 let dy = pos.y - dragStart.y;
                 const selectedNodes = nodes.filter(n => n.selected);
-                const otherNodes = nodes.filter(n => !n.selected);
+                const carried = containerDragRef.current?.carried || new Set();
+                const isMoving = (n) => n.selected || carried.has(n.id);
+                const otherNodes = nodes.filter(n => !isMoving(n));
                 const newGuides = [];
+                let laneHeight = null; // altura del carril arrastrado (la del vecino si encaja, la suya si no)
 
                 if (selectedNodes.length === 1) {
                     const s = selectedNodes[0];
@@ -1934,6 +1959,21 @@
 
                     let snappedX = false;
                     let snappedY = false;
+
+                    // Carriles contiguos: un carril que se acerca a otro se encaja a su lado, alineado arriba y con su altura
+                    if (s.type === 'swimlane') {
+                        const original = containerDragRef.current?.laneHeight ?? s.height;
+                        laneHeight = original;
+                        for (const t of otherNodes.filter(n => n.type === 'swimlane')) {
+                            if (proposedY >= t.y + t.height || proposedY + original <= t.y) continue;
+                            const x = Math.abs(sL - (t.x + t.width)) < 15 ? t.x + t.width : Math.abs(sR - t.x) < 15 ? t.x - s.width : null;
+                            if (x === null) continue;
+                            dx = x - s.x; dy = t.y - s.y; laneHeight = t.height;
+                            newGuides.push({ type: 'x', pos: x === t.x + t.width ? x : t.x }, { type: 'y', pos: t.y });
+                            snappedX = snappedY = true;
+                            break;
+                        }
+                    }
 
                     for (const t of otherNodes) {
                          if (!snappedX) {
@@ -1959,8 +1999,8 @@
                 }
 
                 setSmartGuides(newGuides);
-                setNodes(nodes.map(n => n.selected ? { ...n, x: n.x + dx, y: n.y + dy } : n));
-                setEdges(shiftWaypoints(edges, new Set(selectedNodes.map(n => n.id)), dx, dy));
+                setNodes(nodes.map(n => isMoving(n) ? { ...n, x: n.x + dx, y: n.y + dy, ...(laneHeight !== null && n.selected ? { height: laneHeight } : {}) } : n));
+                setEdges(shiftWaypoints(edges, new Set(nodes.filter(isMoving).map(n => n.id)), dx, dy));
                 setDragStart(prev => ({ x: prev.x + dx, y: prev.y + dy }));
             }
           };
@@ -1990,6 +2030,7 @@
               if (snap) { setNodes(snap.nodes); setEdges(snap.edges); dragSnapshotRef.current = null; }
               setIsDragging(false); setIsResizing(false); setResizeHandle(null); setActiveNodeId(null);
               setInitialNodeGeom(null); setSelectionBox(null); setSmartGuides([]); setDraggingWaypoint(null); setDraggingCondNote(null);
+              containerDragRef.current = null;
           };
 
           const handlePointerDownCapture = (e) => {
@@ -2040,7 +2081,7 @@
               }
           };
 
-          const handleMouseUp = () => { commitDragHistory(); if (draggingWaypoint || draggingCondNote) { setDraggingWaypoint(null); setDraggingCondNote(null); saveCurrentDiagram(nodes, edges); } setIsDragging(false); setIsResizing(false); setResizeHandle(null); setActiveNodeId(null); setInitialNodeGeom(null); setSelectionBox(null); setSmartGuides([]); if (isDragging || isResizing) saveCurrentDiagram(nodes, edges); };
+          const handleMouseUp = () => { containerDragRef.current = null; commitDragHistory(); if (draggingWaypoint || draggingCondNote) { setDraggingWaypoint(null); setDraggingCondNote(null); saveCurrentDiagram(nodes, edges); } setIsDragging(false); setIsResizing(false); setResizeHandle(null); setActiveNodeId(null); setInitialNodeGeom(null); setSelectionBox(null); setSmartGuides([]); if (isDragging || isResizing) saveCurrentDiagram(nodes, edges); };
           // Listener nativo no pasivo: el onWheel de React es pasivo y no puede impedir el zoom de la página con Ctrl+rueda
           // Copia de zoom y desplazamiento accesible desde el listener (que se registra una sola vez)
           const viewRef = useRef({ scale: 1, pan: { x: 0, y: 0 } });
@@ -2128,7 +2169,9 @@
                     const dx = (e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0) * step;
                     const dy = (e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0) * step;
                     // Un punto de deshacer por pulsación (no por autorrepetición al mantener la tecla)
-                    updateDiagramState(nodes.map(n => n.selected ? { ...n, x: n.x + dx, y: n.y + dy } : n), shiftWaypoints(edges, new Set(nodes.filter(n => n.selected).map(n => n.id)), dx, dy), !e.repeat);
+                    const sel = nodes.filter(n => n.selected), carried = containedIds(sel, nodes, new Set(sel.map(n => n.id)));
+                    const moved = new Set([...sel.map(n => n.id), ...carried]);
+                    updateDiagramState(nodes.map(n => moved.has(n.id) ? { ...n, x: n.x + dx, y: n.y + dy } : n), shiftWaypoints(edges, moved, dx, dy), !e.repeat);
                 }
             };
             window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown);
@@ -2215,6 +2258,8 @@
                             }
                         }
                         dragSnapshotRef.current = { nodes, edges };
+                        const moving = e.shiftKey ? nodes.filter(n => n.id === node.id ? !n.selected : n.selected) : (node.selected ? nodes.filter(n => n.selected) : [node]);
+                        containerDragRef.current = { carried: containedIds(moving, nodes, new Set(moving.map(n => n.id))), laneHeight: node.type === 'swimlane' ? node.height : null };
                         setIsDragging(true);
                         setDragStart(getMousePos(e));
                     }
@@ -2277,7 +2322,7 @@
                             <text x={5} y={20} fill={textFill} fontSize={12} fontWeight="bold" style={{pointerEvents: 'none'}}>{node.text}</text>
                         </g>);
 
-                    case 'swimlane': return (<g><rect width={node.width} height={node.height} fill={isDarkMode?'#111827':'#f9fafb'} stroke={strokeColor} strokeWidth={strokeWidth}/><line x1={0} y1={30} x2={node.width} y2={30} stroke={strokeColor}/><text x={5} y={20} fill={textFill} fontSize={12} fontWeight="bold">{node.text}</text></g>);
+                    case 'swimlane': return (<g><rect width={node.width} height={node.height} fill={isDarkMode?'#111827':'#f9fafb'} stroke={strokeColor} strokeWidth={strokeWidth}/><line x1={0} y1={30} x2={node.width} y2={30} stroke={strokeColor}/><text x={node.width / 2} y={20} textAnchor="middle" fill={textFill} fontSize={12} fontWeight="bold" textDecoration={node.isObject ? 'underline' : undefined}>{node.text}</text></g>);
                     case 'start': return <circle cx={node.width/2} cy={node.height/2} r={15} fill="black" />;
                     case 'end': return (<g><circle cx={node.width/2} cy={node.height/2} r={15} fill="transparent" stroke={strokeColor} strokeWidth={2}/><circle cx={node.width/2} cy={node.height/2} r={10} fill="black"/></g>);
                     case 'decision': return (<g><polygon points={`${node.width/2},0 ${node.width},${node.height/2} ${node.width/2},${node.height} 0,${node.height/2}`} fill={fill} stroke={strokeColor} strokeWidth={strokeWidth}/><text x={node.width/2} y={node.height/2+4} textAnchor="middle" fill={textFill} fontSize={10}>{node.text}</text></g>);
@@ -2860,6 +2905,16 @@
                                 )}
                                 <div><label className="block text-xs font-medium mb-1">Métodos</label><textarea rows={3} value={sN[0].methods?.join('\n')} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes.map(n => n.id === sN[0].id ? { ...n, methods: e.target.value.split('\n') } : n), edges)} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`} /></div>
                                 <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Escribe <code>static</code> delante de un miembro para subrayarlo o <code>abstract</code> para ponerlo en cursiva (p. ej. <code>+ static total: int</code>).</p> </>
+                            )}
+                            {sN[0].type === 'swimlane' && (<>
+                                <div className="flex items-center space-x-2">
+                                    <input type="checkbox" id="isObject" checked={sN[0].isObject || false} onChange={(e) => updateDiagramState(nodes.map(n => n.id === sN[0].id ? { ...n, isObject: e.target.checked } : n), edges)} className="text-blue-600 focus:ring-blue-500 rounded"/>
+                                    <label htmlFor="isObject" className="text-xs font-medium">Es una clase u objeto (nombre subrayado, p. ej. «:Pedido»)</label>
+                                </div>
+                                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Cada carril representa a un responsable (un actor, un departamento o un objeto). Para un diagrama con carriles, añade uno por responsable y acércalos: se encajan uno al lado del otro, alineados y con la misma altura. Al mover un carril se mueven también las acciones que contiene.</p>
+                            </>)}
+                            {sN[0].type === 'boundary' && (
+                                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Al mover el límite del sistema se mueven también los casos de uso que contiene.</p>
                             )}
                             {isBar(sN[0]) && (
                                 <button onClick={() => { const n = sN[0], cx = n.x + n.width / 2, cy = n.y + n.height / 2; updateDiagramState(nodes.map(m => m.id === n.id ? { ...m, width: n.height, height: n.width, x: cx - n.height / 2, y: cy - n.width / 2 } : m), edges); }}

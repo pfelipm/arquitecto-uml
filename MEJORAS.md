@@ -31,6 +31,13 @@ Contexto que fija el orden: el alumnado usa sobre todo portátiles (algunos, tab
 - **Solución:** la barra se crea horizontal (100 × 8 px); el botón **Girar** del panel de propiedades la pasa a vertical u horizontal sin moverla de sitio; solo tiene los dos tiradores de los extremos (se cambia la longitud, no el grosor) y una zona de clic más ancha que la barra. Cada flujo llega a la barra en perpendicular, en su propia posición: si el otro elemento queda dentro de la longitud de la barra, con un tramo recto. Las barras de los diagramas existentes no cambian.
 - **Pruebas:** la prueba automática comprueba los flujos perpendiculares con el diagrama «Concurrencia» de [`diagramas-revision.json`](.github/pruebas/diagramas-revision.json).
 
+### 12. ✅ Carriles más usables (DA) (hecho en la rama `v9`, pendiente de publicar en la versión 9.0)
+- **Contenedores:** al mover un carril (o el límite del sistema en un DCU), con el ratón o con las flechas, se mueven también los elementos cuyo centro está dentro, con los puntos de paso de sus relaciones.
+- **Carriles contiguos:** un carril que se acerca a menos de 15 px de otro se encaja a su lado, alineado arriba y con su altura, para formar la tabla de responsables; si se aleja, recupera su altura.
+- **Cabecera:** el nombre va centrado; la casilla «Es una clase u objeto» lo subraya (notación de objeto, p. ej. «:Pedido»). El panel explica que hay que añadir un carril por responsable y acercarlos.
+- **Revisión:** si hay carriles, avisa de las acciones que quedan fuera de todos. La prueba automática lo comprueba con el diagrama «Carriles».
+- **Pendiente:** carriles horizontales (botón «Girar», con la cabecera a la izquierda y el nombre en vertical).
+
 ### 5. ✅ Notas UML (hecho en la rama `v9`, pendiente de publicar en la versión 9.0)
 - **Solución:** herramienta **Nota** en los tres tipos de diagrama: rectángulo con la esquina doblada y fondo amarillo suave, con texto de varias líneas ajustado al ancho (se edita en un área de texto del panel o con doble clic: Intro, nueva línea; Ctrl/⌘+Intro, guardar). Se une a cualquier elemento con «Conectar con...» mediante un **enlace de nota** (línea discontinua sin flecha, recta por defecto). Una nota no se une a otra nota.
 - **Revisión:** las notas y sus enlaces no cuentan (no son nodos del flujo de un DA ni relaciones que eviten el aviso de clase aislada).
