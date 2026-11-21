@@ -12,7 +12,7 @@ Puedes utilizar el editor sin limitaciones y directamente en tu navegador accedi
 
 👉 **[https://umlsimple.pablofelip.online](https://umlsimple.pablofelip.online)** (versión oficial, en Google Sites)
 
-👉 **[https://pfelipm.github.io/arquitecto-uml](https://pfelipm.github.io/arquitecto-uml/)** (GitHub Pages): aquí **el navegador conserva los diagramas** aunque recargues la página o vuelvas otro día, y los enlaces compartidos se abren con un clic. **Por ahora muestra la versión en desarrollo (9.0)**, que puede contener errores; para trabajar, usa la versión oficial.
+👉 **[https://pfelipm.github.io/arquitecto-uml](https://pfelipm.github.io/arquitecto-uml/)** (GitHub Pages): aquí **el navegador conserva los diagramas** aunque recargues la página o vuelvas otro día, y los enlaces compartidos se abren con un clic.
 
 ## Características Principales
 
