@@ -2,8 +2,9 @@
 // Sirve index.html en un servidor local, lo abre en Chromium sin interfaz y
 // comprueba que la aplicación arranca: que aparecen la barra superior y la
 // pantalla de bienvenida, que se puede crear un diagrama, que «Revisar diagrama»
-// detecta los errores de diagramas-revision.json y que no hay errores en la
-// consola ni recursos de CDN que fallen.
+// detecta los errores de diagramas-revision.json, que el gesto de pellizcar
+// amplía el zoom y que no hay errores en la consola ni recursos de CDN que
+// fallen.
 // Uso: node .github/pruebas/prueba-carga.mjs (desde la raíz del repositorio).
 
 import { createServer } from 'node:http';
@@ -69,9 +70,12 @@ try {
     await pagina.getByText('Pruebas de revisión').waitFor({ timeout: TIEMPO_MAX });
     const esperado = {
         'Revisión DC (con errores)': ['Herencia circular', 'no está marcada como abstracta', 'no declara: Cobrar', 'hereda de varias clases', 'parte, por composición, de varios todos'],
-        'Revisión DCU (con errores)': ['Inclusión circular', 'dentro del límite del sistema', 'no está asociado a ningún actor', 'está fuera del límite'],
+        'Revisión DCU (con errores)': ['Inclusión circular', 'dentro del límite del sistema', 'no está asociado a ningún actor', 'está fuera del límite', 'La extensión de «Mostrar ayuda» sobre «Pagar pedido» no indica'],
         'Revisión DA (con errores)': ['Falta el nodo inicial', 'De un nodo final no puede salir', 'sin condición de guarda', 'llegan 2 flujos', '1 bifurcación y 0 uniones'],
         'Revisión DA (correcto)': ['No se han encontrado problemas'],
+        'Bucle de reintento (correcto)': ['No se han encontrado problemas'],
+        'Concurrencia (correcto)': ['No se han encontrado problemas'],
+        'Carriles (con errores)': ['La actividad «Pagar» está fuera de los carriles'],
     };
     let panelAbierto = false;
     for (const [diagrama, mensajes] of Object.entries(esperado)) {
@@ -85,6 +89,48 @@ try {
         if (faltan.length) errores.push(`Revisión de «${diagrama}»: no aparece ${faltan.map(m => `«${m}»`).join(', ')}`);
     }
     console.log('✓ Revisión del diagrama comprobada');
+
+    // 5. Trazados calculados: el flujo de vuelta del bucle rodea los elementos (por la izquierda, porque a la
+    //    derecha está la otra rama) y la asociación con puntos de paso pasa por ellos.
+    const trazados = async (diagrama) => {
+        await pagina.getByTitle(diagrama, { exact: true }).click();
+        await pagina.waitForTimeout(300);
+        return pagina.evaluate(() => [...document.querySelectorAll('svg g.cursor-pointer')].map(g => ({
+            d: g.querySelectorAll('path')[1]?.getAttribute('d') || '',
+            etiquetas: [...g.querySelectorAll('text')].map(t => t.textContent),
+        })));
+    };
+    const puntosDe = d => d.replace('M', '').split('L').map(p => p.trim().split(' ').map(Number));
+    // En el bucle, todos los elementos empiezan en x = 200: solo el flujo de vuelta puede pasar a su izquierda
+    const vuelta = (await trazados('Bucle de reintento (correcto)')).find(t => puntosDe(t.d).some(([x]) => x < 200));
+    const pv = vuelta ? puntosDe(vuelta.d) : [];
+    if (!(pv.length === 4 && pv[1][0] === pv[2][0])) errores.push(`El flujo de vuelta del bucle no rodea los elementos por la izquierda (trazado: ${vuelta?.d || 'no encontrado'})`);
+    const asociacion = (await trazados('Puntos de paso')).find(t => t.etiquetas.includes('realiza'));
+    if (!asociacion?.d.includes('L 80 180 L 480 180')) errores.push(`La asociación no pasa por sus puntos de paso (trazado: ${asociacion?.d || 'no encontrado'})`);
+    if (!(asociacion?.etiquetas.includes('pedidos') && asociacion?.etiquetas.includes('cliente'))) errores.push('La asociación no muestra sus nombres de rol (pedidos, cliente)');
+    // Notas: la condición del <<extend>> en una nota con la notación oficial
+    const textosDCU = (await trazados('Revisión DCU (con errores)')).flatMap(t => t.etiquetas).concat(await pagina.evaluate(() => [...document.querySelectorAll('svg text')].map(t => t.textContent)));
+    if (!textosDCU.some(t => t.startsWith('Condition: {el cliente')) || !textosDCU.some(t => t.startsWith('extension point: Pagar'))) errores.push('La condición del <<extend>> no se muestra en una nota (trazado)');
+    // Barras: los flujos hacia acciones dentro de su longitud son tramos rectos perpendiculares (dos puntos, misma x)
+    const rectos = (await trazados('Concurrencia (correcto)')).map(t => puntosDe(t.d)).filter(p => p.length === 2 && Math.abs(p[0][0] - p[1][0]) < 0.5);
+    if (rectos.length < 6) errores.push(`Los flujos de las barras de bifurcación y unión no son perpendiculares (solo ${rectos.length} de 6 tramos rectos; trazado)`);
+    if (!errores.some(e => e.includes('trazado') || e.includes('nombres de rol'))) console.log('✓ Trazados calculados (flujo de vuelta, puntos de paso y barras) y nombres de rol comprobados');
+
+    // 6. Pantalla táctil: pellizcar con dos dedos amplía el zoom.
+    const zoomTactil = await pagina.evaluate(async () => {
+        const esperar = ms => new Promise(r => setTimeout(r, ms));
+        const zoom = () => [...document.querySelectorAll('span')].find(s => /^\d+%$/.test(s.textContent))?.textContent;
+        const svg = document.querySelector('svg.touch-none'), r = svg.getBoundingClientRect();
+        const evento = (tipo, x, y, id) => svg.dispatchEvent(new PointerEvent(tipo, { bubbles: true, cancelable: true, pointerId: id, pointerType: 'touch', clientX: x, clientY: y, button: 0, buttons: tipo === 'pointerup' ? 0 : 1 }));
+        const cx = r.x + r.width / 2, cy = r.y + r.height / 2, antes = zoom();
+        evento('pointerdown', cx - 50, cy, 1); await esperar(50);
+        evento('pointerdown', cx + 50, cy, 2); await esperar(50);
+        for (let i = 1; i <= 5; i++) { evento('pointermove', cx - 50 - 10 * i, cy, 1); evento('pointermove', cx + 50 + 10 * i, cy, 2); await esperar(30); }
+        evento('pointerup', cx - 100, cy, 1); evento('pointerup', cx + 100, cy, 2); await esperar(100);
+        return { antes, despues: zoom() };
+    });
+    if (zoomTactil.antes !== '100%' || zoomTactil.despues !== '200%') errores.push(`Pellizcar no amplía el zoom como se espera (de ${zoomTactil.antes} a ${zoomTactil.despues}; se esperaba de 100% a 200%)`);
+    else console.log('✓ Gesto de pellizcar comprobado');
 
     // Margen para errores asíncronos tardíos.
     await pagina.waitForTimeout(1000);

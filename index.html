@@ -65,14 +65,14 @@
           AlertTriangle, X, Link2, ArrowLeftRight, Italic,
           FolderPlus, FilePlus, Layout, Upload, Image as ImageIcon,
           Info, Github, Linkedin, Keyboard, PenTool,
-          ListChecks, XCircle, Lightbulb, CheckCircle2
+          ListChecks, XCircle, Lightbulb, CheckCircle2, RouteOff, RotateCw, StickyNote
         } from 'lucide-react';
 
         // --- CÓDIGO ORIGINAL DE LA APP (Sin modificaciones lógicas) ---
 
         /**
          * ARQUITECTO SIMPLE UML - SUITE DE MODELADO
-         * Versión 8.0 "Revisión"
+         * Versión 9.0 "Notación"
          */
 
         // --- TIPOS Y CONSTANTES ---
@@ -81,8 +81,9 @@
         type NodeType =
           | 'actor' | 'usecase' | 'boundary' // DCU
           | 'class' | 'interface' // DC
-          | 'start' | 'end' | 'activity' | 'decision' | 'fork' | 'swimlane'; // DA
-        type EdgeType = 'association' | 'directed_association' | 'generalization' | 'implementation' | 'include' | 'extend' | 'aggregation' | 'composition' | 'dependency' | 'control';
+          | 'start' | 'end' | 'activity' | 'decision' | 'fork' | 'swimlane' // DA
+          | 'note'; // Todos: nota UML
+        type EdgeType = 'association' | 'directed_association' | 'generalization' | 'implementation' | 'include' | 'extend' | 'aggregation' | 'composition' | 'dependency' | 'control' | 'note_link';
         type PathType = 'straight' | 'orthogonal';
         type ResizeHandleType = 'nw' | 'ne' | 'sw' | 'se' | 'n' | 's' | 'e' | 'w';
 
@@ -98,6 +99,7 @@
           attributes?: string[];
           methods?: string[];
           isAbstract?: boolean;
+          isObject?: boolean; // Carril: el responsable es una clase u objeto (nombre subrayado)
           zIndex: number;
           selected?: boolean;
         }
@@ -110,6 +112,12 @@
           pathType: PathType;
           label?: string;
           sourceLabel?: string;
+          sourceRole?: string; // DC: nombre de rol en cada extremo de una asociación
+          targetRole?: string;
+          condition?: string; // Solo en <<extend>>: situación en la que se produce la extensión
+          conditionAsNote?: boolean; // Mostrar la condición en una nota (notación oficial de UML)
+          extensionPoint?: string; // Punto de extensión (opcional, solo en la nota)
+          conditionNoteOffset?: Point; // Posición de la nota respecto al punto medio de la relación
           targetLabel?: string;
           waypoints?: Point[];
           selected?: boolean;
@@ -208,6 +216,16 @@
 
         // Insertada como código en Google Sites, la app corre en un subdominio aleatorio que cambia en cada carga
         // (p. ej. 167002356-atari-embeds.googleusercontent.com), así que localStorage empieza vacío en cada visita
+        // Versión en desarrollo (rama v9, publicada en GitHub Pages mientras dura el desarrollo): muestra un aviso.
+        // Al publicar la 9.0 se pone a false antes de fusionar en main.
+        const IS_DEV_BUILD = false;
+
+        // Versión mostrada en «Acerca de» y guardada en las copias JSON. El nombre se decide al publicar
+        const APP_VERSION = '9.0';
+        const APP_VERSION_NAME = 'Notación';
+        const APP_UPDATED = '21 de noviembre de 2026';
+        const APP_VERSION_LABEL = `${APP_VERSION}${IS_DEV_BUILD ? '-dev' : ''}`;
+
         const IS_EPHEMERAL_STORAGE = /-atari-embeds\.googleusercontent\.com$/.test(window.location.hostname);
 
         // La selección es estado de interfaz: no debe exportarse ni restaurarse al abrir un diagrama
@@ -248,7 +266,7 @@
             if (!data || !['dcu', 'dc', 'da'].includes(data.type) || !Array.isArray(data.nodes) || !Array.isArray(data.edges)) throw new Error('Formato no válido');
             const nodes = data.nodes.filter(n => n && typeof n.id === 'string' && ['x', 'y', 'width', 'height'].every(k => Number.isFinite(n[k])));
             const ids = new Set(nodes.map(n => n.id));
-            const edges = data.edges.filter(e => e && typeof e.id === 'string' && ids.has(e.source) && ids.has(e.target));
+            const edges = data.edges.filter(e => e && typeof e.id === 'string' && ids.has(e.source) && ids.has(e.target)).map(e => ({ ...e, waypoints: validWaypoints(e) }));
             const name = typeof data.name === 'string' && data.name.trim() ? data.name.trim() : 'Diagrama compartido';
             return { name, type: data.type, nodes, edges };
         };
@@ -279,6 +297,8 @@
                 [`${MOD_KEY}+D`, 'Duplicar la selección'],
                 ['Supr  ·  Retroceso', 'Eliminar la selección'],
                 ['Doble clic', 'Editar el texto de un elemento'],
+                ['Doble clic en una relación seleccionada', 'Añadir un punto de paso (después, arrástralo)'],
+                ['Doble clic en un punto de paso', 'Quitarlo'],
             ]},
             { title: 'Selección', items: [
                 ['Clic', 'Seleccionar un elemento o una relación'],
@@ -287,9 +307,11 @@
                 [`${MOD_KEY}+A`, 'Seleccionar todos los elementos'],
                 ['Esc', 'Cancelar la conexión o la herramienta; si no hay ninguna, deseleccionar'],
             ]},
-            { title: 'Mover', items: [
+            { title: 'Mover y redimensionar', items: [
                 ['Flechas', 'Mover la selección 1 px'],
                 ['Mayús+flechas', 'Mover la selección 10 px'],
+                [`${MOD_KEY}+arrastrar un tirador`, 'Redimensionar de forma simétrica, sin mover el centro'],
+                ['Mayús+arrastrar una esquina', 'Redimensionar manteniendo la proporción (con ' + MOD_KEY + ', también desde el centro)'],
             ]},
             { title: 'Vista', items: [
                 ['Rueda', 'Desplazar el lienzo'],
@@ -300,13 +322,21 @@
                 ['Botón central  ·  Alt+arrastrar', 'Mover el lienzo (en algunos escritorios Linux, Alt+arrastrar mueve la ventana: usa el botón central)'],
                 ['?', 'Mostrar u ocultar esta ayuda'],
             ]},
+            { title: 'Pantalla táctil', items: [
+                ['Tocar', 'Seleccionar un elemento o una relación'],
+                ['Doble toque', 'Editar el texto de un elemento'],
+                ['Doble toque en una relación seleccionada', 'Añadir un punto de paso'],
+                ['Arrastrar con un dedo', 'Mover elementos o, sobre el fondo, seleccionar con un recuadro'],
+                ['Pellizcar', 'Ampliar o reducir el zoom'],
+                ['Arrastrar con dos dedos', 'Desplazar el lienzo'],
+            ]},
         ];
 
         const ShortcutsModal = ({ isOpen, onClose, isDarkMode }) => {
             if (!isOpen) return null;
             const kbd = `inline-block px-1.5 py-0.5 rounded border text-xs font-mono whitespace-nowrap ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-100 border-gray-300'}`;
             return (
-                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onMouseDown={e => e.stopPropagation()} onClick={onClose}>
+                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()} onClick={onClose}>
                     <div className={`p-6 rounded-lg shadow-xl border w-[40rem] max-w-[95%] max-h-[90%] overflow-y-auto ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`} onClick={e => e.stopPropagation()}>
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-bold flex items-center gap-2"><Keyboard size={18} className="text-blue-500"/> Atajos de teclado y ratón</h3>
@@ -348,6 +378,22 @@
 
         const calculatePerimeterPoint = (targetNode: NodeData, referencePoint: Point): Point => {
             const targetCenter = { x: targetNode.x + targetNode.width / 2, y: targetNode.y + targetNode.height / 2 };
+            // Barras de bifurcación o unión: cada flujo llega en perpendicular, a lo largo de la barra (no a su centro).
+            // Si el punto de referencia queda más allá de un extremo y a su altura, el flujo entra por ese extremo
+            if (targetNode.type === 'fork' || targetNode.type === 'join') {
+                const { x, y, width: w, height: h } = targetNode, m = 2;
+                const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+                if (w >= h) {
+                    if (referencePoint.x < x || referencePoint.x > x + w) {
+                        if (Math.abs(referencePoint.y - targetCenter.y) <= h) return { x: referencePoint.x < x ? x - m : x + w + m, y: targetCenter.y };
+                    }
+                    return { x: clamp(referencePoint.x, x, x + w), y: referencePoint.y < targetCenter.y ? y - m : y + h + m };
+                }
+                if (referencePoint.y < y || referencePoint.y > y + h) {
+                    if (Math.abs(referencePoint.x - targetCenter.x) <= w) return { x: targetCenter.x, y: referencePoint.y < y ? y - m : y + h + m };
+                }
+                return { x: referencePoint.x < targetCenter.x ? x - m : x + w + m, y: clamp(referencePoint.y, y, y + h) };
+            }
             const dx = referencePoint.x - targetCenter.x;
             const dy = referencePoint.y - targetCenter.y;
             const angle = Math.atan2(dy, dx);
@@ -394,7 +440,126 @@
             return { x: xOffset, y: yOffset };
         };
 
+        // --- PUNTOS DE PASO Y TRAZADOS CALCULADOS ---
+        // Puntos de paso válidos de una relación (los datos importados o compartidos pueden traer basura)
+        const validWaypoints = (edge) => (Array.isArray(edge.waypoints) ? edge.waypoints : []).filter(p => p && Number.isFinite(p.x) && Number.isFinite(p.y));
+
+        // Al mover a la vez los dos extremos de una relación, sus puntos de paso se mueven con ellos
+        const shiftWaypoints = (edgeList, movedIds, dx, dy) => edgeList.map(ed => (movedIds.has(ed.source) && movedIds.has(ed.target) && validWaypoints(ed).length)
+            ? { ...ed, waypoints: validWaypoints(ed).map(p => ({ x: p.x + dx, y: p.y + dy })) } : ed);
+
+        const nodeCenter = (n) => ({ x: n.x + n.width / 2, y: n.y + n.height / 2 });
+        const wrapText = (text, width) => {
+            const max = Math.max(4, Math.floor(width / 6));
+            return (text || '').split('\n').flatMap(par => {
+                const lines = [];
+                let line = '';
+                par.split(/\s+/).forEach(word => {
+                    while (word.length > max) { if (line) { lines.push(line); line = ''; } lines.push(word.slice(0, max)); word = word.slice(max); }
+                    if (!line) line = word; else if ((line + ' ' + word).length <= max) line += ' ' + word; else { lines.push(line); line = word; }
+                });
+                lines.push(line);
+                return lines;
+            });
+        };
+        const isBar = (n) => n.type === 'fork' || n.type === 'join';
+        // Carriles (DA) y límites del sistema (DCU) se comportan como contenedores: al moverlos, arrastran los
+        // elementos cuyo centro está dentro (salvo otros contenedores)
+        const isContainer = (n) => n.type === 'swimlane' || n.type === 'boundary';
+        const containedIds = (containers, allNodes, exclude = new Set()) => {
+            const ids = new Set();
+            containers.filter(isContainer).forEach(c => allNodes.forEach(n => {
+                if (isContainer(n) || exclude.has(n.id)) return;
+                const cx = n.x + n.width / 2, cy = n.y + n.height / 2;
+                if (cx >= c.x && cx <= c.x + c.width && cy >= c.y && cy <= c.y + c.height) ids.add(n.id);
+            }));
+            return ids;
+        };
+
+        // Quita los puntos repetidos seguidos (un tramo de longitud cero desorientaría la flecha final)
+        const dedupePoints = (pts) => pts.filter((p, i) => i === 0 || Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y) > 0.5);
+
+        // Trazado que pasa por los puntos de paso. En recto, tramos rectos de punto a punto. En ortogonal, cada punto
+        // de paso es un codo: todos los tramos salen en la misma dirección (horizontal o vertical, según hacia dónde
+        // quede el primer punto) y los codos intermedios se calculan solos.
+        const routeWithWaypoints = (s, t, wps, orthogonal) => {
+            if (!orthogonal) return dedupePoints([calculatePerimeterPoint(s, wps[0]), ...wps, calculatePerimeterPoint(t, wps[wps.length - 1])]);
+            const sC = nodeCenter(s), tC = nodeCenter(t), first = wps[0];
+            const horizontal = Math.abs(first.x - sC.x) >= Math.abs(first.y - sC.y);
+            const start = calculatePerimeterPoint(s, isBar(s) ? first : horizontal ? { x: first.x, y: sC.y } : { x: sC.x, y: first.y });
+            const pts = [start];
+            let cur = start;
+            wps.forEach(b => { pts.push(horizontal ? { x: b.x, y: cur.y } : { x: cur.x, y: b.y }, b); cur = b; });
+            // Último tramo: en una barra, perpendicular a ella; si el punto queda a la altura del destino, entra
+            // directamente por su lateral
+            if (isBar(t)) {
+                const e = calculatePerimeterPoint(t, cur);
+                pts.push(t.width >= t.height ? { x: e.x, y: cur.y } : { x: cur.x, y: e.y }, e);
+            } else if (horizontal) {
+                if (cur.y > t.y && cur.y < t.y + t.height) pts.push({ x: cur.x < tC.x ? t.x : t.x + t.width, y: cur.y });
+                else pts.push({ x: tC.x, y: cur.y }, calculatePerimeterPoint(t, { x: tC.x, y: cur.y }));
+            } else {
+                if (cur.x > t.x && cur.x < t.x + t.width) pts.push({ x: cur.x, y: cur.y < tC.y ? t.y : t.y + t.height });
+                else pts.push({ x: cur.x, y: tC.y }, calculatePerimeterPoint(t, { x: cur.x, y: tC.y }));
+            }
+            return dedupePoints(pts);
+        };
+
+        // Flujo de vuelta en un diagrama de actividad (sube por la misma columna): rodea por un lado los elementos que
+        // hay entre origen y destino y entra por el lateral del destino, en lugar de atravesarlos. Va por la derecha,
+        // salvo que a esa altura haya más elementos a la derecha que a la izquierda (p. ej. la otra rama de una decisión).
+        const routeReturnFlow = (s, t, allNodes) => {
+            const top = t.y, bottom = s.y + s.height;
+            const left = Math.min(s.x, t.x), right = Math.max(s.x + s.width, t.x + t.width);
+            let maxRight = right, minLeft = left, onRight = 0, onLeft = 0;
+            allNodes.forEach(n => {
+                if (n.type === 'swimlane' || n.id === s.id || n.id === t.id || n.y >= bottom || n.y + n.height <= top) return;
+                if (n.x < right && n.x + n.width > left) { maxRight = Math.max(maxRight, n.x + n.width); minLeft = Math.min(minLeft, n.x); }
+                else if (n.x >= right) onRight++;
+                else onLeft++;
+            });
+            const goLeft = onRight > onLeft, sC = nodeCenter(s), tC = nodeCenter(t), dir = goLeft ? -1 : 1;
+            const x = goLeft ? minLeft - 30 : maxRight + 30;
+            const start = calculatePerimeterPoint(s, { x: sC.x + dir * 10000, y: sC.y });
+            const end = calculatePerimeterPoint(t, { x: tC.x + dir * 10000, y: tC.y });
+            return [start, { x, y: start.y }, { x, y: end.y }, end];
+        };
+
+        // Punto medio (por longitud) de un trazado y si el tramo en que cae es vertical, para colocar la etiqueta
+        const polylineMidpoint = (pts) => {
+            const lengths = pts.slice(1).map((p, i) => Math.hypot(p.x - pts[i].x, p.y - pts[i].y));
+            let rest = lengths.reduce((a, b) => a + b, 0) / 2;
+            for (let i = 0; i < lengths.length; i++) {
+                if (rest <= lengths[i] || i === lengths.length - 1) {
+                    const a = pts[i], b = pts[i + 1], k = lengths[i] ? Math.min(1, rest / lengths[i]) : 0;
+                    return { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, vertical: Math.abs(b.y - a.y) > Math.abs(b.x - a.x) };
+                }
+                rest -= lengths[i];
+            }
+            return { ...pts[0], vertical: false };
+        };
+
+        const distanceToSegment = (p, a, b) => {
+            const dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy;
+            const k = len2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2)) : 0;
+            return Math.hypot(p.x - (a.x + dx * k), p.y - (a.y + dy * k));
+        };
+
+        // Nombre de rol junto al extremo «from» de una asociación, en el lado «side» (+1 / -1) de la línea y a «along»
+        // píxeles del extremo. El texto se alinea para crecer alejándose de la clase y no taparla
+        const getRolePos = (from, to, side, along = 10) => {
+            const len = Math.hypot(to.x - from.x, to.y - from.y) || 1;
+            const ux = (to.x - from.x) / len, uy = (to.y - from.y) / len;
+            const px = uy * side, py = -ux * side;
+            const x = from.x + ux * along + px * 12, y = from.y + uy * along + py * 12;
+            const anchor = Math.abs(ux) >= Math.abs(uy) ? (ux > 0 ? 'start' : 'end') : (px > 0 ? 'start' : 'end');
+            return { x, y: y + 4, anchor };
+        };
+
         const getValidConnectionTypes = (source: NodeData, target: NodeData, diagramType: DiagramType): EdgeType[] => {
+            if (source.type === 'note' || target.type === 'note') {
+                return (source.id === target.id || (source.type === 'note' && target.type === 'note')) ? [] : ['note_link'];
+            }
             // Restricción reflexiva en DC: Solo permitir Clases
             if (source.id === target.id) {
                 if (diagramType === 'dc') {
@@ -605,6 +770,9 @@
                 findCycles(nodes.map(n => n.id), edgesOfType('generalization')).forEach(c =>
                     add('error', 'ciclo-gen', `Generalización circular entre ${c.map(id => `«${byId.get(id).text}»`).join(', ')}.`, c));
 
+                edgesOfType('extend').filter(e => !extendCondition(e)).forEach(e =>
+                    add('suggestion', 'extend-sin-condicion', `La extensión de «${byId.get(e.source).text}» sobre «${byId.get(e.target).text}» no indica en qué situación se produce; añade la condición en el panel de propiedades.`, [], [e.id]));
+
                 // Los casos de uso se nombran con un verbo en infinitivo («Pagar pedido», «Registrarse»)
                 useCases.forEach(uc => {
                     const first = (uc.text || '').trim().split(/\s+/)[0].toLowerCase();
@@ -672,7 +840,7 @@
                 });
 
                 if (types.length > 1) types.forEach(t => {
-                    if (touching(t.id).length === 0) add('warning', 'aislada', `${describeNode(t)} no tiene ninguna relación con el resto del diagrama.`, [t.id]);
+                    if (touching(t.id).filter(e => e.type !== 'note_link').length === 0) add('warning', 'aislada', `${describeNode(t)} no tiene ninguna relación con el resto del diagrama.`, [t.id]);
                 });
             }
 
@@ -680,7 +848,7 @@
             if (diagram?.type === 'da') {
                 const flows = edgesOfType('control');
                 const starts = ofType('start'), ends = ofType('end');
-                const flowNodes = nodes.filter(n => n.type !== 'swimlane');
+                const flowNodes = nodes.filter(n => n.type !== 'swimlane' && n.type !== 'note');
 
                 if (flowNodes.length > 0 && starts.length === 0) add('error', 'sin-inicio', 'Falta el nodo inicial: todo diagrama de actividad empieza en uno.');
                 if (starts.length > 1) add('warning', 'varios-inicios', `Hay ${starts.length} nodos iniciales; lo habitual es que la actividad empiece en uno solo.`, starts.map(n => n.id));
@@ -696,6 +864,13 @@
                 if (ends.length) {
                     const canFinish = reachableFrom(ends.map(n => n.id), flows, true);
                     flowNodes.filter(n => n.type !== 'end' && !canFinish.has(n.id) && !unreachable.has(n.id)).forEach(n => add('warning', 'sin-salida', `Desde ${nodeRef(n)} no se puede llegar a ningún nodo final.`, [n.id]));
+                }
+
+                const lanes = ofType('swimlane');
+                if (lanes.length > 0) {
+                    ofType('activity').forEach(a => {
+                        if (!lanes.some(l => centerInside(a, l))) add('warning', 'fuera-carril', `${describeNode(a)} está fuera de los carriles: colócala en el carril de quien la realiza.`, [a.id]);
+                    });
                 }
 
                 ofType('decision').forEach(d => {
@@ -740,6 +915,7 @@
                 if (diagramType === 'da') return 'Un flujo no puede salir y volver al mismo elemento. Para repetir una acción, usa una decisión y un nodo de fusión (herramienta «Decisión / Fusión»).';
                 return 'Un elemento no puede relacionarse consigo mismo en un diagrama de casos de uso.';
             }
+            if (source.type === 'note' && target.type === 'note') return 'Una nota se une a los elementos que comenta, no a otras notas.';
             if (source.type === 'boundary' || target.type === 'boundary') return 'El límite del sistema no se conecta con nada: coloca los casos de uso dentro de él y relaciónalos con los actores.';
             if (source.type === 'swimlane' || target.type === 'swimlane') return 'Los carriles no se conectan con flujos: coloca las acciones dentro del carril que las realiza y conecta las acciones entre sí.';
             if (diagramType === 'dc' && source.type === 'interface' && target.type === 'class') return `Una interfaz no puede heredar de una clase ni depender de ella. Si «${target.text}» implementa «${source.text}», crea la relación desde la clase hacia la interfaz.`;
@@ -757,6 +933,9 @@
             return `Ya hay una relación entre ${nodeRef(source)} y ${nodeRef(target)}, y en un diagrama de casos de uso solo se admite una entre dos elementos. Para cambiar su tipo, selecciónala y elige otro en el panel de propiedades.`;
         };
 
+        // Condición de una relación <<extend>> sin las llaves o corchetes que haya podido escribir el usuario
+        const extendCondition = (edge) => (edge.condition || '').trim().replace(/^[{\[]\s*/, '').replace(/\s*[}\]]$/, '');
+
         const getEdgeLabel = (type) => {
             if (type === 'association') return 'Asociación simple';
             if (type === 'directed_association') return 'Asociación dirigida';
@@ -767,6 +946,7 @@
             if (type === 'composition') return 'Composición';
             if (type === 'aggregation') return 'Agregación';
             if (type === 'dependency') return 'Dependencia';
+            if (type === 'note_link') return 'Enlace de nota';
             if (type === 'control') return 'Flujo de control';
             return type.charAt(0).toUpperCase() + type.slice(1);
         }
@@ -787,7 +967,7 @@
             </button>
         );
 
-        const RenameModal = ({ isOpen, initialText, title, onSave, onClose, isDarkMode }) => {
+        const RenameModal = ({ isOpen, initialText, title, onSave, onClose, isDarkMode, multiline = false }) => {
             const [text, setText] = useState(initialText);
             const inputRef = useRef(null);
 
@@ -806,12 +986,26 @@
             if (!isOpen) return null;
 
             return (
-                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onMouseDown={e => e.stopPropagation()}>
+                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
                     <div className={`p-6 rounded-lg shadow-xl border w-96 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
                         <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                             <Edit2 size={18} className="text-blue-500"/>
                             {title}
                         </h3>
+                        {multiline ? (<>
+                            <textarea
+                                ref={inputRef}
+                                rows={5}
+                                className={`w-full p-2 rounded border mb-1 focus:ring-2 focus:ring-blue-500 outline-none ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-black'}`}
+                                value={text}
+                                onChange={e => setText(e.target.value)}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) onSave(text);
+                                    if (e.key === 'Escape') onClose();
+                                }}
+                            />
+                            <p className="text-xs opacity-60 mb-4">Intro: nueva línea · {MOD_KEY}+Intro: guardar</p>
+                        </>) : (
                         <input
                             ref={inputRef}
                             type="text"
@@ -823,6 +1017,7 @@
                                 if (e.key === 'Escape') onClose();
                             }}
                         />
+                        )}
                         <div className="flex justify-end space-x-2">
                             <button
                                 onClick={onClose}
@@ -845,7 +1040,7 @@
         const NewDiagramModal = ({ isOpen, onClose, onCreate, isDarkMode }) => {
             if (!isOpen) return null;
             return (
-                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm" onMouseDown={(e) => e.stopPropagation()}>
+                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
                     <div className={`p-8 rounded-xl shadow-2xl max-w-4xl w-full mx-4 ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}`}>
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-2xl font-bold">Crear nuevo diagrama</h2>
@@ -875,7 +1070,7 @@
             const currentType = validTypes.includes(selectedType) ? selectedType : validTypes[0];
 
             return (
-                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-20 backdrop-blur-sm" onMouseDown={(e) => e.stopPropagation()}>
+                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-20 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
                     <div className={`p-6 rounded-lg shadow-xl border w-80 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
                         <h3 className="text-lg font-bold mb-4">Nueva Conexión</h3>
                         <div className="space-y-2 mb-6">
@@ -910,8 +1105,8 @@
                             </div>
                             <div>
                                 <h2 className="text-xl font-bold">Arquitecto Simple UML</h2>
-                                <p className="text-xs opacity-60 font-mono">Versión 8.0 "Revisión"</p>
-                                <p className="text-[10px] opacity-50 mt-1">Actualizado: 28 de octubre de 2026</p>
+                                <p className="text-xs opacity-60 font-mono">Versión {APP_VERSION_LABEL}{APP_VERSION_NAME && ` "${APP_VERSION_NAME}"`}{IS_DEV_BUILD && ' (en desarrollo)'}</p>
+                                <p className="text-[10px] opacity-50 mt-1">Actualizado: {APP_UPDATED}</p>
                             </div>
                         </div>
 
@@ -951,7 +1146,7 @@
             if (!isOpen) return null;
             const fieldClass = `w-full p-2 rounded border font-mono text-xs break-all resize-none focus:ring-2 focus:ring-blue-500 outline-none ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-black'}`;
             return (
-                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onMouseDown={e => e.stopPropagation()}>
+                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
                     <div className={`p-6 rounded-lg shadow-xl border w-[28rem] max-w-[95%] ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
                         <h3 className="text-lg font-bold mb-3 flex items-center gap-2"><Link2 size={18} className="text-blue-500"/> Compartir «{diagramName}»</h3>
                         {link === null ? (
@@ -985,7 +1180,7 @@
             }, [isOpen, initialText]);
             if (!isOpen) return null;
             return (
-                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onMouseDown={e => e.stopPropagation()}>
+                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
                     <div className={`p-6 rounded-lg shadow-xl border w-[28rem] max-w-[95%] ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
                         <h3 className="text-lg font-bold mb-3 flex items-center gap-2"><Link2 size={18} className="text-blue-500"/> Abrir diagrama compartido</h3>
                         <p className="text-xs opacity-70 mb-2">Pega el enlace que te han compartido. Se añadirá una copia a la carpeta «{SHARED_FOLDER_NAME}».</p>
@@ -1004,7 +1199,7 @@
             const folderCount = pendingImport.folders.length;
             const diagramCount = pendingImport.folders.reduce((n, f) => n + f.diagrams.length, 0);
             return (
-                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onMouseDown={e => e.stopPropagation()}>
+                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
                     <div className={`p-6 rounded-lg shadow-xl border w-[28rem] max-w-[95%] ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
                         <h3 className="text-lg font-bold mb-3 flex items-center gap-2"><Upload size={18} className="text-blue-500"/> Importar copia de seguridad</h3>
                         <p className="text-sm mb-1">El archivo contiene <strong>{diagramCount} {diagramCount === 1 ? 'diagrama' : 'diagramas'}</strong> en {folderCount} {folderCount === 1 ? 'carpeta' : 'carpetas'}.</p>
@@ -1096,6 +1291,19 @@
           const fileInputRef = useRef(null);
 
           const lastClickRef = useRef({id: '', time: 0});
+          // Pantallas táctiles: con el dedo, tiradores y zonas de toque más grandes
+          const [touchMode, setTouchMode] = useState(false);
+          // Dedos apoyados en el lienzo y gesto de dos dedos en curso (pellizcar / desplazar)
+          const touchPointsRef = useRef(new Map());
+          // Punto de paso que se está arrastrando ({ edgeId, index }) y últimos clics, para detectar el doble clic
+          const [draggingWaypoint, setDraggingWaypoint] = useState(null);
+          // Nota de la condición de un <<extend>> que se está arrastrando ({ edgeId, start, offset })
+          const [draggingCondNote, setDraggingCondNote] = useState(null);
+          // Arrastre en curso: elementos que arrastran los contenedores seleccionados y altura original del carril
+          const containerDragRef = useRef(null);
+          const lastEdgeClickRef = useRef({ id: '', time: 0 });
+          const lastHandleClickRef = useRef({ key: '', time: 0 });
+          const gestureRef = useRef(null);
           // Estado previo a un arrastre/redimensionado, para poder deshacerlo
           const dragSnapshotRef = useRef(null);
           // Indica si la edición de texto en curso ya ha guardado su punto de deshacer
@@ -1151,7 +1359,7 @@
 
           // --- PERSISTENCIA JSON (Importar/Exportar) ---
           const handleExportJSON = () => {
-            const dataStr = JSON.stringify({ version: "8.0", folders: foldersWithoutSelection(folders), darkMode: isDarkMode }, null, 2);
+            const dataStr = JSON.stringify({ version: APP_VERSION_LABEL, folders: foldersWithoutSelection(folders), darkMode: isDarkMode }, null, 2);
             const blob = new Blob([dataStr], { type: "application/json" });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -1532,7 +1740,7 @@
             const idMap = {};
             const newNodes = selectedNodes.map(node => { const id = generateId(); idMap[node.id] = id; return { ...node, id, x: node.x + 20, y: node.y + 20, selected: true }; });
             // Se duplican también las relaciones cuyos dos extremos están en la selección
-            const newEdges = edges.filter(ed => idMap[ed.source] && idMap[ed.target]).map(ed => ({ ...ed, id: generateId(), source: idMap[ed.source], target: idMap[ed.target], selected: false }));
+            const newEdges = shiftWaypoints(edges.filter(ed => idMap[ed.source] && idMap[ed.target]), new Set(selectedNodes.map(n => n.id)), 20, 20).map(ed => ({ ...ed, id: generateId(), source: idMap[ed.source], target: idMap[ed.target], selected: false }));
             const currentNodesDeselected = nodes.map(n => ({ ...n, selected: false }));
             updateDiagramState([...currentNodesDeselected, ...newNodes], [...edges.map(ed => ({ ...ed, selected: false })), ...newEdges]);
             showToast(`${selectedNodes.length} elemento(s) duplicado(s)`, 'success');
@@ -1565,7 +1773,7 @@
             const offset = 20 * (count + (activeDiagram.id === clip.sourceId ? 1 : 0));
             const idMap = {};
             const newNodes = clip.nodes.map(n => { const id = generateId(); idMap[n.id] = id; return { ...n, id, x: n.x + offset, y: n.y + offset, selected: true }; });
-            const newEdges = clip.edges.map(ed => ({ ...ed, id: generateId(), source: idMap[ed.source], target: idMap[ed.target] }));
+            const newEdges = shiftWaypoints(clip.edges, new Set(clip.nodes.map(n => n.id)), offset, offset).map(ed => ({ ...ed, id: generateId(), source: idMap[ed.source], target: idMap[ed.target] }));
             updateDiagramState([...nodes.map(n => ({ ...n, selected: false })), ...newNodes], [...edges.map(ed => ({ ...ed, selected: false })), ...newEdges]);
             showToast(`${newNodes.length} elemento(s) pegado(s)`, 'success');
           };
@@ -1603,6 +1811,7 @@
               if (nodes.length === 0 || !canvasRef.current) { setScale(1); setPan({ x: 0, y: 0 }); return; }
               let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
               nodes.forEach(n => { minX = Math.min(minX, n.x); minY = Math.min(minY, n.y); maxX = Math.max(maxX, n.x + n.width); maxY = Math.max(maxY, n.y + n.height); });
+              edges.forEach(ed => validWaypoints(ed).forEach(p => { minX = Math.min(minX, p.x); minY = Math.min(minY, p.y); maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y); }));
               const p = 50, w = maxX - minX + p * 2, h = maxY - minY + p * 2, cW = canvasRef.current.clientWidth, cH = canvasRef.current.clientHeight;
               const s = Math.min(Math.max(Math.min(cW / w, cH / h), 0.1), 2);
               setScale(s); setPan({ x: (cW - w * s) / 2 - (minX - p) * s, y: (cH - h * s) / 2 - (minY - p) * s });
@@ -1622,11 +1831,13 @@
             else if (tool === 'interface') { w = 160; h = 100; txt = "Interfaz"; }
             else if (['boundary', 'swimlane'].includes(tool)) { w = 300; h = 400; z = 0; txt = tool === 'boundary' ? "Sistema" : "Carril"; }
             else if (['start', 'end', 'decision', 'fork', 'join'].includes(tool)) {
-                if (tool === 'fork' || tool === 'join') { w = 10; h = 60; txt = ""; }
+                // Horizontal: en un DA que fluye de arriba abajo, los flujos llegan por arriba y salen por abajo
+                if (tool === 'fork' || tool === 'join') { w = 100; h = 8; txt = ""; }
                 else if (tool === 'start' || tool === 'end') { w = 30; h = 30; txt = ""; }
                 else { w = 40; h = 40; txt = ""; }
             }
             else if (tool === 'actor') { w = 40; h = 80; txt = "Actor"; }
+            else if (tool === 'note') { w = 160; h = 70; z = 3; txt = "Nota"; }
 
             const newNode = { id: generateId(), type: tool, x: pos.x - w / 2, y: pos.y - h / 2, width: w, height: h, text: txt, attributes: tool === 'class' ? ['- atributo: tipo'] : [], methods: tool === 'class' ? ['+ metodo(): void'] : [], zIndex: z, selected: true };
             const updatedNodes = nodes.map(n => ({ ...n, selected: false }));
@@ -1635,7 +1846,7 @@
             setTool('select');
           };
 
-          // --- MOUSE HANDLERS ---
+          // --- MANEJADORES DE PUNTERO (ratón, dedo y lápiz) ---
           const handleMouseDown = (e) => {
             if (e.button === 1 || (e.button === 0 && e.altKey) || tool === 'pan') { setIsDragging(true); setDragStart({ x: e.clientX, y: e.clientY }); return; }
             if (tool !== 'select' && tool !== 'pan') { addNode(getMousePos(e)); return; }
@@ -1654,64 +1865,74 @@
             if (isDragging && (tool === 'pan' || e.buttons === 4 || e.altKey)) { const dx = e.clientX - dragStart.x, dy = e.clientY - dragStart.y; setPan(prev => ({ x: prev.x + dx, y: prev.y + dy })); setDragStart({ x: e.clientX, y: e.clientY }); return; }
             const pos = getMousePos(e);
 
+            if (draggingCondNote) {
+                const { edgeId, start, offset } = draggingCondNote;
+                setEdges(edges.map(ed => ed.id === edgeId ? { ...ed, conditionNoteOffset: { x: offset.x + pos.x - start.x, y: offset.y + pos.y - start.y } } : ed));
+                return;
+            }
+
+            if (draggingWaypoint) {
+                const edge = edges.find(ed => ed.id === draggingWaypoint.edgeId);
+                const s = edge && nodes.find(n => n.id === edge.source), t = edge && nodes.find(n => n.id === edge.target);
+                if (!edge || !s || !t) return;
+                const wps = validWaypoints(edge), i = draggingWaypoint.index;
+                const neighbors = [i === 0 ? nodeCenter(s) : wps[i - 1], i === wps.length - 1 ? nodeCenter(t) : wps[i + 1]];
+                const threshold = 6 / scale, guides = [];
+                let p = { ...pos };
+                for (const nb of neighbors) { if (Math.abs(p.x - nb.x) < threshold) { p.x = nb.x; guides.push({ type: 'x', pos: nb.x }); break; } }
+                for (const nb of neighbors) { if (Math.abs(p.y - nb.y) < threshold) { p.y = nb.y; guides.push({ type: 'y', pos: nb.y }); break; } }
+                setSmartGuides(guides);
+                setEdges(edges.map(ed => ed.id === edge.id ? { ...ed, waypoints: wps.map((w, k) => k === i ? p : w) } : ed));
+                return;
+            }
+
             if (isResizing && activeNodeId && resizeHandle && initialNodeGeom) {
-                let dx = pos.x - dragStart.x;
-                let dy = pos.y - dragStart.y;
-                const node = nodes.find(n => n.id === activeNodeId);
-
-                if (node) {
-                    let nX = initialNodeGeom.x, nY = initialNodeGeom.y, nW = initialNodeGeom.w, nH = initialNodeGeom.h;
-                    let proposedW = nW, proposedH = nH, proposedX = nX, proposedY = nY;
-                    if (resizeHandle.includes('e')) proposedW = Math.max(20, initialNodeGeom.w + dx);
-                    if (resizeHandle.includes('w')) { proposedW = Math.max(20, initialNodeGeom.w - dx); proposedX = initialNodeGeom.x + (initialNodeGeom.w - proposedW); }
-                    if (resizeHandle.includes('s')) proposedH = Math.max(20, initialNodeGeom.h + dy);
-                    if (resizeHandle.includes('n')) { proposedH = Math.max(20, initialNodeGeom.h - dy); proposedY = initialNodeGeom.y + (initialNodeGeom.h - proposedH); }
-
-                    const otherNodes = nodes.filter(n => n.id !== activeNodeId);
-                    const threshold = 5;
-                    const newGuides = [];
-
-                    if (resizeHandle.includes('e') || resizeHandle.includes('w')) {
-                         const edgeToCheck = resizeHandle.includes('e') ? (proposedX + proposedW) : proposedX;
-                         let snapped = false;
-
-                         for (const t of otherNodes) {
-                             const tL = t.x, tR = t.x + t.width, tCx = t.x + t.width/2;
-                             const targets = [tL, tR, tCx];
-                             for (const target of targets) {
-                                 if (Math.abs(edgeToCheck - target) < threshold) {
-                                     if (resizeHandle.includes('e')) { proposedW = target - proposedX; }
-                                     else { const diff = target - proposedX; proposedX = target; proposedW -= diff; }
-                                     newGuides.push({ type: 'x', pos: target }); snapped = true; break;
-                                 }
-                             }
-                             if (snapped) break;
-                         }
-                    }
-
-                    if (resizeHandle.includes('s') || resizeHandle.includes('n')) {
-                         const edgeToCheck = resizeHandle.includes('s') ? (proposedY + proposedH) : proposedY;
-                         let snapped = false;
-                         for (const t of otherNodes) {
-                             const tT = t.y, tB = t.y + t.height, tCy = t.y + t.height/2;
-                             const targets = [tT, tB, tCy];
-                             for (const target of targets) {
-                                 if (Math.abs(edgeToCheck - target) < threshold) {
-                                     if (resizeHandle.includes('s')) { proposedH = target - proposedY; }
-                                     else { const diff = target - proposedY; proposedY = target; proposedH -= diff; }
-                                     newGuides.push({ type: 'y', pos: target }); snapped = true; break;
-                                 }
-                             }
-                             if (snapped) break;
-                         }
-                    }
-
-                    proposedW = Math.max(20, proposedW);
-                    proposedH = Math.max(20, proposedH);
-
-                    setSmartGuides(newGuides);
-                    setNodes(nodes.map(n => n.id === activeNodeId ? { ...n, x: proposedX, y: proposedY, width: proposedW, height: proposedH } : n));
+                // Ctrl/⌘: simétrico respecto al centro. Mayús en una esquina: mantiene la proporción
+                const symmetric = e.ctrlKey || e.metaKey;
+                const hor = resizeHandle.includes('e') ? 1 : resizeHandle.includes('w') ? -1 : 0;
+                const ver = resizeHandle.includes('s') ? 1 : resizeHandle.includes('n') ? -1 : 0;
+                const proportional = e.shiftKey && hor !== 0 && ver !== 0;
+                const { x: iX, y: iY, w: iW, h: iH } = initialNodeGeom;
+                const k = symmetric ? 2 : 1;
+                let dW = hor * (pos.x - dragStart.x) * k, dH = ver * (pos.y - dragStart.y) * k;
+                if (proportional) {
+                    // Manda la dimensión que más cambia en proporción
+                    const f = Math.abs(dW / iW) >= Math.abs(dH / iH) ? (iW + dW) / iW : (iH + dH) / iH;
+                    dW = iW * f - iW; dH = iH * f - iH;
                 }
+                // Mínimo de 20 px solo en las dimensiones que se cambian (las barras miden 8 px de grosor)
+                let W = hor ? Math.max(20, iW + dW) : iW, H = ver ? Math.max(20, iH + dH) : iH;
+                let X = symmetric ? iX + (iW - W) / 2 : (hor === -1 ? iX + iW - W : iX);
+                let Y = symmetric ? iY + (iH - H) / 2 : (ver === -1 ? iY + iH - H : iY);
+
+                // Guías de alineación para el borde que se arrastra (con Ctrl, el opuesto se ajusta en simetría)
+                const newGuides = [];
+                if (!proportional) {
+                    const others = nodes.filter(n => n.id !== activeNodeId), threshold = 5;
+                    if (hor) {
+                        const edge = hor === 1 ? X + W : X;
+                        const target = others.flatMap(t => [t.x, t.x + t.width, t.x + t.width / 2]).find(v => Math.abs(edge - v) < threshold);
+                        if (target !== undefined) {
+                            const delta = target - edge;
+                            if (hor === 1) { W += delta * k; if (symmetric) X -= delta; }
+                            else { W -= delta * k; X = target; }
+                            newGuides.push({ type: 'x', pos: target });
+                        }
+                    }
+                    if (ver) {
+                        const edge = ver === 1 ? Y + H : Y;
+                        const target = others.flatMap(t => [t.y, t.y + t.height, t.y + t.height / 2]).find(v => Math.abs(edge - v) < threshold);
+                        if (target !== undefined) {
+                            const delta = target - edge;
+                            if (ver === 1) { H += delta * k; if (symmetric) Y -= delta; }
+                            else { H -= delta * k; Y = target; }
+                            newGuides.push({ type: 'y', pos: target });
+                        }
+                    }
+                }
+
+                setSmartGuides(newGuides);
+                setNodes(nodes.map(n => n.id === activeNodeId ? { ...n, x: X, y: Y, width: W, height: H } : n));
                 return;
             }
 
@@ -1721,8 +1942,11 @@
                 let dx = pos.x - dragStart.x;
                 let dy = pos.y - dragStart.y;
                 const selectedNodes = nodes.filter(n => n.selected);
-                const otherNodes = nodes.filter(n => !n.selected);
+                const carried = containerDragRef.current?.carried || new Set();
+                const isMoving = (n) => n.selected || carried.has(n.id);
+                const otherNodes = nodes.filter(n => !isMoving(n));
                 const newGuides = [];
+                let laneHeight = null; // altura del carril arrastrado (la del vecino si encaja, la suya si no)
 
                 if (selectedNodes.length === 1) {
                     const s = selectedNodes[0];
@@ -1735,6 +1959,21 @@
 
                     let snappedX = false;
                     let snappedY = false;
+
+                    // Carriles contiguos: un carril que se acerca a otro se encaja a su lado, alineado arriba y con su altura
+                    if (s.type === 'swimlane') {
+                        const original = containerDragRef.current?.laneHeight ?? s.height;
+                        laneHeight = original;
+                        for (const t of otherNodes.filter(n => n.type === 'swimlane')) {
+                            if (proposedY >= t.y + t.height || proposedY + original <= t.y) continue;
+                            const x = Math.abs(sL - (t.x + t.width)) < 15 ? t.x + t.width : Math.abs(sR - t.x) < 15 ? t.x - s.width : null;
+                            if (x === null) continue;
+                            dx = x - s.x; dy = t.y - s.y; laneHeight = t.height;
+                            newGuides.push({ type: 'x', pos: x === t.x + t.width ? x : t.x }, { type: 'y', pos: t.y });
+                            snappedX = snappedY = true;
+                            break;
+                        }
+                    }
 
                     for (const t of otherNodes) {
                          if (!snappedX) {
@@ -1760,7 +1999,8 @@
                 }
 
                 setSmartGuides(newGuides);
-                setNodes(nodes.map(n => n.selected ? { ...n, x: n.x + dx, y: n.y + dy } : n));
+                setNodes(nodes.map(n => isMoving(n) ? { ...n, x: n.x + dx, y: n.y + dy, ...(laneHeight !== null && n.selected ? { height: laneHeight } : {}) } : n));
+                setEdges(shiftWaypoints(edges, new Set(nodes.filter(isMoving).map(n => n.id)), dx, dy));
                 setDragStart(prev => ({ x: prev.x + dx, y: prev.y + dy }));
             }
           };
@@ -1772,11 +2012,76 @@
             const changed = nodes.some(n => {
                 const o = snap.nodes.find(p => p.id === n.id);
                 return o && (o.x !== n.x || o.y !== n.y || o.width !== n.width || o.height !== n.height);
+            }) || edges.some(ed => {
+                const o = snap.edges.find(p => p.id === ed.id);
+                return !o || JSON.stringify(validWaypoints(o)) !== JSON.stringify(validWaypoints(ed)) || JSON.stringify(o.conditionNoteOffset || null) !== JSON.stringify(ed.conditionNoteOffset || null);
             });
             if (changed) setHistory(prev => ({ past: [...prev.past, snap].slice(-MAX_HISTORY), future: [] }));
           };
 
-          const handleMouseUp = () => { commitDragHistory(); setIsDragging(false); setIsResizing(false); setResizeHandle(null); setActiveNodeId(null); setInitialNodeGeom(null); setSelectionBox(null); setSmartGuides([]); if (isDragging || isResizing) saveCurrentDiagram(nodes, edges); };
+          // --- GESTOS TÁCTILES DE DOS DEDOS ---
+          // Se gestionan en fase de captura, antes que los manejadores de nodos y lienzo: al apoyar el segundo
+          // dedo se cancela lo que hacía el primero (arrastre, recuadro…) y los dos dedos pasan a hacer zoom
+          // (pellizcar) y a desplazar el lienzo. El gesto dura hasta que se levantan todos los dedos.
+          const isCanvasTarget = (target) => svgRef.current?.contains(target) || target === canvasRef.current;
+
+          const cancelPointerOperation = () => {
+              const snap = dragSnapshotRef.current;
+              if (snap) { setNodes(snap.nodes); setEdges(snap.edges); dragSnapshotRef.current = null; }
+              setIsDragging(false); setIsResizing(false); setResizeHandle(null); setActiveNodeId(null);
+              setInitialNodeGeom(null); setSelectionBox(null); setSmartGuides([]); setDraggingWaypoint(null); setDraggingCondNote(null);
+              containerDragRef.current = null;
+          };
+
+          const handlePointerDownCapture = (e) => {
+              setTouchMode(e.pointerType !== 'mouse');
+              if (e.pointerType !== 'touch' || !isCanvasTarget(e.target)) return;
+              const points = touchPointsRef.current;
+              points.set(e.pointerId, { x: e.clientX, y: e.clientY });
+              if (gestureRef.current) { e.stopPropagation(); return; }
+              if (points.size === 2) {
+                  e.stopPropagation();
+                  cancelPointerOperation();
+                  const [[idA, a], [idB, b]] = [...points.entries()];
+                  const rect = svgRef.current.getBoundingClientRect();
+                  gestureRef.current = {
+                      ids: [idA, idB],
+                      dist: Math.hypot(b.x - a.x, b.y - a.y) || 1,
+                      mid: { x: (a.x + b.x) / 2 - rect.left, y: (a.y + b.y) / 2 - rect.top },
+                      ...viewRef.current,
+                  };
+              }
+          };
+
+          const handlePointerMoveCapture = (e) => {
+              const points = touchPointsRef.current;
+              if (e.pointerType !== 'touch' || !points.has(e.pointerId)) return;
+              points.set(e.pointerId, { x: e.clientX, y: e.clientY });
+              const g = gestureRef.current;
+              if (!g) return;
+              e.stopPropagation();
+              const a = points.get(g.ids[0]), b = points.get(g.ids[1]);
+              if (!a || !b) return;
+              const rect = svgRef.current.getBoundingClientRect();
+              const mid = { x: (a.x + b.x) / 2 - rect.left, y: (a.y + b.y) / 2 - rect.top };
+              const newScale = Math.min(Math.max(0.1, g.scale * Math.hypot(b.x - a.x, b.y - a.y) / g.dist), 5);
+              // El punto del diagrama que estaba entre los dos dedos sigue entre ellos
+              const worldX = (g.mid.x - g.pan.x) / g.scale, worldY = (g.mid.y - g.pan.y) / g.scale;
+              const next = { scale: newScale, pan: { x: mid.x - worldX * newScale, y: mid.y - worldY * newScale } };
+              viewRef.current = next;
+              setScale(next.scale); setPan(next.pan);
+          };
+
+          const handlePointerUpCapture = (e) => {
+              if (e.pointerType !== 'touch') return;
+              touchPointsRef.current.delete(e.pointerId);
+              if (gestureRef.current) {
+                  e.stopPropagation();
+                  if (touchPointsRef.current.size === 0) gestureRef.current = null;
+              }
+          };
+
+          const handleMouseUp = () => { containerDragRef.current = null; commitDragHistory(); if (draggingWaypoint || draggingCondNote) { setDraggingWaypoint(null); setDraggingCondNote(null); saveCurrentDiagram(nodes, edges); } setIsDragging(false); setIsResizing(false); setResizeHandle(null); setActiveNodeId(null); setInitialNodeGeom(null); setSelectionBox(null); setSmartGuides([]); if (isDragging || isResizing) saveCurrentDiagram(nodes, edges); };
           // Listener nativo no pasivo: el onWheel de React es pasivo y no puede impedir el zoom de la página con Ctrl+rueda
           // Copia de zoom y desplazamiento accesible desde el listener (que se registra una sola vez)
           const viewRef = useRef({ scale: 1, pan: { x: 0, y: 0 } });
@@ -1864,7 +2169,9 @@
                     const dx = (e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0) * step;
                     const dy = (e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0) * step;
                     // Un punto de deshacer por pulsación (no por autorrepetición al mantener la tecla)
-                    updateDiagramState(nodes.map(n => n.selected ? { ...n, x: n.x + dx, y: n.y + dy } : n), edges, !e.repeat);
+                    const sel = nodes.filter(n => n.selected), carried = containedIds(sel, nodes, new Set(sel.map(n => n.id)));
+                    const moved = new Set([...sel.map(n => n.id), ...carried]);
+                    updateDiagramState(nodes.map(n => moved.has(n.id) ? { ...n, x: n.x + dx, y: n.y + dy } : n), shiftWaypoints(edges, moved, dx, dy), !e.repeat);
                 }
             };
             window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown);
@@ -1873,19 +2180,22 @@
 
           // --- RENDERIZADO NODOS ---
           const renderResizeHandles = (node) => {
-              const s = 8;
+              // Con el dedo, tiradores el doble de grandes (y algo mayores en las barras, que solo tienen dos)
+              const s = (touchMode ? 16 : 8) + (isBar(node) ? 4 : 0), o = s / 2;
               const h = [
-                  { id: 'nw', x: -4, y: -4, cursor: 'nw-resize' },
-                  { id: 'ne', x: node.width - 4, y: -4, cursor: 'ne-resize' },
-                  { id: 'sw', x: -4, y: node.height - 4, cursor: 'sw-resize' },
-                  { id: 'se', x: node.width - 4, y: node.height - 4, cursor: 'se-resize' },
-                  { id: 'n', x: node.width / 2 - 4, y: -4, cursor: 'n-resize' },
-                  { id: 's', x: node.width / 2 - 4, y: node.height - 4, cursor: 's-resize' },
-                  { id: 'e', x: node.width - 4, y: node.height / 2 - 4, cursor: 'e-resize' },
-                  { id: 'w', x: -4, y: node.height / 2 - 4, cursor: 'w-resize' }
+                  { id: 'nw', x: -o, y: -o, cursor: 'nw-resize' },
+                  { id: 'ne', x: node.width - o, y: -o, cursor: 'ne-resize' },
+                  { id: 'sw', x: -o, y: node.height - o, cursor: 'sw-resize' },
+                  { id: 'se', x: node.width - o, y: node.height - o, cursor: 'se-resize' },
+                  { id: 'n', x: node.width / 2 - o, y: -o, cursor: 'n-resize' },
+                  { id: 's', x: node.width / 2 - o, y: node.height - o, cursor: 's-resize' },
+                  { id: 'e', x: node.width - o, y: node.height / 2 - o, cursor: 'e-resize' },
+                  { id: 'w', x: -o, y: node.height / 2 - o, cursor: 'w-resize' }
               ];
+              // En una barra de bifurcación o unión solo tiene sentido cambiar la longitud: tiradores en los extremos
+              const handles = isBar(node) ? h.filter(p => node.width >= node.height ? (p.id === 'e' || p.id === 'w') : (p.id === 'n' || p.id === 's')) : h;
 
-              return ( <g> {h.map((pos) => ( <rect key={pos.id} x={pos.x} y={pos.y} width={s} height={s} fill="white" stroke={COLORS.selection} strokeWidth={1} style={{ cursor: pos.cursor }} onMouseDown={(e) => { e.stopPropagation(); dragSnapshotRef.current = { nodes, edges }; setIsResizing(true); setResizeHandle(pos.id); setActiveNodeId(node.id); setDragStart(getMousePos(e)); setInitialNodeGeom({ x: node.x, y: node.y, w: node.width, h: node.height }); }} /> ))} </g> );
+              return ( <g> {handles.map((pos) => ( <rect key={pos.id} x={pos.x} y={pos.y} width={s} height={s} fill="white" stroke={COLORS.selection} strokeWidth={1} style={{ cursor: pos.cursor }} onPointerDown={(e) => { if (e.button === 1 || e.altKey || tool === 'pan') return; e.stopPropagation(); dragSnapshotRef.current = { nodes, edges }; setIsResizing(true); setResizeHandle(pos.id); setActiveNodeId(node.id); setDragStart(getMousePos(e)); setInitialNodeGeom({ x: node.x, y: node.y, w: node.width, h: node.height }); }} /> ))} </g> );
           };
 
           const renderNode = (node) => {
@@ -1895,7 +2205,10 @@
             const fill = isDarkMode ? COLORS.nodeBgDark : COLORS.nodeBg;
             const textFill = isDarkMode ? COLORS.textDark : COLORS.text;
 
-            const commonProps = { key: node.id, onMouseDown: (e) => {
+            const commonProps = { key: node.id, onPointerDown: (e) => {
+                    // Desplazar el lienzo (Alt+arrastrar, botón central o herramienta «Mover lienzo») también empezando
+                    // sobre un elemento: el evento sigue hasta el lienzo, que es quien desplaza
+                    if (!connectingNodeId && (e.button === 1 || e.altKey || tool === 'pan')) return;
                     if (tool !== 'select' && tool !== 'pan' && !connectingNodeId) return;
                     e.stopPropagation();
 
@@ -1929,7 +2242,7 @@
                         if (defaultType === 'extend') label = '<<extend>>';
                         if (activeDiagram?.type === 'dcu' && (defaultType === 'association' || defaultType === 'generalization')) label = '';
 
-                        const defaultPathType = activeDiagram?.type === 'da' ? 'orthogonal' : 'straight';
+                        const defaultPathType = activeDiagram?.type === 'da' && defaultType !== 'note_link' ? 'orthogonal' : 'straight';
 
                         updateDiagramState(nodes, [...edges, { id: generateId(), source: connectingNodeId, target: node.id, type: defaultType, pathType: defaultPathType, label }]);
                         setConnectingNodeId(null); setTool('select');
@@ -1945,6 +2258,8 @@
                             }
                         }
                         dragSnapshotRef.current = { nodes, edges };
+                        const moving = e.shiftKey ? nodes.filter(n => n.id === node.id ? !n.selected : n.selected) : (node.selected ? nodes.filter(n => n.selected) : [node]);
+                        containerDragRef.current = { carried: containedIds(moving, nodes, new Set(moving.map(n => n.id))), laneHeight: node.type === 'swimlane' ? node.height : null };
                         setIsDragging(true);
                         setDragStart(getMousePos(e));
                     }
@@ -2007,11 +2322,23 @@
                             <text x={5} y={20} fill={textFill} fontSize={12} fontWeight="bold" style={{pointerEvents: 'none'}}>{node.text}</text>
                         </g>);
 
-                    case 'swimlane': return (<g><rect width={node.width} height={node.height} fill={isDarkMode?'#111827':'#f9fafb'} stroke={strokeColor} strokeWidth={strokeWidth}/><line x1={0} y1={30} x2={node.width} y2={30} stroke={strokeColor}/><text x={5} y={20} fill={textFill} fontSize={12} fontWeight="bold">{node.text}</text></g>);
+                    case 'swimlane': return (<g><rect width={node.width} height={node.height} fill={isDarkMode?'#111827':'#f9fafb'} stroke={strokeColor} strokeWidth={strokeWidth}/><line x1={0} y1={30} x2={node.width} y2={30} stroke={strokeColor}/><text x={node.width / 2} y={20} textAnchor="middle" fill={textFill} fontSize={12} fontWeight="bold" textDecoration={node.isObject ? 'underline' : undefined}>{node.text}</text></g>);
                     case 'start': return <circle cx={node.width/2} cy={node.height/2} r={15} fill="black" />;
                     case 'end': return (<g><circle cx={node.width/2} cy={node.height/2} r={15} fill="transparent" stroke={strokeColor} strokeWidth={2}/><circle cx={node.width/2} cy={node.height/2} r={10} fill="black"/></g>);
                     case 'decision': return (<g><polygon points={`${node.width/2},0 ${node.width},${node.height/2} ${node.width/2},${node.height} 0,${node.height/2}`} fill={fill} stroke={strokeColor} strokeWidth={strokeWidth}/><text x={node.width/2} y={node.height/2+4} textAnchor="middle" fill={textFill} fontSize={10}>{node.text}</text></g>);
+                    case 'note': {
+                        const fold = 12, lines = wrapText(node.text, node.width - 16);
+                        const maxLines = Math.max(1, Math.floor((node.height - 10) / 13));
+                        return (<g>
+                            <path d={`M0,0 H${node.width - fold} L${node.width},${fold} V${node.height} H0 Z`} fill={isDarkMode ? '#3a351c' : '#fefce8'} stroke={strokeColor} strokeWidth={strokeWidth}/>
+                            <path d={`M${node.width - fold},0 V${fold} H${node.width}`} fill="none" stroke={strokeColor} strokeWidth={strokeWidth}/>
+                            {lines.slice(0, maxLines).map((l, i) => (
+                                <text key={i} x={8} y={17 + i * 13} fill={textFill} fontSize={11} style={{ pointerEvents: 'none' }}>{i === maxLines - 1 && lines.length > maxLines ? l.replace(/.?$/, '…') : l}</text>
+                            ))}
+                        </g>);
+                    }
                     case 'fork': return (<g>
+                        <rect x={-6} y={-6} width={node.width + 12} height={node.height + 12} fill="transparent" />
                         <rect width={node.width} height={node.height} fill="black" stroke="none" />
                         <text x={node.width/2} y={-10} textAnchor="middle" fill={textFill} fontSize={12}>{node.text}</text>
                     </g>);
@@ -2022,6 +2349,8 @@
             return ( <g transform={`translate(${node.x},${node.y})`} {...commonProps}> {renderNodeContent()} {isSelected && tool === 'select' && renderResizeHandles(node)} </g> );
           };
 
+          // Notas de condición de los <<extend>>: se preparan al dibujar las relaciones y se pintan encima de los elementos
+          const conditionNotes = [];
           const renderEdges = () => {
             // Posición de cada relación dentro de su grupo (mismo par de nodos), para dibujar separadas las paralelas
             const groupIndex = {}, groupSize = {};
@@ -2072,8 +2401,8 @@
                      const dashed = ['dependency', 'implementation'].includes(edge.type) ? "5,5" : "";
 
                      return (
-                        <g key={edge.id} onClick={(e) => { e.stopPropagation(); setNodes(nodes.map(n => ({...n, selected: false}))); setEdges(edges.map(ed => ({...ed, selected: ed.id === edge.id}))); }} className="cursor-pointer">
-                            <path d={d} fill="none" stroke="transparent" strokeWidth={15} />
+                        <g key={edge.id} onClick={(e) => { e.stopPropagation(); setNodes(prev => prev.map(n => ({...n, selected: false}))); setEdges(prev => prev.map(ed => ({...ed, selected: ed.id === edge.id}))); }} className="cursor-pointer">
+                            <path d={d} fill="none" stroke="transparent" strokeWidth={touchMode ? 28 : 15} />
                             <path d={d} fill="none" stroke={strokeColor} strokeWidth={2} markerEnd={marker} strokeDasharray={dashed} />
                             {edge.label && <text x={labelPos.x} y={labelPos.y} textAnchor={labelAnchor} fill={strokeColor} fontSize={11} paintOrder="stroke" stroke={isDarkMode ? COLORS.nodeBgDark : COLORS.nodeBg} strokeWidth="3px">{edge.label}</text>}
                         </g>
@@ -2083,6 +2412,18 @@
                 const dx = tCenter.x - sCenter.x;
                 const dy = tCenter.y - sCenter.y;
                 const isVertical = Math.abs(dy) > Math.abs(dx);
+
+                // Trazado calculado: por los puntos de paso de la relación o, en un DA, rodeando un flujo de vuelta
+                const wps = validWaypoints(edge);
+                const autoReturn = wps.length === 0 && activeDiagram?.type === 'da' && edge.type === 'control' && edge.pathType === 'orthogonal' && count === 1 && isVertical && dy < 0;
+                // Entre una barra y un elemento que queda dentro de su longitud: tramo recto perpendicular a la barra
+                let barPoly = null;
+                if (wps.length === 0 && isBar(s) !== isBar(t)) {
+                    const bar = isBar(s) ? s : t, other = isBar(s) ? t : s, oc = nodeCenter(other);
+                    const inside = bar.width >= bar.height ? (oc.x >= bar.x && oc.x <= bar.x + bar.width) : (oc.y >= bar.y && oc.y <= bar.y + bar.height);
+                    if (inside) { const p = calculatePerimeterPoint(bar, oc), q = calculatePerimeterPoint(other, p); barPoly = isBar(s) ? [p, q] : [q, p]; }
+                }
+                const poly = wps.length ? routeWithWaypoints(s, t, wps, edge.pathType === 'orthogonal') : autoReturn ? routeReturnFlow(s, t, nodes) : barPoly;
 
                 let refStart = tCenter;
                 let refEnd = sCenter;
@@ -2100,7 +2441,7 @@
                 // Relaciones paralelas: se desplaza cada una perpendicularmente, de forma simétrica respecto al eje.
                 // La dirección se calcula sobre el par ordenado para que A→B y B→A se repartan igual.
                 const PARALLEL_GAP = 18;
-                const offset = (idx - (count - 1) / 2) * PARALLEL_GAP;
+                const offset = poly ? 0 : (idx - (count - 1) / 2) * PARALLEL_GAP;
                 let offv = { x: 0, y: 0 };
                 if (offset !== 0) {
                     if (edge.pathType === 'orthogonal') {
@@ -2114,15 +2455,19 @@
                 const shiftNode = (n) => ({ ...n, x: n.x + offv.x, y: n.y + offv.y });
                 const shiftPoint = (p) => ({ x: p.x + offv.x, y: p.y + offv.y });
 
-                const start = calculatePerimeterPoint(shiftNode(s), shiftPoint(refStart));
-                const end = calculatePerimeterPoint(shiftNode(t), shiftPoint(refEnd));
+                const start = poly ? poly[0] : calculatePerimeterPoint(shiftNode(s), shiftPoint(isBar(s) ? tCenter : refStart));
+                const end = poly ? poly[poly.length - 1] : calculatePerimeterPoint(shiftNode(t), shiftPoint(isBar(t) ? (isBar(s) ? start : sCenter) : refEnd));
                 // En ortogonales, el tramo intermedio también se desplaza (en el sentido que evita cruces)
                 const midShift = -offset * (Math.sign(end.x - start.x) || 1) * (Math.sign(end.y - start.y) || 1);
 
                 let d = '';
                 let mid1, mid2;
 
-                if (edge.pathType === 'straight') {
+                if (poly) {
+                    d = 'M ' + poly.map(p => `${p.x} ${p.y}`).join(' L ');
+                    mid1 = poly[1];
+                    mid2 = poly[poly.length - 2];
+                } else if (edge.pathType === 'straight') {
                     d = `M ${start.x} ${start.y} L ${end.x} ${end.y}`;
                     mid1 = start;
                     mid2 = end;
@@ -2148,19 +2493,23 @@
                 if (edge.type === 'include' || edge.type === 'extend') marker = `url(#arrow-dependency${edgeSelected ? '-selected' : ''})`;
                 if (edge.type === 'implementation') marker = `url(#arrow-generalization${edgeSelected ? '-selected' : ''})`;
                 if (edge.type === 'control') marker = `url(#arrow-directed_association${edgeSelected ? '-selected' : ''})`;
+                if (edge.type === 'note_link') marker = '';
 
-                const dashed = ['include', 'extend', 'dependency', 'implementation'].includes(edge.type) ? "5,5" : "";
+                const dashed = ['include', 'extend', 'dependency', 'implementation'].includes(edge.type) ? "5,5" : edge.type === 'note_link' ? "3,3" : "";
                 const showLabel = activeDiagram?.type === 'dcu' ? (edge.type === 'include' || edge.type === 'extend') : (edge.label || edge.type === 'include' || edge.type === 'extend');
 
                 const strokeColor = edgeSelected ? COLORS.selection : (isDarkMode ? '#9ca3af' : '#4b5563');
 
                 // Multiplicity Positions
-                const nextPoint = (edge.pathType === 'straight') ? end : mid1;
-                const prevPoint = (edge.pathType === 'straight') ? start : mid2;
+                const nextPoint = (edge.pathType === 'straight' && !poly) ? end : mid1;
+                const prevPoint = (edge.pathType === 'straight' && !poly) ? start : mid2;
 
                 // Etiqueta: sobre el punto medio; en relaciones paralelas, en su lado exterior para no confundirlas
-                const mid = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
+                const polyMid = poly ? polylineMidpoint(poly) : null;
+                const mid = polyMid || { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
                 let labelPos = { x: mid.x, y: mid.y - 10 }, labelAnchor = 'middle';
+                // En un tramo vertical de un trazado calculado, la etiqueta va a la derecha de la línea
+                if (polyMid?.vertical) { labelPos = { x: mid.x + 8, y: mid.y + 4 }; labelAnchor = 'start'; }
                 if (offset !== 0) {
                     const ux = offv.x / Math.abs(offset), uy = offv.y / Math.abs(offset);
                     const sideways = Math.abs(ux) > 0.3;
@@ -2187,15 +2536,66 @@
                     fontWeight: 500
                 };
 
-                return (
-                    <g key={edge.id} onClick={(e) => {
+                const handleEdgePointerDown = (e) => {
+                    if (tool !== 'select' || connectingNodeId) return;
+                    const now = Date.now(), last = lastEdgeClickRef.current;
+                    if (edge.selected && last.id === edge.id && now - last.time < 350) {
                         e.stopPropagation();
-                        setNodes(nodes.map(n => ({...n, selected: false})));
-                        setEdges(edges.map(ed => ({...ed, selected: ed.id === edge.id})));
+                        lastEdgeClickRef.current = { id: '', time: 0 };
+                        const pos = getMousePos(e);
+                        // Se inserta en el tramo más cercano de la línea de control (centros y puntos de paso)
+                        const ctrl = [sCenter, ...wps, tCenter];
+                        let index = 0, best = Infinity;
+                        for (let i = 0; i < ctrl.length - 1; i++) { const dist = distanceToSegment(pos, ctrl[i], ctrl[i + 1]); if (dist < best) { best = dist; index = i; } }
+                        dragSnapshotRef.current = { nodes, edges };
+                        setEdges(edges.map(ed => ed.id === edge.id ? { ...ed, waypoints: [...wps.slice(0, index), pos, ...wps.slice(index)] } : ed));
+                        setDraggingWaypoint({ edgeId: edge.id, index });
+                        return;
+                    }
+                    lastEdgeClickRef.current = { id: edge.id, time: now };
+                };
+
+                return (
+                    <g key={edge.id} onPointerDown={handleEdgePointerDown} onClick={(e) => {
+                        e.stopPropagation();
+                        // Actualización funcional: el clic llega justo después de soltar y no debe pisar un punto de paso recién añadido
+                        setNodes(prev => prev.map(n => ({...n, selected: false})));
+                        setEdges(prev => prev.map(ed => ({...ed, selected: ed.id === edge.id})));
                     }} className="cursor-pointer">
-                        <path d={d} fill="none" stroke="transparent" strokeWidth={15} />
+                        <path d={d} fill="none" stroke="transparent" strokeWidth={touchMode ? 28 : 15} />
                         <path d={d} fill="none" stroke={strokeColor} strokeWidth={2} markerEnd={marker} strokeDasharray={dashed} />
                         {showLabel && <text x={labelPos.x} y={labelPos.y} textAnchor={labelAnchor} {...textStyle} strokeWidth="4px" style={{}}>{edge.label}</text>}
+                        {edge.type === 'extend' && extendCondition(edge) && edge.conditionAsNote && void conditionNotes.push((() => {
+                            // Notación oficial de UML: nota unida a la relación con «Condition: {…}» y, si lo hay, «extension point: …»
+                            const lines = [`Condition: {${extendCondition(edge)}}`, ...((edge.extensionPoint || '').trim() ? [`extension point: ${edge.extensionPoint.trim()}`] : [])].flatMap(l => wrapText(l, 184));
+                            // Por defecto, a 90 px del punto medio en perpendicular a la relación, por su lado derecho
+                            const len = Math.hypot(end.x - start.x, end.y - start.y) || 1;
+                            let px = -(end.y - start.y) / len, py = (end.x - start.x) / len;
+                            if (px < 0 || (px === 0 && py < 0)) { px = -px; py = -py; }
+                            const co = edge.conditionNoteOffset, off = (co && Number.isFinite(co.x) && Number.isFinite(co.y)) ? co : { x: px * 110, y: py * 90 }, w = 200, h = 12 + lines.length * 13, fold = 10;
+                            const nx = mid.x + off.x - w / 2, ny = mid.y + off.y - h / 2;
+                            const anchor = calculatePerimeterPoint({ type: 'note', x: nx, y: ny, width: w, height: h }, mid);
+                            return (
+                                <g key={`cond-${edge.id}`} onPointerDown={(e) => {
+                                    if (tool !== 'select' || e.button !== 0 || e.altKey) return;
+                                    e.stopPropagation();
+                                    setNodes(nodes.map(n => ({ ...n, selected: false })));
+                                    setEdges(edges.map(ed => ({ ...ed, selected: ed.id === edge.id })));
+                                    dragSnapshotRef.current = { nodes, edges };
+                                    setDraggingCondNote({ edgeId: edge.id, start: getMousePos(e), offset: off });
+                                }} style={{ cursor: 'move' }}>
+                                    <line x1={anchor.x} y1={anchor.y} x2={mid.x} y2={mid.y} stroke={strokeColor} strokeWidth={1.5} strokeDasharray="3,3"/>
+                                    <path d={`M${nx},${ny} H${nx + w - fold} L${nx + w},${ny + fold} V${ny + h} H${nx} Z`} fill={isDarkMode ? '#3a351c' : '#fefce8'} stroke={strokeColor} strokeWidth={1}/>
+                                    <path d={`M${nx + w - fold},${ny} V${ny + fold} H${nx + w}`} fill="none" stroke={strokeColor} strokeWidth={1}/>
+                                    {lines.map((l, i) => <text key={i} x={nx + 8} y={ny + 16 + i * 13} fill={isDarkMode ? COLORS.textDark : COLORS.text} fontSize={11}>{l}</text>)}
+                                    <title>Arrastra para colocar la nota</title>
+                                </g>
+                            );
+                        })())}
+                        {edge.type === 'extend' && extendCondition(edge) && !edge.conditionAsNote && (
+                            // Condición de la extensión (en UML, una restricción: va entre llaves), bajo la línea; en relaciones paralelas, bajo el estereotipo
+                            <text x={offset === 0 && !polyMid?.vertical ? mid.x : labelPos.x} y={offset === 0 && !polyMid?.vertical ? mid.y + 16 : labelPos.y + 13} textAnchor={offset === 0 && !polyMid?.vertical ? 'middle' : labelAnchor} {...textStyle} fontWeight={400} fontStyle="italic" strokeWidth="4px">{`{${extendCondition(edge)}}`}</text>
+                        )}
 
                         {/* Etiquetas de Multiplicidad */}
                         {activeDiagram?.type === 'dc' && edge.sourceLabel && ['association', 'directed_association', 'aggregation', 'composition'].includes(edge.type) && (
@@ -2204,9 +2604,44 @@
                         {activeDiagram?.type === 'dc' && edge.targetLabel && ['association', 'directed_association', 'aggregation', 'composition'].includes(edge.type) && (
                             <text x={endLabelPos.x} y={endLabelPos.y} textAnchor="middle" dominantBaseline="middle" {...textStyle}>{edge.targetLabel}</text>
                         )}
+
+                        {/* Nombres de rol: en cada extremo, al lado contrario de la multiplicidad. En relaciones paralelas el
+                            lado interior es estrecho: van en el exterior, a continuación de la multiplicidad */}
+                        {activeDiagram?.type === 'dc' && ASSOCIATION_TYPES.includes(edge.type) && [[edge.sourceRole, start, nextPoint, Math.sign(sideOffset(start, nextPoint, 10))], [edge.targetRole, end, prevPoint, Math.sign(sideOffset(end, prevPoint, -10))]].map(([role, from, to, multSide], k) => {
+                            if (!(role || '').trim()) return null;
+                            const rp = offset === 0 ? getRolePos(from, to, -multSide) : getRolePos(from, to, multSide, 26);
+                            return <text key={k} x={rp.x} y={rp.y} textAnchor={rp.anchor} {...textStyle} fontWeight={400}>{role.trim()}</text>;
+                        })}
                     </g>
                 );
             });
+          };
+
+          // Tiradores de los puntos de paso de la relación seleccionada: se arrastran; doble clic para quitarlos
+          const renderWaypointHandles = () => {
+              if (isExporting) return null;
+              const selected = edges.filter(ed => ed.selected);
+              if (selected.length !== 1) return null;
+              const edge = selected[0], wps = validWaypoints(edge);
+              const r = touchMode ? 9 : 5;
+              return wps.map((p, i) => (
+                  <circle key={`${edge.id}-wp-${i}`} cx={p.x} cy={p.y} r={r} fill="white" stroke={COLORS.selection} strokeWidth={2} style={{ cursor: 'move' }}
+                      onPointerDown={(e) => {
+                          if (e.button === 1 || e.altKey || tool === 'pan') return;
+                          e.stopPropagation();
+                          const key = `${edge.id}-${i}`, now = Date.now(), last = lastHandleClickRef.current;
+                          if (last.key === key && now - last.time < 350) {
+                              lastHandleClickRef.current = { key: '', time: 0 };
+                              updateDiagramState(nodes, edges.map(ed => ed.id === edge.id ? { ...ed, waypoints: wps.filter((_, k) => k !== i) } : ed));
+                              return;
+                          }
+                          lastHandleClickRef.current = { key, time: now };
+                          dragSnapshotRef.current = { nodes, edges };
+                          setDraggingWaypoint({ edgeId: edge.id, index: i });
+                      }}>
+                      <title>Arrastra para mover el punto de paso; doble clic para quitarlo</title>
+                  </circle>
+              ));
           };
 
           // --- RENDER COMPONENTES UI ---
@@ -2330,7 +2765,7 @@
                     ))}
                 </div>
 
-                <div className="flex-1 p-2 overflow-y-auto border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"> <h3 className="text-xs font-semibold uppercase tracking-wider mb-2 opacity-50 ml-2">Herramientas</h3> <div className="grid grid-cols-2 gap-2"> <button onClick={() => setTool('select')} title="Seleccionar (Esc)" className={`p-2 rounded flex flex-col items-center justify-center border ${tool === 'select' ? 'bg-blue-50 border-blue-500 text-blue-600' : 'border-transparent hover:bg-gray-200 dark:hover:bg-gray-800'}`}> <MousePointer2 size={20} /> <span className="text-[10px] mt-1">Seleccionar</span> </button> <button onClick={() => setTool('pan')} title="Mover el lienzo (también con botón central o Alt+arrastrar)" className={`p-2 rounded flex flex-col items-center justify-center border ${tool === 'pan' ? 'bg-blue-50 border-blue-500 text-blue-600' : 'border-transparent hover:bg-gray-200 dark:hover:bg-gray-800'}`}> <Move size={20} /> <span className="text-[10px] mt-1">Mover Lienzo</span> </button> </div> <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4"> {activeDiagram ? ( <> <p className="text-xs text-center mb-2 font-mono opacity-50">{activeDiagram.type === 'dcu' ? 'Casos de Uso' : activeDiagram.type === 'dc' ? 'Clases' : 'Actividad'}</p> <div className="grid grid-cols-2 gap-2"> {activeDiagram.type === 'dcu' && ( <> <ToolBtn icon={<User/>} label="Actor" onClick={() => setTool('actor')} active={tool === 'actor'} /> <ToolBtn icon={<Circle/>} label="Caso Uso" onClick={() => setTool('usecase')} active={tool === 'usecase'} /> <ToolBtn icon={<Square/>} label="Límite" onClick={() => setTool('boundary')} active={tool === 'boundary'} /> </> )} {activeDiagram.type === 'dc' && ( <> <ToolBtn icon={<ClassToolIcon/>} label="Clase" onClick={() => setTool('class')} active={tool === 'class'} /> <ToolBtn icon={<InterfaceToolIcon/>} label="Interfaz" onClick={() => setTool('interface')} active={tool === 'interface'} /> </> )} {activeDiagram.type === 'da' && ( <> <ToolBtn icon={<Circle className="fill-current"/>} label="Inicio" onClick={() => setTool('start')} active={tool === 'start'} /> <ToolBtn icon={<Circle className="border-2"/>} label="Fin" onClick={() => setTool('end')} active={tool === 'end'} /> <ToolBtn icon={<Square className="rounded-lg"/>} label="Actividad" onClick={() => setTool('activity')} active={tool === 'activity'} /> <ToolBtn icon={<Diamond/>} label="Decisión / Fusión" title="Decisión: una entrada y varias salidas, cada una con su guarda ([sí] / [no]). Fusión: varias entradas y una salida, sin guardas." onClick={() => setTool('decision')} active={tool === 'decision'} /> <ToolBtn icon={<Minus className="rotate-90"/>} label="Bifurcación / Unión" title="Bifurcación: una entrada y varias salidas que se ejecutan a la vez. Unión: varias entradas; espera a que lleguen todas." onClick={() => setTool('fork')} active={tool === 'fork'} /> <ToolBtn icon={<GripVertical/>} label="Carril" onClick={() => setTool('swimlane')} active={tool === 'swimlane'} /> </> )} </div> </> ) : ( <p className="text-sm text-center opacity-50 mt-10">Selecciona o crea un diagrama para ver las herramientas.</p> )} </div> </div>
+                <div className="flex-1 p-2 overflow-y-auto border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"> <h3 className="text-xs font-semibold uppercase tracking-wider mb-2 opacity-50 ml-2">Herramientas</h3> <div className="grid grid-cols-2 gap-2"> <button onClick={() => setTool('select')} title="Seleccionar (Esc)" className={`p-2 rounded flex flex-col items-center justify-center border ${tool === 'select' ? 'bg-blue-50 border-blue-500 text-blue-600' : 'border-transparent hover:bg-gray-200 dark:hover:bg-gray-800'}`}> <MousePointer2 size={20} /> <span className="text-[10px] mt-1">Seleccionar</span> </button> <button onClick={() => setTool('pan')} title="Mover el lienzo (también con botón central o Alt+arrastrar)" className={`p-2 rounded flex flex-col items-center justify-center border ${tool === 'pan' ? 'bg-blue-50 border-blue-500 text-blue-600' : 'border-transparent hover:bg-gray-200 dark:hover:bg-gray-800'}`}> <Move size={20} /> <span className="text-[10px] mt-1">Mover Lienzo</span> </button> </div> <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4"> {activeDiagram ? ( <> <p className="text-xs text-center mb-2 font-mono opacity-50">{activeDiagram.type === 'dcu' ? 'Casos de Uso' : activeDiagram.type === 'dc' ? 'Clases' : 'Actividad'}</p> <div className="grid grid-cols-2 gap-2"> {activeDiagram.type === 'dcu' && ( <> <ToolBtn icon={<User/>} label="Actor" onClick={() => setTool('actor')} active={tool === 'actor'} /> <ToolBtn icon={<Circle/>} label="Caso Uso" onClick={() => setTool('usecase')} active={tool === 'usecase'} /> <ToolBtn icon={<Square/>} label="Límite" onClick={() => setTool('boundary')} active={tool === 'boundary'} /> </> )} {activeDiagram.type === 'dc' && ( <> <ToolBtn icon={<ClassToolIcon/>} label="Clase" onClick={() => setTool('class')} active={tool === 'class'} /> <ToolBtn icon={<InterfaceToolIcon/>} label="Interfaz" onClick={() => setTool('interface')} active={tool === 'interface'} /> </> )} {activeDiagram.type === 'da' && ( <> <ToolBtn icon={<Circle className="fill-current"/>} label="Inicio" onClick={() => setTool('start')} active={tool === 'start'} /> <ToolBtn icon={<Circle className="border-2"/>} label="Fin" onClick={() => setTool('end')} active={tool === 'end'} /> <ToolBtn icon={<Square className="rounded-lg"/>} label="Actividad" onClick={() => setTool('activity')} active={tool === 'activity'} /> <ToolBtn icon={<Diamond/>} label="Decisión / Fusión" title="Decisión: una entrada y varias salidas, cada una con su guarda ([sí] / [no]). Fusión: varias entradas y una salida, sin guardas." onClick={() => setTool('decision')} active={tool === 'decision'} /> <ToolBtn icon={<Minus className="rotate-90"/>} label="Bifurcación / Unión" title="Bifurcación: una entrada y varias salidas que se ejecutan a la vez. Unión: varias entradas; espera a que lleguen todas." onClick={() => setTool('fork')} active={tool === 'fork'} /> <ToolBtn icon={<GripVertical/>} label="Carril" onClick={() => setTool('swimlane')} active={tool === 'swimlane'} /> </> )} <ToolBtn icon={<StickyNote/>} label="Nota" title="Nota UML: un comentario que se une con línea discontinua al elemento que explica" onClick={() => setTool('note')} active={tool === 'note'} /> </div> </> ) : ( <p className="text-sm text-center opacity-50 mt-10">Selecciona o crea un diagrama para ver las herramientas.</p> )} </div> </div>
             </div>
           );
 
@@ -2410,9 +2845,11 @@
 
             const currentEdge = sE[0];
 
-            // En DC, varias asociaciones entre las mismas clases deben distinguirse por su etiqueta
+            // En DC, varias asociaciones entre las mismas clases deben distinguirse por su etiqueta o por sus roles
+            // (el rol se compara por clase, para que A→B y B→A se traten igual)
+            const associationKey = (ed, a, b) => [ed.label, ed.source === a ? ed.sourceRole : ed.targetRole, ed.source === b ? ed.sourceRole : ed.targetRole].map(v => (v || '').trim()).join('|');
             const hasDuplicateAssociationLabel = activeDiagram?.type === 'dc' && currentEdge && ASSOCIATION_TYPES.includes(currentEdge.type) &&
-                getEdgesBetween(edges, currentEdge.source, currentEdge.target).some(ed => ed.id !== currentEdge.id && ASSOCIATION_TYPES.includes(ed.type) && (ed.label || '').trim() === (currentEdge.label || '').trim());
+                getEdgesBetween(edges, currentEdge.source, currentEdge.target).some(ed => ed.id !== currentEdge.id && ASSOCIATION_TYPES.includes(ed.type) && associationKey(ed, currentEdge.source, currentEdge.target) === associationKey(currentEdge, currentEdge.source, currentEdge.target));
             const isReflexive = currentEdge ? currentEdge.source === currentEdge.target : false;
 
             const showMultiplicity = currentEdge && ['association', 'directed_association', 'aggregation', 'composition'].includes(currentEdge.type) && !(currentEdge.type === 'association' && isReflexive);
@@ -2450,7 +2887,12 @@
 
                     {sN.length === 1 && (
                         <div className="space-y-4">
-                            <div> <label className="block text-xs font-medium mb-1">Texto / Nombre</label> <input type="text" value={sN[0].text} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes.map(n => n.id === sN[0].id ? { ...n, text: e.target.value } : n), edges)} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/> </div>
+                            {sN[0].type === 'note' ? (
+                                <div> <label className="block text-xs font-medium mb-1">Texto de la nota</label> <textarea rows={4} value={sN[0].text} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes.map(n => n.id === sN[0].id ? { ...n, text: e.target.value } : n), edges)} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/>
+                                    <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Únela al elemento que comenta con «Conectar con...» (línea discontinua).</p> </div>
+                            ) : (
+                                <div> <label className="block text-xs font-medium mb-1">Texto / Nombre</label> <input type="text" value={sN[0].text} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes.map(n => n.id === sN[0].id ? { ...n, text: e.target.value } : n), edges)} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/> </div>
+                            )}
                             {(sN[0].type === 'class' || sN[0].type === 'interface') && ( <>
                                 {sN[0].type === 'class' && (
                                     <div className="flex items-center space-x-2">
@@ -2463,6 +2905,22 @@
                                 )}
                                 <div><label className="block text-xs font-medium mb-1">Métodos</label><textarea rows={3} value={sN[0].methods?.join('\n')} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes.map(n => n.id === sN[0].id ? { ...n, methods: e.target.value.split('\n') } : n), edges)} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`} /></div>
                                 <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Escribe <code>static</code> delante de un miembro para subrayarlo o <code>abstract</code> para ponerlo en cursiva (p. ej. <code>+ static total: int</code>).</p> </>
+                            )}
+                            {sN[0].type === 'swimlane' && (<>
+                                <div className="flex items-center space-x-2">
+                                    <input type="checkbox" id="isObject" checked={sN[0].isObject || false} onChange={(e) => updateDiagramState(nodes.map(n => n.id === sN[0].id ? { ...n, isObject: e.target.checked } : n), edges)} className="text-blue-600 focus:ring-blue-500 rounded"/>
+                                    <label htmlFor="isObject" className="text-xs font-medium">Es una clase u objeto (nombre subrayado, p. ej. «:Pedido»)</label>
+                                </div>
+                                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Cada carril representa a un responsable (un actor, un departamento o un objeto). Para un diagrama con carriles, añade uno por responsable y acércalos: se encajan uno al lado del otro, alineados y con la misma altura. Al mover un carril se mueven también las acciones que contiene.</p>
+                            </>)}
+                            {sN[0].type === 'boundary' && (
+                                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Al mover el límite del sistema se mueven también los casos de uso que contiene.</p>
+                            )}
+                            {isBar(sN[0]) && (
+                                <button onClick={() => { const n = sN[0], cx = n.x + n.width / 2, cy = n.y + n.height / 2; updateDiagramState(nodes.map(m => m.id === n.id ? { ...m, width: n.height, height: n.width, x: cx - n.height / 2, y: cy - n.width / 2 } : m), edges); }}
+                                    title="Cambiar entre horizontal y vertical" className="w-full py-2 px-3 rounded text-sm font-medium flex items-center justify-center gap-2 transition-all bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">
+                                    <RotateCw size={14}/> Girar <span className="opacity-60 text-xs">({sN[0].width >= sN[0].height ? 'pasar a vertical' : 'pasar a horizontal'})</span>
+                                </button>
                             )}
                             {sN[0].type !== 'boundary' && sN[0].type !== 'swimlane' && (
                                 <button
@@ -2488,7 +2946,7 @@
                         <div className="space-y-4">
                             {activeDiagram?.type === 'da' ? (
                                 <div className={`p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600 text-gray-400' : 'bg-gray-50 border-gray-300 text-gray-600'}`}>
-                                    Tipo: <span className="font-semibold">Flujo de control</span>
+                                    Tipo: <span className="font-semibold">{sE[0].type === 'note_link' ? 'Enlace de nota' : 'Flujo de control'}</span>
                                 </div>
                             ) : (
                                 <div> <label className="block text-xs font-medium mb-1">Tipo de conexión</label> <select value={sE[0].type} onChange={(e) => { const nt = e.target.value; let nl = sE[0].label; if (nt === 'include') nl = '<<include>>'; else if (nt === 'extend') nl = '<<extend>>'; else if (activeDiagram?.type === 'dcu' && (nt === 'association' || nt === 'generalization')) nl = ''; else if (sE[0].type === 'include' || sE[0].type === 'extend') nl = ''; updateDiagramState(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, type: nt, label: nl } : ed)) }} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}> {allowed.map(t => ( <option key={t.value} value={t.value}>{t.label}</option> ))} </select> </div>
@@ -2498,10 +2956,38 @@
 
                             {!(activeDiagram?.type === 'dcu' && (sE[0].type === 'association' || sE[0].type === 'generalization')) && ( <div> <label className="block text-xs font-medium mb-1">Etiqueta</label> <input type="text" disabled={sE[0].type === 'include' || sE[0].type === 'extend'} value={sE[0].label || ''} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, label: e.target.value } : ed))} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'} disabled:opacity-50`}/> </div> )}
 
+                            {sE[0].source !== sE[0].target && (
+                                <div className="space-y-2">
+                                    <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Para trazar la línea a mano, haz doble clic (o doble toque) sobre ella para añadir un punto de paso y arrástralo; doble clic sobre un punto para quitarlo.</p>
+                                    {validWaypoints(sE[0]).length > 0 && (
+                                        <button onClick={() => updateDiagramState(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, waypoints: [] } : ed))} title="Quitar todos los puntos de paso de la relación" className="w-full py-2 px-3 rounded text-sm font-medium flex items-center justify-center gap-2 transition-all bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"><RouteOff size={14}/> Enderezar <span className="opacity-60 text-xs">({validWaypoints(sE[0]).length === 1 ? '1 punto' : `${validWaypoints(sE[0]).length} puntos`})</span></button>
+                                    )}
+                                </div>
+                            )}
+
+                            {sE[0].type === 'extend' && (
+                                <div>
+                                    <label className="block text-xs font-medium mb-1">Condición de la extensión</label>
+                                    <input type="text" placeholder="p. ej. el cliente pulsa Ayuda" value={sE[0].condition || ''} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, condition: e.target.value } : ed))} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/>
+                                    <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Situación en la que el caso de uso extendido se ejecuta. Se muestra entre llaves junto a la relación, como las restricciones de UML.</p>
+                                    <label className="flex items-center gap-2 text-xs mt-2 cursor-pointer">
+                                        <input type="checkbox" checked={!!sE[0].conditionAsNote} onChange={(e) => updateDiagramState(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, conditionAsNote: e.target.checked } : ed))} className="rounded text-blue-600 focus:ring-blue-500"/>
+                                        Mostrar en una nota (notación oficial de UML)
+                                    </label>
+                                    {sE[0].conditionAsNote && (
+                                        <div className="mt-2">
+                                            <label className="block text-xs font-medium mb-1">Punto de extensión (opcional)</label>
+                                            <input type="text" placeholder="p. ej. Comprobar disponibilidad" value={sE[0].extensionPoint || ''} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, extensionPoint: e.target.value } : ed))} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/>
+                                            <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Lugar del caso base donde se inserta la extensión. Arrastra la nota para colocarla.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             {hasDuplicateAssociationLabel && (
                                 <div className={`p-2 rounded text-xs flex gap-2 ${isDarkMode ? 'bg-amber-900/40 text-amber-200' : 'bg-amber-50 text-amber-800'}`}>
                                     <AlertTriangle size={14} className="flex-shrink-0 mt-0.5"/>
-                                    <span>Hay otra asociación entre estas clases con la misma etiqueta. Usa etiquetas distintas (p. ej. «origen» y «destino») para diferenciarlas.</span>
+                                    <span>Hay otra asociación entre estas clases con la misma etiqueta y los mismos roles. Diferéncialas con una etiqueta o con nombres de rol distintos (p. ej. «origen» y «destino»).</span>
                                 </div>
                             )}
 
@@ -2509,6 +2995,12 @@
                                 <div className="grid grid-cols-2 gap-2">
                                     <div><label className="block text-xs font-medium mb-1">Mult. origen</label><input type="text" placeholder="1" value={sE[0].sourceLabel || ''} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, sourceLabel: e.target.value } : ed))} className={`w-full p-1 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/></div>
                                     <div><label className="block text-xs font-medium mb-1">Mult. destino</label><input type="text" placeholder="*" value={sE[0].targetLabel || ''} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, targetLabel: e.target.value } : ed))} className={`w-full p-1 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/></div>
+                                </div>
+                            )}
+                            {activeDiagram?.type === 'dc' && showMultiplicity && (
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div><label className="block text-xs font-medium mb-1">Rol origen</label><input type="text" placeholder="p. ej. cliente" value={sE[0].sourceRole || ''} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, sourceRole: e.target.value } : ed))} className={`w-full p-1 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/></div>
+                                    <div><label className="block text-xs font-medium mb-1">Rol destino</label><input type="text" placeholder="p. ej. pedidos" value={sE[0].targetRole || ''} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, targetRole: e.target.value } : ed))} className={`w-full p-1 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/></div>
                                 </div>
                             )}
 
@@ -2548,11 +3040,16 @@
 
           return (
             <div className={`flex flex-col h-screen w-full overflow-hidden select-none ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-black'}`}>
+              {IS_DEV_BUILD && (
+                  <div role="note" className={`px-4 py-1 text-xs text-center border-b ${isDarkMode ? 'bg-amber-900/50 text-amber-100 border-amber-800' : 'bg-amber-100 text-amber-900 border-amber-300'}`}>
+                      <strong>Versión en desarrollo ({APP_VERSION_LABEL}):</strong> puede contener errores. Para trabajar en clase, usa la versión oficial en <a href={APP_URL} target="_blank" rel="noreferrer" className="underline font-medium">{APP_URL.replace('https://', '')}</a>.
+                  </div>
+              )}
               {renderToolbar()}
               {renderStorageNotice()}
               <div className="flex flex-1 overflow-hidden relative">
                 {renderSidebar()}
-                <div ref={canvasRef} className={`flex-1 relative overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} ${connectingNodeId ? 'cursor-crosshair' : (tool === 'pan' || (isDragging && tool === 'pan')) ? 'cursor-grab' : 'default'}`} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
+                <div ref={canvasRef} className={`flex-1 relative overflow-hidden touch-none ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} ${connectingNodeId ? 'cursor-crosshair' : (tool === 'pan' || (isDragging && tool === 'pan')) ? 'cursor-grab' : 'default'}`} onPointerDownCapture={handlePointerDownCapture} onPointerMoveCapture={handlePointerMoveCapture} onPointerUpCapture={handlePointerUpCapture} onPointerCancelCapture={handlePointerUpCapture} onPointerDown={handleMouseDown} onPointerMove={handleMouseMove} onPointerUp={handleMouseUp} onPointerCancel={handleMouseUp} onPointerLeave={handleMouseUp}>
                     <div className="absolute inset-0 pointer-events-none opacity-20" style={{ backgroundImage: `radial-gradient(${isDarkMode ? '#6b7280' : '#9ca3af'} 1px, transparent 1px)`, backgroundSize: `${20 * scale}px ${20 * scale}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }} />
                     <svg ref={svgRef} className="w-full h-full block touch-none" xmlns="http://www.w3.org/2000/svg">
                         <defs>
@@ -2584,6 +3081,8 @@
                             {nodes.filter(n => n.zIndex === 0).map(renderNode)}
                             {renderEdges()}
                             {nodes.filter(n => n.zIndex > 0).map(renderNode)}
+                            {conditionNotes}
+                            {renderWaypointHandles()}
                             {smartGuides.map((guide, i) => ( guide.type === 'x' ? <line key={i} x1={guide.pos} y1={-10000} x2={guide.pos} y2={10000} stroke="#ef4444" strokeWidth={1} strokeDasharray="4,2"/> : <line key={i} x1={-10000} y1={guide.pos} x2={10000} y2={guide.pos} stroke="#ef4444" strokeWidth={1} strokeDasharray="4,2"/> ))}
                             {selectionBox && ( <rect x={Math.min(selectionBox.start.x, selectionBox.end.x)} y={Math.min(selectionBox.start.y, selectionBox.end.y)} width={Math.abs(selectionBox.end.x - selectionBox.start.x)} height={Math.abs(selectionBox.end.y - selectionBox.start.y)} fill={COLORS.selection} fillOpacity={0.1} stroke={COLORS.selection} /> )}
                         </g>
@@ -2605,6 +3104,7 @@
                     <RenameModal
                         isOpen={editingLabelId !== null}
                         initialText={editingLabelText}
+                        multiline={nodes.find(n => n.id === editingLabelId)?.type === 'note'}
                         title="Editar Texto"
                         onClose={() => setEditingLabelId(null)}
                         onSave={(newText) => {
@@ -2648,7 +3148,7 @@
                 {showReview && renderReviewPanel()}
 
                 {deleteConfirm && (
-                    <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm" onMouseDown={(e)=>e.stopPropagation()}>
+                    <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
                         <div className={`p-6 rounded-lg shadow-xl border w-80 text-center transform transition-all scale-100 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
                             <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4"><AlertTriangle className="h-6 w-6 text-red-600" /></div>
                             <h3 className="text-lg leading-6 font-medium mb-2">¿Eliminar {deleteConfirm.type === 'folder' ? 'carpeta' : 'diagrama'}?</h3>

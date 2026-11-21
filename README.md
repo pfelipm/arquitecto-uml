@@ -12,21 +12,23 @@ Puedes utilizar el editor sin limitaciones y directamente en tu navegador accedi
 
 👉 **[https://umlsimple.pablofelip.online](https://umlsimple.pablofelip.online)** (versión oficial, en Google Sites)
 
-👉 **[https://pfelipm.github.io/arquitecto-uml](https://pfelipm.github.io/arquitecto-uml/)** (GitHub Pages): aquí **el navegador conserva los diagramas** aunque recargues la página o vuelvas otro día, y los enlaces compartidos se abren con un clic. **Por ahora muestra la versión en desarrollo (9.0)**, que puede contener errores; para trabajar, usa la versión oficial.
+👉 **[https://pfelipm.github.io/arquitecto-uml](https://pfelipm.github.io/arquitecto-uml/)** (GitHub Pages): aquí **el navegador conserva los diagramas** aunque recargues la página o vuelvas otro día, y los enlaces compartidos se abren con un clic.
 
 ## Características Principales
 
 *   **Tipos de Diagramas Soportados:**
-    *   **DCU:** Diagramas de Casos de Uso (Actores, Casos de uso, Límites).
+    *   **DCU:** Diagramas de Casos de Uso (Actores, Casos de uso, Límites). Las relaciones `<<extend>>` pueden indicar su condición, que se muestra entre llaves junto a la flecha o, con la notación oficial de UML, en una nota (`Condition: {…}` y, opcionalmente, `extension point: …`).
         
         ![Ejemplo DCU](readme-archivos/DCU.png)
-    *   **DC:** Diagramas de Clases (Clases, Interfaces, Relaciones). Admite varias asociaciones entre las mismas clases (por ejemplo, *origen* y *destino*), que se dibujan separadas. Los miembros que empiezan por `static` se muestran subrayados y los que empiezan por `abstract`, en cursiva, siguiendo la notación UML (por ejemplo, `+ static total: int`).
+    *   **DC:** Diagramas de Clases (Clases, Interfaces, Relaciones). Las asociaciones admiten multiplicidades y **nombres de rol** en cada extremo. Admite varias asociaciones entre las mismas clases (por ejemplo, *origen* y *destino*), que se dibujan separadas. Los miembros que empiezan por `static` se muestran subrayados y los que empiezan por `abstract`, en cursiva, siguiendo la notación UML (por ejemplo, `+ static total: int`).
         
         ![Ejemplo DC](readme-archivos/DC.png)
-    *   **DA:** Diagramas de Actividad (Inicio, Fin, Actividades, Decisión / Fusión, Bifurcación / Unión, Carriles).
+    *   **DA:** Diagramas de Actividad (Inicio, Fin, Actividades, Decisión / Fusión, Bifurcación / Unión, Carriles). Los carriles se encajan uno al lado del otro para formar la tabla de responsables (actores, departamentos u objetos, con el nombre subrayado) y, al moverlos, arrastran las acciones que contienen; lo mismo ocurre con el límite del sistema en los DCU. Las barras de bifurcación y unión se crean horizontales, se giran con un botón del panel de propiedades y los flujos llegan a ellas en perpendicular, cada uno en su posición.
         
         ![Ejemplo DA](readme-archivos/DA.png)
 *   **Revisar diagrama:** El botón **Revisar** (o **F7**) abre un panel que analiza el diagrama abierto y señala errores UML habituales, con fines didácticos: casos de uso sin actor o fuera del límite del sistema, herencias circulares, clases con métodos abstractos que no están marcadas como abstractas, interfaces sin implementar, diagramas de actividad sin nodo inicial, decisiones sin guardas, nodos inalcanzables, etc. Los problemas se clasifican en errores, avisos y sugerencias de estilo (que se pueden ocultar); al pulsar uno, se seleccionan en el lienzo los elementos afectados. La revisión se actualiza mientras editas y nunca modifica el diagrama.
+*   **Notas UML:** en los tres tipos de diagrama, la herramienta **Nota** añade un comentario (rectángulo con la esquina doblada, con texto de varias líneas) que se une con una línea discontinua al elemento que explica. Útil para enunciados y correcciones; la revisión del diagrama no las tiene en cuenta.
+*   **Trazado de las relaciones:** las relaciones pueden ser rectas u ortogonales (en codo). Para evitar cruces, se les pueden añadir **puntos de paso** con doble clic (o doble toque) sobre la relación seleccionada y arrastrarlos; doble clic sobre un punto lo quita, y el botón **Enderezar** del panel de propiedades los quita todos. En los diagramas de actividad, los **flujos de vuelta** (los que suben a un elemento anterior, como un bucle de reintento) rodean automáticamente los elementos intermedios.
 *   **Gestión de Proyectos:** Organización mediante carpetas y múltiples diagramas.
 *   **Persistencia Local:** Guardado automático en el navegador (`localStorage`); al volver, se reabre el último diagrama abierto. En la versión insertada en Google Sites el navegador no conserva los datos entre visitas, así que la aplicación lo avisa y recuerda exportar una copia JSON antes de salir; en la versión de GitHub Pages sí se conservan.
 *   **Compartir por enlace:** El botón **Compartir** genera un enlace que contiene el diagrama abierto (comprimido y sin pasar por ningún servidor). Quien lo recibe lo pega en **Abrir diagrama compartido** y obtiene una copia en la carpeta «Diagramas compartidos», sin que se modifiquen sus otros diagramas. Los enlaces generados desde GitHub Pages (o cualquier copia abierta directamente, no insertada en Google Sites) abren el diagrama con un clic.
@@ -47,15 +49,20 @@ En macOS, usa ⌘ en lugar de Ctrl.
 | **Ctrl+A** | Seleccionar todos los elementos |
 | **Esc** | Cancelar la conexión o la herramienta activa; si no hay ninguna, deseleccionar |
 | **Flechas** / **Mayús+flechas** | Mover la selección 1 px / 10 px |
+| **Ctrl+arrastrar un tirador** | Redimensionar de forma simétrica, sin mover el centro (laterales: ancho; superior e inferior: alto; esquinas: ambos) |
+| **Mayús+arrastrar una esquina** | Redimensionar manteniendo la proporción (con Ctrl, también desde el centro) |
 | **Mayús+clic** | Añadir o quitar un elemento de la selección |
 | **Arrastrar en el fondo** | Seleccionar con un recuadro (con **Mayús**, añadir a la selección) |
 | **Doble clic** | Editar el texto de un elemento |
+| **Doble clic en una relación seleccionada** | Añadir un punto de paso (después, arrástralo); doble clic sobre un punto lo quita |
 | **Rueda** / **Mayús+rueda** | Desplazar el lienzo (en vertical / en horizontal) |
 | **Ctrl+rueda** | Zoom hacia el cursor |
 | **Ctrl+0** | Zoom al 100 % |
 | **F7** | Mostrar u ocultar el panel de revisión del diagrama |
 | **Botón central** · **Alt+arrastrar** | Mover el lienzo (en algunos escritorios Linux, Alt+arrastrar mueve la ventana) |
 | **?** | Mostrar u ocultar la ayuda de atajos |
+
+En tabletas y pantallas táctiles: **toca** para seleccionar, haz **doble toque** para editar el texto, **arrastra con un dedo** para mover elementos (o, sobre el fondo, seleccionar con un recuadro), **pellizca** para el zoom y **arrastra con dos dedos** para desplazar el lienzo. Las acciones que en el ordenador se hacen con el teclado (eliminar, duplicar, conectar) tienen su botón en el panel de propiedades.
 
 ## Tecnologías Utilizadas
 

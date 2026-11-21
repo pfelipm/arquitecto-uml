@@ -428,6 +428,26 @@
        "height": 60,
        "text": "Consultar catalogo",
        "zIndex": 2
+      },
+      {
+       "id": "u5",
+       "type": "usecase",
+       "x": 430,
+       "y": 260,
+       "width": 140,
+       "height": 60,
+       "text": "Mostrar ayuda",
+       "zIndex": 2
+      },
+      {
+       "id": "u6",
+       "type": "usecase",
+       "x": 260,
+       "y": 340,
+       "width": 140,
+       "height": 60,
+       "text": "Aplicar cupón",
+       "zIndex": 2
       }
      ],
      "edges": [
@@ -462,6 +482,25 @@
        "type": "include",
        "pathType": "straight",
        "label": "<<include>>"
+      },
+      {
+       "id": "f5",
+       "source": "u5",
+       "target": "u1",
+       "type": "extend",
+       "pathType": "straight",
+       "label": "<<extend>>"
+      },
+      {
+       "id": "f6",
+       "source": "u6",
+       "target": "u1",
+       "type": "extend",
+       "pathType": "straight",
+       "label": "<<extend>>",
+       "condition": "el cliente tiene un cupón",
+       "conditionAsNote": true,
+       "extensionPoint": "Pagar"
       }
      ]
     },
@@ -702,6 +741,16 @@
        "height": 30,
        "text": "",
        "zIndex": 2
+      },
+      {
+       "id": "nota",
+       "type": "note",
+       "x": 200,
+       "y": 90,
+       "width": 160,
+       "height": 60,
+       "text": "La cita se pide por teléfono o en la web.",
+       "zIndex": 3
       }
      ],
      "edges": [
@@ -759,6 +808,539 @@
        "target": "z",
        "type": "control",
        "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "nl",
+       "source": "nota",
+       "target": "o1",
+       "type": "note_link",
+       "pathType": "straight",
+       "label": ""
+      }
+     ]
+    },
+    {
+     "id": "rev-bucle",
+     "name": "Bucle de reintento (correcto)",
+     "type": "da",
+     "createdAt": 0,
+     "nodes": [
+      {
+       "id": "s",
+       "type": "start",
+       "x": 255,
+       "y": 0,
+       "width": 30,
+       "height": 30,
+       "text": "",
+       "zIndex": 2
+      },
+      {
+       "id": "m",
+       "type": "decision",
+       "x": 250,
+       "y": 70,
+       "width": 40,
+       "height": 40,
+       "text": "",
+       "zIndex": 2
+      },
+      {
+       "id": "a1",
+       "type": "activity",
+       "x": 200,
+       "y": 150,
+       "width": 140,
+       "height": 50,
+       "text": "Introducir datos",
+       "zIndex": 2
+      },
+      {
+       "id": "d",
+       "type": "decision",
+       "x": 250,
+       "y": 240,
+       "width": 40,
+       "height": 40,
+       "text": "",
+       "zIndex": 2
+      },
+      {
+       "id": "a2",
+       "type": "activity",
+       "x": 200,
+       "y": 330,
+       "width": 140,
+       "height": 50,
+       "text": "Mostrar error",
+       "zIndex": 2
+      },
+      {
+       "id": "a3",
+       "type": "activity",
+       "x": 420,
+       "y": 235,
+       "width": 140,
+       "height": 50,
+       "text": "Entrar",
+       "zIndex": 2
+      },
+      {
+       "id": "e",
+       "type": "end",
+       "x": 475,
+       "y": 340,
+       "width": 30,
+       "height": 30,
+       "text": "",
+       "zIndex": 2
+      }
+     ],
+     "edges": [
+      {
+       "id": "c1",
+       "source": "s",
+       "target": "m",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c2",
+       "source": "m",
+       "target": "a1",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c3",
+       "source": "a1",
+       "target": "d",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c4",
+       "source": "d",
+       "target": "a2",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": "[no]"
+      },
+      {
+       "id": "c5",
+       "source": "a2",
+       "target": "m",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c6",
+       "source": "d",
+       "target": "a3",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": "[sí]"
+      },
+      {
+       "id": "c7",
+       "source": "a3",
+       "target": "e",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      }
+     ]
+    },
+    {
+     "id": "rev-puntos",
+     "name": "Puntos de paso",
+     "type": "dc",
+     "createdAt": 0,
+     "nodes": [
+      {
+       "id": "p1",
+       "type": "class",
+       "x": 0,
+       "y": 0,
+       "width": 160,
+       "height": 100,
+       "text": "Pedido",
+       "attributes": [
+        "- id: int"
+       ],
+       "methods": [
+        "+ guardar(): void"
+       ],
+       "zIndex": 2
+      },
+      {
+       "id": "p2",
+       "type": "class",
+       "x": 200,
+       "y": 0,
+       "width": 160,
+       "height": 100,
+       "text": "Almacen",
+       "attributes": [
+        "- id: int"
+       ],
+       "methods": [
+        "+ guardar(): void"
+       ],
+       "zIndex": 2
+      },
+      {
+       "id": "p3",
+       "type": "class",
+       "x": 400,
+       "y": 0,
+       "width": 160,
+       "height": 100,
+       "text": "Cliente",
+       "attributes": [
+        "- id: int"
+       ],
+       "methods": [
+        "+ guardar(): void"
+       ],
+       "zIndex": 2
+      }
+     ],
+     "edges": [
+      {
+       "id": "w1",
+       "source": "p1",
+       "target": "p3",
+       "type": "association",
+       "pathType": "straight",
+       "label": "realiza",
+       "sourceLabel": "0..*",
+       "targetLabel": "1",
+       "waypoints": [
+        {
+         "x": 80,
+         "y": 180
+        },
+        {
+         "x": 480,
+         "y": 180
+        }
+       ],
+       "sourceRole": "pedidos",
+       "targetRole": "cliente"
+      },
+      {
+       "id": "w2",
+       "source": "p1",
+       "target": "p2",
+       "type": "dependency",
+       "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "w3",
+       "source": "p2",
+       "target": "p3",
+       "type": "dependency",
+       "pathType": "straight",
+       "label": ""
+      }
+     ]
+    },
+    {
+     "id": "rev-paralelo",
+     "name": "Concurrencia (correcto)",
+     "type": "da",
+     "createdAt": 0,
+     "nodes": [
+      {
+       "id": "s",
+       "type": "start",
+       "x": 285,
+       "y": 0,
+       "width": 30,
+       "height": 30,
+       "text": "",
+       "zIndex": 2
+      },
+      {
+       "id": "a0",
+       "type": "activity",
+       "x": 240,
+       "y": 60,
+       "width": 120,
+       "height": 50,
+       "text": "Recibir pedido",
+       "zIndex": 2
+      },
+      {
+       "id": "f",
+       "type": "fork",
+       "x": 150,
+       "y": 150,
+       "width": 300,
+       "height": 8,
+       "text": "",
+       "zIndex": 2
+      },
+      {
+       "id": "a1",
+       "type": "activity",
+       "x": 100,
+       "y": 200,
+       "width": 120,
+       "height": 50,
+       "text": "Cobrar",
+       "zIndex": 2
+      },
+      {
+       "id": "a2",
+       "type": "activity",
+       "x": 240,
+       "y": 200,
+       "width": 120,
+       "height": 50,
+       "text": "Preparar",
+       "zIndex": 2
+      },
+      {
+       "id": "a3",
+       "type": "activity",
+       "x": 380,
+       "y": 200,
+       "width": 120,
+       "height": 50,
+       "text": "Facturar",
+       "zIndex": 2
+      },
+      {
+       "id": "j",
+       "type": "fork",
+       "x": 150,
+       "y": 300,
+       "width": 300,
+       "height": 8,
+       "text": "",
+       "zIndex": 2
+      },
+      {
+       "id": "a4",
+       "type": "activity",
+       "x": 240,
+       "y": 340,
+       "width": 120,
+       "height": 50,
+       "text": "Enviar",
+       "zIndex": 2
+      },
+      {
+       "id": "e",
+       "type": "end",
+       "x": 285,
+       "y": 430,
+       "width": 30,
+       "height": 30,
+       "text": "",
+       "zIndex": 2
+      }
+     ],
+     "edges": [
+      {
+       "id": "c0",
+       "source": "s",
+       "target": "a0",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c1",
+       "source": "a0",
+       "target": "f",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c2",
+       "source": "f",
+       "target": "a1",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c3",
+       "source": "f",
+       "target": "a2",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c4",
+       "source": "f",
+       "target": "a3",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c5",
+       "source": "a1",
+       "target": "j",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c6",
+       "source": "a2",
+       "target": "j",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c7",
+       "source": "a3",
+       "target": "j",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c8",
+       "source": "j",
+       "target": "a4",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c9",
+       "source": "a4",
+       "target": "e",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      }
+     ]
+    },
+    {
+     "id": "rev-carriles",
+     "name": "Carriles (con errores)",
+     "type": "da",
+     "createdAt": 0,
+     "nodes": [
+      {
+       "id": "L1",
+       "type": "swimlane",
+       "x": 0,
+       "y": 0,
+       "width": 220,
+       "height": 420,
+       "text": "Cliente",
+       "zIndex": 0
+      },
+      {
+       "id": "L2",
+       "type": "swimlane",
+       "x": 220,
+       "y": 0,
+       "width": 220,
+       "height": 420,
+       "text": ":Pedido",
+       "isObject": true,
+       "zIndex": 0
+      },
+      {
+       "id": "s",
+       "type": "start",
+       "x": 95,
+       "y": 50,
+       "width": 30,
+       "height": 30,
+       "text": "",
+       "zIndex": 2
+      },
+      {
+       "id": "a1",
+       "type": "activity",
+       "x": 50,
+       "y": 110,
+       "width": 120,
+       "height": 50,
+       "text": "Hacer pedido",
+       "zIndex": 2
+      },
+      {
+       "id": "a2",
+       "type": "activity",
+       "x": 270,
+       "y": 180,
+       "width": 120,
+       "height": 50,
+       "text": "Registrar pedido",
+       "zIndex": 2
+      },
+      {
+       "id": "a3",
+       "type": "activity",
+       "x": 500,
+       "y": 260,
+       "width": 120,
+       "height": 50,
+       "text": "Pagar",
+       "zIndex": 2
+      },
+      {
+       "id": "e",
+       "type": "end",
+       "x": 95,
+       "y": 360,
+       "width": 30,
+       "height": 30,
+       "text": "",
+       "zIndex": 2
+      }
+     ],
+     "edges": [
+      {
+       "id": "c1",
+       "source": "s",
+       "target": "a1",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c2",
+       "source": "a1",
+       "target": "a2",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c3",
+       "source": "a2",
+       "target": "a3",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c4",
+       "source": "a3",
+       "target": "e",
+       "type": "control",
+       "pathType": "orthogonal",
        "label": ""
       }
      ]
