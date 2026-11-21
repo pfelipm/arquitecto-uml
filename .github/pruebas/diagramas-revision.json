@@ -799,6 +799,236 @@
        "label": ""
       }
      ]
+    },
+    {
+     "id": "rev-bucle",
+     "name": "Bucle de reintento (correcto)",
+     "type": "da",
+     "createdAt": 0,
+     "nodes": [
+      {
+       "id": "s",
+       "type": "start",
+       "x": 255,
+       "y": 0,
+       "width": 30,
+       "height": 30,
+       "text": "",
+       "zIndex": 2
+      },
+      {
+       "id": "m",
+       "type": "decision",
+       "x": 250,
+       "y": 70,
+       "width": 40,
+       "height": 40,
+       "text": "",
+       "zIndex": 2
+      },
+      {
+       "id": "a1",
+       "type": "activity",
+       "x": 200,
+       "y": 150,
+       "width": 140,
+       "height": 50,
+       "text": "Introducir datos",
+       "zIndex": 2
+      },
+      {
+       "id": "d",
+       "type": "decision",
+       "x": 250,
+       "y": 240,
+       "width": 40,
+       "height": 40,
+       "text": "",
+       "zIndex": 2
+      },
+      {
+       "id": "a2",
+       "type": "activity",
+       "x": 200,
+       "y": 330,
+       "width": 140,
+       "height": 50,
+       "text": "Mostrar error",
+       "zIndex": 2
+      },
+      {
+       "id": "a3",
+       "type": "activity",
+       "x": 420,
+       "y": 235,
+       "width": 140,
+       "height": 50,
+       "text": "Entrar",
+       "zIndex": 2
+      },
+      {
+       "id": "e",
+       "type": "end",
+       "x": 475,
+       "y": 340,
+       "width": 30,
+       "height": 30,
+       "text": "",
+       "zIndex": 2
+      }
+     ],
+     "edges": [
+      {
+       "id": "c1",
+       "source": "s",
+       "target": "m",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c2",
+       "source": "m",
+       "target": "a1",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c3",
+       "source": "a1",
+       "target": "d",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c4",
+       "source": "d",
+       "target": "a2",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": "[no]"
+      },
+      {
+       "id": "c5",
+       "source": "a2",
+       "target": "m",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c6",
+       "source": "d",
+       "target": "a3",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": "[sí]"
+      },
+      {
+       "id": "c7",
+       "source": "a3",
+       "target": "e",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      }
+     ]
+    },
+    {
+     "id": "rev-puntos",
+     "name": "Puntos de paso",
+     "type": "dc",
+     "createdAt": 0,
+     "nodes": [
+      {
+       "id": "p1",
+       "type": "class",
+       "x": 0,
+       "y": 0,
+       "width": 160,
+       "height": 100,
+       "text": "Pedido",
+       "attributes": [
+        "- id: int"
+       ],
+       "methods": [
+        "+ guardar(): void"
+       ],
+       "zIndex": 2
+      },
+      {
+       "id": "p2",
+       "type": "class",
+       "x": 200,
+       "y": 0,
+       "width": 160,
+       "height": 100,
+       "text": "Almacen",
+       "attributes": [
+        "- id: int"
+       ],
+       "methods": [
+        "+ guardar(): void"
+       ],
+       "zIndex": 2
+      },
+      {
+       "id": "p3",
+       "type": "class",
+       "x": 400,
+       "y": 0,
+       "width": 160,
+       "height": 100,
+       "text": "Cliente",
+       "attributes": [
+        "- id: int"
+       ],
+       "methods": [
+        "+ guardar(): void"
+       ],
+       "zIndex": 2
+      }
+     ],
+     "edges": [
+      {
+       "id": "w1",
+       "source": "p1",
+       "target": "p3",
+       "type": "association",
+       "pathType": "straight",
+       "label": "realiza",
+       "sourceLabel": "0..*",
+       "targetLabel": "1",
+       "waypoints": [
+        {
+         "x": 80,
+         "y": 180
+        },
+        {
+         "x": 480,
+         "y": 180
+        }
+       ]
+      },
+      {
+       "id": "w2",
+       "source": "p1",
+       "target": "p2",
+       "type": "dependency",
+       "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "w3",
+       "source": "p2",
+       "target": "p3",
+       "type": "dependency",
+       "pathType": "straight",
+       "label": ""
+      }
+     ]
     }
    ]
   }

@@ -259,7 +259,7 @@
             if (!data || !['dcu', 'dc', 'da'].includes(data.type) || !Array.isArray(data.nodes) || !Array.isArray(data.edges)) throw new Error('Formato no válido');
             const nodes = data.nodes.filter(n => n && typeof n.id === 'string' && ['x', 'y', 'width', 'height'].every(k => Number.isFinite(n[k])));
             const ids = new Set(nodes.map(n => n.id));
-            const edges = data.edges.filter(e => e && typeof e.id === 'string' && ids.has(e.source) && ids.has(e.target));
+            const edges = data.edges.filter(e => e && typeof e.id === 'string' && ids.has(e.source) && ids.has(e.target)).map(e => ({ ...e, waypoints: validWaypoints(e) }));
             const name = typeof data.name === 'string' && data.name.trim() ? data.name.trim() : 'Diagrama compartido';
             return { name, type: data.type, nodes, edges };
         };
@@ -290,6 +290,8 @@
                 [`${MOD_KEY}+D`, 'Duplicar la selección'],
                 ['Supr  ·  Retroceso', 'Eliminar la selección'],
                 ['Doble clic', 'Editar el texto de un elemento'],
+                ['Doble clic en una relación seleccionada', 'Añadir un punto de paso (después, arrástralo)'],
+                ['Doble clic en un punto de paso', 'Quitarlo'],
             ]},
             { title: 'Selección', items: [
                 ['Clic', 'Seleccionar un elemento o una relación'],
@@ -314,6 +316,7 @@
             { title: 'Pantalla táctil', items: [
                 ['Tocar', 'Seleccionar un elemento o una relación'],
                 ['Doble toque', 'Editar el texto de un elemento'],
+                ['Doble toque en una relación seleccionada', 'Añadir un punto de paso'],
                 ['Arrastrar con un dedo', 'Mover elementos o, sobre el fondo, seleccionar con un recuadro'],
                 ['Pellizcar', 'Ampliar o reducir el zoom'],
                 ['Arrastrar con dos dedos', 'Desplazar el lienzo'],
@@ -410,6 +413,81 @@
             const xOffset = xBase + offset * Math.cos(angle - Math.PI / 2);
             const yOffset = yBase + offset * Math.sin(angle - Math.PI / 2);
             return { x: xOffset, y: yOffset };
+        };
+
+        // --- PUNTOS DE PASO Y TRAZADOS CALCULADOS ---
+        // Puntos de paso válidos de una relación (los datos importados o compartidos pueden traer basura)
+        const validWaypoints = (edge) => (Array.isArray(edge.waypoints) ? edge.waypoints : []).filter(p => p && Number.isFinite(p.x) && Number.isFinite(p.y));
+
+        // Al mover a la vez los dos extremos de una relación, sus puntos de paso se mueven con ellos
+        const shiftWaypoints = (edgeList, movedIds, dx, dy) => edgeList.map(ed => (movedIds.has(ed.source) && movedIds.has(ed.target) && validWaypoints(ed).length)
+            ? { ...ed, waypoints: validWaypoints(ed).map(p => ({ x: p.x + dx, y: p.y + dy })) } : ed);
+
+        const nodeCenter = (n) => ({ x: n.x + n.width / 2, y: n.y + n.height / 2 });
+
+        // Quita los puntos repetidos seguidos (un tramo de longitud cero desorientaría la flecha final)
+        const dedupePoints = (pts) => pts.filter((p, i) => i === 0 || Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y) > 0.5);
+
+        // Trazado que pasa por los puntos de paso. En recto, tramos rectos de punto a punto. En ortogonal, cada punto
+        // de paso es un codo: todos los tramos salen en la misma dirección (horizontal o vertical, según hacia dónde
+        // quede el primer punto) y los codos intermedios se calculan solos.
+        const routeWithWaypoints = (s, t, wps, orthogonal) => {
+            if (!orthogonal) return dedupePoints([calculatePerimeterPoint(s, wps[0]), ...wps, calculatePerimeterPoint(t, wps[wps.length - 1])]);
+            const sC = nodeCenter(s), tC = nodeCenter(t), first = wps[0];
+            const horizontal = Math.abs(first.x - sC.x) >= Math.abs(first.y - sC.y);
+            const start = calculatePerimeterPoint(s, horizontal ? { x: first.x, y: sC.y } : { x: sC.x, y: first.y });
+            const pts = [start];
+            let cur = start;
+            wps.forEach(b => { pts.push(horizontal ? { x: b.x, y: cur.y } : { x: cur.x, y: b.y }, b); cur = b; });
+            // Último tramo: si el punto queda a la altura del destino, entra directamente por su lateral
+            if (horizontal) {
+                if (cur.y > t.y && cur.y < t.y + t.height) pts.push({ x: cur.x < tC.x ? t.x : t.x + t.width, y: cur.y });
+                else pts.push({ x: tC.x, y: cur.y }, calculatePerimeterPoint(t, { x: tC.x, y: cur.y }));
+            } else {
+                if (cur.x > t.x && cur.x < t.x + t.width) pts.push({ x: cur.x, y: cur.y < tC.y ? t.y : t.y + t.height });
+                else pts.push({ x: cur.x, y: tC.y }, calculatePerimeterPoint(t, { x: cur.x, y: tC.y }));
+            }
+            return dedupePoints(pts);
+        };
+
+        // Flujo de vuelta en un diagrama de actividad (sube por la misma columna): rodea por un lado los elementos que
+        // hay entre origen y destino y entra por el lateral del destino, en lugar de atravesarlos. Va por la derecha,
+        // salvo que a esa altura haya más elementos a la derecha que a la izquierda (p. ej. la otra rama de una decisión).
+        const routeReturnFlow = (s, t, allNodes) => {
+            const top = t.y, bottom = s.y + s.height;
+            const left = Math.min(s.x, t.x), right = Math.max(s.x + s.width, t.x + t.width);
+            let maxRight = right, minLeft = left, onRight = 0, onLeft = 0;
+            allNodes.forEach(n => {
+                if (n.type === 'swimlane' || n.id === s.id || n.id === t.id || n.y >= bottom || n.y + n.height <= top) return;
+                if (n.x < right && n.x + n.width > left) { maxRight = Math.max(maxRight, n.x + n.width); minLeft = Math.min(minLeft, n.x); }
+                else if (n.x >= right) onRight++;
+                else onLeft++;
+            });
+            const goLeft = onRight > onLeft, sC = nodeCenter(s), tC = nodeCenter(t), dir = goLeft ? -1 : 1;
+            const x = goLeft ? minLeft - 30 : maxRight + 30;
+            const start = calculatePerimeterPoint(s, { x: sC.x + dir, y: sC.y });
+            const end = calculatePerimeterPoint(t, { x: tC.x + dir, y: tC.y });
+            return [start, { x, y: start.y }, { x, y: end.y }, end];
+        };
+
+        // Punto medio (por longitud) de un trazado y si el tramo en que cae es vertical, para colocar la etiqueta
+        const polylineMidpoint = (pts) => {
+            const lengths = pts.slice(1).map((p, i) => Math.hypot(p.x - pts[i].x, p.y - pts[i].y));
+            let rest = lengths.reduce((a, b) => a + b, 0) / 2;
+            for (let i = 0; i < lengths.length; i++) {
+                if (rest <= lengths[i] || i === lengths.length - 1) {
+                    const a = pts[i], b = pts[i + 1], k = lengths[i] ? Math.min(1, rest / lengths[i]) : 0;
+                    return { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, vertical: Math.abs(b.y - a.y) > Math.abs(b.x - a.x) };
+                }
+                rest -= lengths[i];
+            }
+            return { ...pts[0], vertical: false };
+        };
+
+        const distanceToSegment = (p, a, b) => {
+            const dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy;
+            const k = len2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2)) : 0;
+            return Math.hypot(p.x - (a.x + dx * k), p.y - (a.y + dy * k));
         };
 
         const getValidConnectionTypes = (source: NodeData, target: NodeData, diagramType: DiagramType): EdgeType[] => {
@@ -1124,6 +1202,10 @@
           const [touchMode, setTouchMode] = useState(false);
           // Dedos apoyados en el lienzo y gesto de dos dedos en curso (pellizcar / desplazar)
           const touchPointsRef = useRef(new Map());
+          // Punto de paso que se está arrastrando ({ edgeId, index }) y últimos clics, para detectar el doble clic
+          const [draggingWaypoint, setDraggingWaypoint] = useState(null);
+          const lastEdgeClickRef = useRef({ id: '', time: 0 });
+          const lastHandleClickRef = useRef({ key: '', time: 0 });
           const gestureRef = useRef(null);
           // Estado previo a un arrastre/redimensionado, para poder deshacerlo
           const dragSnapshotRef = useRef(null);
@@ -1561,7 +1643,7 @@
             const idMap = {};
             const newNodes = selectedNodes.map(node => { const id = generateId(); idMap[node.id] = id; return { ...node, id, x: node.x + 20, y: node.y + 20, selected: true }; });
             // Se duplican también las relaciones cuyos dos extremos están en la selección
-            const newEdges = edges.filter(ed => idMap[ed.source] && idMap[ed.target]).map(ed => ({ ...ed, id: generateId(), source: idMap[ed.source], target: idMap[ed.target], selected: false }));
+            const newEdges = shiftWaypoints(edges.filter(ed => idMap[ed.source] && idMap[ed.target]), new Set(selectedNodes.map(n => n.id)), 20, 20).map(ed => ({ ...ed, id: generateId(), source: idMap[ed.source], target: idMap[ed.target], selected: false }));
             const currentNodesDeselected = nodes.map(n => ({ ...n, selected: false }));
             updateDiagramState([...currentNodesDeselected, ...newNodes], [...edges.map(ed => ({ ...ed, selected: false })), ...newEdges]);
             showToast(`${selectedNodes.length} elemento(s) duplicado(s)`, 'success');
@@ -1594,7 +1676,7 @@
             const offset = 20 * (count + (activeDiagram.id === clip.sourceId ? 1 : 0));
             const idMap = {};
             const newNodes = clip.nodes.map(n => { const id = generateId(); idMap[n.id] = id; return { ...n, id, x: n.x + offset, y: n.y + offset, selected: true }; });
-            const newEdges = clip.edges.map(ed => ({ ...ed, id: generateId(), source: idMap[ed.source], target: idMap[ed.target] }));
+            const newEdges = shiftWaypoints(clip.edges, new Set(clip.nodes.map(n => n.id)), offset, offset).map(ed => ({ ...ed, id: generateId(), source: idMap[ed.source], target: idMap[ed.target] }));
             updateDiagramState([...nodes.map(n => ({ ...n, selected: false })), ...newNodes], [...edges.map(ed => ({ ...ed, selected: false })), ...newEdges]);
             showToast(`${newNodes.length} elemento(s) pegado(s)`, 'success');
           };
@@ -1632,6 +1714,7 @@
               if (nodes.length === 0 || !canvasRef.current) { setScale(1); setPan({ x: 0, y: 0 }); return; }
               let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
               nodes.forEach(n => { minX = Math.min(minX, n.x); minY = Math.min(minY, n.y); maxX = Math.max(maxX, n.x + n.width); maxY = Math.max(maxY, n.y + n.height); });
+              edges.forEach(ed => validWaypoints(ed).forEach(p => { minX = Math.min(minX, p.x); minY = Math.min(minY, p.y); maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y); }));
               const p = 50, w = maxX - minX + p * 2, h = maxY - minY + p * 2, cW = canvasRef.current.clientWidth, cH = canvasRef.current.clientHeight;
               const s = Math.min(Math.max(Math.min(cW / w, cH / h), 0.1), 2);
               setScale(s); setPan({ x: (cW - w * s) / 2 - (minX - p) * s, y: (cH - h * s) / 2 - (minY - p) * s });
@@ -1682,6 +1765,21 @@
           const handleMouseMove = (e) => {
             if (isDragging && (tool === 'pan' || e.buttons === 4 || e.altKey)) { const dx = e.clientX - dragStart.x, dy = e.clientY - dragStart.y; setPan(prev => ({ x: prev.x + dx, y: prev.y + dy })); setDragStart({ x: e.clientX, y: e.clientY }); return; }
             const pos = getMousePos(e);
+
+            if (draggingWaypoint) {
+                const edge = edges.find(ed => ed.id === draggingWaypoint.edgeId);
+                const s = edge && nodes.find(n => n.id === edge.source), t = edge && nodes.find(n => n.id === edge.target);
+                if (!edge || !s || !t) return;
+                const wps = validWaypoints(edge), i = draggingWaypoint.index;
+                const neighbors = [i === 0 ? nodeCenter(s) : wps[i - 1], i === wps.length - 1 ? nodeCenter(t) : wps[i + 1]];
+                const threshold = 6 / scale, guides = [];
+                let p = { ...pos };
+                for (const nb of neighbors) { if (Math.abs(p.x - nb.x) < threshold) { p.x = nb.x; guides.push({ type: 'x', pos: nb.x }); break; } }
+                for (const nb of neighbors) { if (Math.abs(p.y - nb.y) < threshold) { p.y = nb.y; guides.push({ type: 'y', pos: nb.y }); break; } }
+                setSmartGuides(guides);
+                setEdges(edges.map(ed => ed.id === edge.id ? { ...ed, waypoints: wps.map((w, k) => k === i ? p : w) } : ed));
+                return;
+            }
 
             if (isResizing && activeNodeId && resizeHandle && initialNodeGeom) {
                 let dx = pos.x - dragStart.x;
@@ -1790,6 +1888,7 @@
 
                 setSmartGuides(newGuides);
                 setNodes(nodes.map(n => n.selected ? { ...n, x: n.x + dx, y: n.y + dy } : n));
+                setEdges(shiftWaypoints(edges, new Set(selectedNodes.map(n => n.id)), dx, dy));
                 setDragStart(prev => ({ x: prev.x + dx, y: prev.y + dy }));
             }
           };
@@ -1801,6 +1900,9 @@
             const changed = nodes.some(n => {
                 const o = snap.nodes.find(p => p.id === n.id);
                 return o && (o.x !== n.x || o.y !== n.y || o.width !== n.width || o.height !== n.height);
+            }) || edges.some(ed => {
+                const o = snap.edges.find(p => p.id === ed.id);
+                return !o || JSON.stringify(validWaypoints(o)) !== JSON.stringify(validWaypoints(ed));
             });
             if (changed) setHistory(prev => ({ past: [...prev.past, snap].slice(-MAX_HISTORY), future: [] }));
           };
@@ -1815,7 +1917,7 @@
               const snap = dragSnapshotRef.current;
               if (snap) { setNodes(snap.nodes); setEdges(snap.edges); dragSnapshotRef.current = null; }
               setIsDragging(false); setIsResizing(false); setResizeHandle(null); setActiveNodeId(null);
-              setInitialNodeGeom(null); setSelectionBox(null); setSmartGuides([]);
+              setInitialNodeGeom(null); setSelectionBox(null); setSmartGuides([]); setDraggingWaypoint(null);
           };
 
           const handlePointerDownCapture = (e) => {
@@ -1866,7 +1968,7 @@
               }
           };
 
-          const handleMouseUp = () => { commitDragHistory(); setIsDragging(false); setIsResizing(false); setResizeHandle(null); setActiveNodeId(null); setInitialNodeGeom(null); setSelectionBox(null); setSmartGuides([]); if (isDragging || isResizing) saveCurrentDiagram(nodes, edges); };
+          const handleMouseUp = () => { commitDragHistory(); if (draggingWaypoint) { setDraggingWaypoint(null); saveCurrentDiagram(nodes, edges); } setIsDragging(false); setIsResizing(false); setResizeHandle(null); setActiveNodeId(null); setInitialNodeGeom(null); setSelectionBox(null); setSmartGuides([]); if (isDragging || isResizing) saveCurrentDiagram(nodes, edges); };
           // Listener nativo no pasivo: el onWheel de React es pasivo y no puede impedir el zoom de la página con Ctrl+rueda
           // Copia de zoom y desplazamiento accesible desde el listener (que se registra una sola vez)
           const viewRef = useRef({ scale: 1, pan: { x: 0, y: 0 } });
@@ -1954,7 +2056,7 @@
                     const dx = (e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0) * step;
                     const dy = (e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0) * step;
                     // Un punto de deshacer por pulsación (no por autorrepetición al mantener la tecla)
-                    updateDiagramState(nodes.map(n => n.selected ? { ...n, x: n.x + dx, y: n.y + dy } : n), edges, !e.repeat);
+                    updateDiagramState(nodes.map(n => n.selected ? { ...n, x: n.x + dx, y: n.y + dy } : n), shiftWaypoints(edges, new Set(nodes.filter(n => n.selected).map(n => n.id)), dx, dy), !e.repeat);
                 }
             };
             window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown);
@@ -2163,7 +2265,7 @@
                      const dashed = ['dependency', 'implementation'].includes(edge.type) ? "5,5" : "";
 
                      return (
-                        <g key={edge.id} onClick={(e) => { e.stopPropagation(); setNodes(nodes.map(n => ({...n, selected: false}))); setEdges(edges.map(ed => ({...ed, selected: ed.id === edge.id}))); }} className="cursor-pointer">
+                        <g key={edge.id} onClick={(e) => { e.stopPropagation(); setNodes(prev => prev.map(n => ({...n, selected: false}))); setEdges(prev => prev.map(ed => ({...ed, selected: ed.id === edge.id}))); }} className="cursor-pointer">
                             <path d={d} fill="none" stroke="transparent" strokeWidth={touchMode ? 28 : 15} />
                             <path d={d} fill="none" stroke={strokeColor} strokeWidth={2} markerEnd={marker} strokeDasharray={dashed} />
                             {edge.label && <text x={labelPos.x} y={labelPos.y} textAnchor={labelAnchor} fill={strokeColor} fontSize={11} paintOrder="stroke" stroke={isDarkMode ? COLORS.nodeBgDark : COLORS.nodeBg} strokeWidth="3px">{edge.label}</text>}
@@ -2174,6 +2276,11 @@
                 const dx = tCenter.x - sCenter.x;
                 const dy = tCenter.y - sCenter.y;
                 const isVertical = Math.abs(dy) > Math.abs(dx);
+
+                // Trazado calculado: por los puntos de paso de la relación o, en un DA, rodeando un flujo de vuelta
+                const wps = validWaypoints(edge);
+                const autoReturn = wps.length === 0 && activeDiagram?.type === 'da' && edge.type === 'control' && edge.pathType === 'orthogonal' && count === 1 && isVertical && dy < 0;
+                const poly = wps.length ? routeWithWaypoints(s, t, wps, edge.pathType === 'orthogonal') : autoReturn ? routeReturnFlow(s, t, nodes) : null;
 
                 let refStart = tCenter;
                 let refEnd = sCenter;
@@ -2191,7 +2298,7 @@
                 // Relaciones paralelas: se desplaza cada una perpendicularmente, de forma simétrica respecto al eje.
                 // La dirección se calcula sobre el par ordenado para que A→B y B→A se repartan igual.
                 const PARALLEL_GAP = 18;
-                const offset = (idx - (count - 1) / 2) * PARALLEL_GAP;
+                const offset = poly ? 0 : (idx - (count - 1) / 2) * PARALLEL_GAP;
                 let offv = { x: 0, y: 0 };
                 if (offset !== 0) {
                     if (edge.pathType === 'orthogonal') {
@@ -2205,15 +2312,19 @@
                 const shiftNode = (n) => ({ ...n, x: n.x + offv.x, y: n.y + offv.y });
                 const shiftPoint = (p) => ({ x: p.x + offv.x, y: p.y + offv.y });
 
-                const start = calculatePerimeterPoint(shiftNode(s), shiftPoint(refStart));
-                const end = calculatePerimeterPoint(shiftNode(t), shiftPoint(refEnd));
+                const start = poly ? poly[0] : calculatePerimeterPoint(shiftNode(s), shiftPoint(refStart));
+                const end = poly ? poly[poly.length - 1] : calculatePerimeterPoint(shiftNode(t), shiftPoint(refEnd));
                 // En ortogonales, el tramo intermedio también se desplaza (en el sentido que evita cruces)
                 const midShift = -offset * (Math.sign(end.x - start.x) || 1) * (Math.sign(end.y - start.y) || 1);
 
                 let d = '';
                 let mid1, mid2;
 
-                if (edge.pathType === 'straight') {
+                if (poly) {
+                    d = 'M ' + poly.map(p => `${p.x} ${p.y}`).join(' L ');
+                    mid1 = poly[1];
+                    mid2 = poly[poly.length - 2];
+                } else if (edge.pathType === 'straight') {
                     d = `M ${start.x} ${start.y} L ${end.x} ${end.y}`;
                     mid1 = start;
                     mid2 = end;
@@ -2246,12 +2357,15 @@
                 const strokeColor = edgeSelected ? COLORS.selection : (isDarkMode ? '#9ca3af' : '#4b5563');
 
                 // Multiplicity Positions
-                const nextPoint = (edge.pathType === 'straight') ? end : mid1;
-                const prevPoint = (edge.pathType === 'straight') ? start : mid2;
+                const nextPoint = (edge.pathType === 'straight' && !poly) ? end : mid1;
+                const prevPoint = (edge.pathType === 'straight' && !poly) ? start : mid2;
 
                 // Etiqueta: sobre el punto medio; en relaciones paralelas, en su lado exterior para no confundirlas
-                const mid = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
+                const polyMid = poly ? polylineMidpoint(poly) : null;
+                const mid = polyMid || { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
                 let labelPos = { x: mid.x, y: mid.y - 10 }, labelAnchor = 'middle';
+                // En un tramo vertical de un trazado calculado, la etiqueta va a la derecha de la línea
+                if (polyMid?.vertical) { labelPos = { x: mid.x + 8, y: mid.y + 4 }; labelAnchor = 'start'; }
                 if (offset !== 0) {
                     const ux = offv.x / Math.abs(offset), uy = offv.y / Math.abs(offset);
                     const sideways = Math.abs(ux) > 0.3;
@@ -2278,18 +2392,38 @@
                     fontWeight: 500
                 };
 
-                return (
-                    <g key={edge.id} onClick={(e) => {
+                const handleEdgePointerDown = (e) => {
+                    if (tool !== 'select' || connectingNodeId) return;
+                    const now = Date.now(), last = lastEdgeClickRef.current;
+                    if (edge.selected && last.id === edge.id && now - last.time < 350) {
                         e.stopPropagation();
-                        setNodes(nodes.map(n => ({...n, selected: false})));
-                        setEdges(edges.map(ed => ({...ed, selected: ed.id === edge.id})));
+                        lastEdgeClickRef.current = { id: '', time: 0 };
+                        const pos = getMousePos(e);
+                        // Se inserta en el tramo más cercano de la línea de control (centros y puntos de paso)
+                        const ctrl = [sCenter, ...wps, tCenter];
+                        let index = 0, best = Infinity;
+                        for (let i = 0; i < ctrl.length - 1; i++) { const dist = distanceToSegment(pos, ctrl[i], ctrl[i + 1]); if (dist < best) { best = dist; index = i; } }
+                        dragSnapshotRef.current = { nodes, edges };
+                        setEdges(edges.map(ed => ed.id === edge.id ? { ...ed, waypoints: [...wps.slice(0, index), pos, ...wps.slice(index)] } : ed));
+                        setDraggingWaypoint({ edgeId: edge.id, index });
+                        return;
+                    }
+                    lastEdgeClickRef.current = { id: edge.id, time: now };
+                };
+
+                return (
+                    <g key={edge.id} onPointerDown={handleEdgePointerDown} onClick={(e) => {
+                        e.stopPropagation();
+                        // Actualización funcional: el clic llega justo después de soltar y no debe pisar un punto de paso recién añadido
+                        setNodes(prev => prev.map(n => ({...n, selected: false})));
+                        setEdges(prev => prev.map(ed => ({...ed, selected: ed.id === edge.id})));
                     }} className="cursor-pointer">
                         <path d={d} fill="none" stroke="transparent" strokeWidth={touchMode ? 28 : 15} />
                         <path d={d} fill="none" stroke={strokeColor} strokeWidth={2} markerEnd={marker} strokeDasharray={dashed} />
                         {showLabel && <text x={labelPos.x} y={labelPos.y} textAnchor={labelAnchor} {...textStyle} strokeWidth="4px" style={{}}>{edge.label}</text>}
                         {edge.type === 'extend' && extendCondition(edge) && (
                             // Condición de la extensión (en UML, una restricción: va entre llaves), bajo la línea; en relaciones paralelas, bajo el estereotipo
-                            <text x={offset === 0 ? mid.x : labelPos.x} y={offset === 0 ? mid.y + 16 : labelPos.y + 13} textAnchor={offset === 0 ? 'middle' : labelAnchor} {...textStyle} fontWeight={400} fontStyle="italic" strokeWidth="4px">{`{${extendCondition(edge)}}`}</text>
+                            <text x={offset === 0 && !polyMid?.vertical ? mid.x : labelPos.x} y={offset === 0 && !polyMid?.vertical ? mid.y + 16 : labelPos.y + 13} textAnchor={offset === 0 && !polyMid?.vertical ? 'middle' : labelAnchor} {...textStyle} fontWeight={400} fontStyle="italic" strokeWidth="4px">{`{${extendCondition(edge)}}`}</text>
                         )}
 
                         {/* Etiquetas de Multiplicidad */}
@@ -2302,6 +2436,32 @@
                     </g>
                 );
             });
+          };
+
+          // Tiradores de los puntos de paso de la relación seleccionada: se arrastran; doble clic para quitarlos
+          const renderWaypointHandles = () => {
+              if (isExporting) return null;
+              const selected = edges.filter(ed => ed.selected);
+              if (selected.length !== 1) return null;
+              const edge = selected[0], wps = validWaypoints(edge);
+              const r = touchMode ? 9 : 5;
+              return wps.map((p, i) => (
+                  <circle key={`${edge.id}-wp-${i}`} cx={p.x} cy={p.y} r={r} fill="white" stroke={COLORS.selection} strokeWidth={2} style={{ cursor: 'move' }}
+                      onPointerDown={(e) => {
+                          e.stopPropagation();
+                          const key = `${edge.id}-${i}`, now = Date.now(), last = lastHandleClickRef.current;
+                          if (last.key === key && now - last.time < 350) {
+                              lastHandleClickRef.current = { key: '', time: 0 };
+                              updateDiagramState(nodes, edges.map(ed => ed.id === edge.id ? { ...ed, waypoints: wps.filter((_, k) => k !== i) } : ed));
+                              return;
+                          }
+                          lastHandleClickRef.current = { key, time: now };
+                          dragSnapshotRef.current = { nodes, edges };
+                          setDraggingWaypoint({ edgeId: edge.id, index: i });
+                      }}>
+                      <title>Arrastra para mover el punto de paso; doble clic para quitarlo</title>
+                  </circle>
+              ));
           };
 
           // --- RENDER COMPONENTES UI ---
@@ -2593,6 +2753,15 @@
 
                             {!(activeDiagram?.type === 'dcu' && (sE[0].type === 'association' || sE[0].type === 'generalization')) && ( <div> <label className="block text-xs font-medium mb-1">Etiqueta</label> <input type="text" disabled={sE[0].type === 'include' || sE[0].type === 'extend'} value={sE[0].label || ''} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, label: e.target.value } : ed))} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'} disabled:opacity-50`}/> </div> )}
 
+                            {sE[0].source !== sE[0].target && (
+                                <div className="space-y-2">
+                                    <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Para trazar la línea a mano, haz doble clic (o doble toque) sobre ella para añadir un punto de paso y arrástralo; doble clic sobre un punto para quitarlo.</p>
+                                    {validWaypoints(sE[0]).length > 0 && (
+                                        <button onClick={() => updateDiagramState(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, waypoints: [] } : ed))} className={`w-full py-2 rounded text-sm font-medium ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'}`}>Enderezar (quitar {validWaypoints(sE[0]).length === 1 ? 'el punto' : `los ${validWaypoints(sE[0]).length} puntos`} de paso)</button>
+                                    )}
+                                </div>
+                            )}
+
                             {sE[0].type === 'extend' && (
                                 <div>
                                     <label className="block text-xs font-medium mb-1">Condición de la extensión</label>
@@ -2692,6 +2861,7 @@
                             {nodes.filter(n => n.zIndex === 0).map(renderNode)}
                             {renderEdges()}
                             {nodes.filter(n => n.zIndex > 0).map(renderNode)}
+                            {renderWaypointHandles()}
                             {smartGuides.map((guide, i) => ( guide.type === 'x' ? <line key={i} x1={guide.pos} y1={-10000} x2={guide.pos} y2={10000} stroke="#ef4444" strokeWidth={1} strokeDasharray="4,2"/> : <line key={i} x1={-10000} y1={guide.pos} x2={10000} y2={guide.pos} stroke="#ef4444" strokeWidth={1} strokeDasharray="4,2"/> ))}
                             {selectionBox && ( <rect x={Math.min(selectionBox.start.x, selectionBox.end.x)} y={Math.min(selectionBox.start.y, selectionBox.end.y)} width={Math.abs(selectionBox.end.x - selectionBox.start.x)} height={Math.abs(selectionBox.end.y - selectionBox.start.y)} fill={COLORS.selection} fillOpacity={0.1} stroke={COLORS.selection} /> )}
                         </g>

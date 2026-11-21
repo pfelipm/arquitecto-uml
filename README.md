@@ -27,6 +27,7 @@ Puedes utilizar el editor sin limitaciones y directamente en tu navegador accedi
         
         ![Ejemplo DA](readme-archivos/DA.png)
 *   **Revisar diagrama:** El botón **Revisar** (o **F7**) abre un panel que analiza el diagrama abierto y señala errores UML habituales, con fines didácticos: casos de uso sin actor o fuera del límite del sistema, herencias circulares, clases con métodos abstractos que no están marcadas como abstractas, interfaces sin implementar, diagramas de actividad sin nodo inicial, decisiones sin guardas, nodos inalcanzables, etc. Los problemas se clasifican en errores, avisos y sugerencias de estilo (que se pueden ocultar); al pulsar uno, se seleccionan en el lienzo los elementos afectados. La revisión se actualiza mientras editas y nunca modifica el diagrama.
+*   **Trazado de las relaciones:** las relaciones pueden ser rectas u ortogonales (en codo). Para evitar cruces, se les pueden añadir **puntos de paso** con doble clic (o doble toque) sobre la relación seleccionada y arrastrarlos; doble clic sobre un punto lo quita, y el botón **Enderezar** del panel de propiedades los quita todos. En los diagramas de actividad, los **flujos de vuelta** (los que suben a un elemento anterior, como un bucle de reintento) rodean automáticamente los elementos intermedios.
 *   **Gestión de Proyectos:** Organización mediante carpetas y múltiples diagramas.
 *   **Persistencia Local:** Guardado automático en el navegador (`localStorage`); al volver, se reabre el último diagrama abierto. En la versión insertada en Google Sites el navegador no conserva los datos entre visitas, así que la aplicación lo avisa y recuerda exportar una copia JSON antes de salir; en la versión de GitHub Pages sí se conservan.
 *   **Compartir por enlace:** El botón **Compartir** genera un enlace que contiene el diagrama abierto (comprimido y sin pasar por ningún servidor). Quien lo recibe lo pega en **Abrir diagrama compartido** y obtiene una copia en la carpeta «Diagramas compartidos», sin que se modifiquen sus otros diagramas. Los enlaces generados desde GitHub Pages (o cualquier copia abierta directamente, no insertada en Google Sites) abren el diagrama con un clic.
@@ -50,6 +51,7 @@ En macOS, usa ⌘ en lugar de Ctrl.
 | **Mayús+clic** | Añadir o quitar un elemento de la selección |
 | **Arrastrar en el fondo** | Seleccionar con un recuadro (con **Mayús**, añadir a la selección) |
 | **Doble clic** | Editar el texto de un elemento |
+| **Doble clic en una relación seleccionada** | Añadir un punto de paso (después, arrástralo); doble clic sobre un punto lo quita |
 | **Rueda** / **Mayús+rueda** | Desplazar el lienzo (en vertical / en horizontal) |
 | **Ctrl+rueda** | Zoom hacia el cursor |
 | **Ctrl+0** | Zoom al 100 % |

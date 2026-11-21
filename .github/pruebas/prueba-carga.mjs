@@ -73,6 +73,7 @@ try {
         'Revisión DCU (con errores)': ['Inclusión circular', 'dentro del límite del sistema', 'no está asociado a ningún actor', 'está fuera del límite', 'La extensión de «Mostrar ayuda» sobre «Pagar pedido» no indica'],
         'Revisión DA (con errores)': ['Falta el nodo inicial', 'De un nodo final no puede salir', 'sin condición de guarda', 'llegan 2 flujos', '1 bifurcación y 0 uniones'],
         'Revisión DA (correcto)': ['No se han encontrado problemas'],
+        'Bucle de reintento (correcto)': ['No se han encontrado problemas'],
     };
     let panelAbierto = false;
     for (const [diagrama, mensajes] of Object.entries(esperado)) {
@@ -87,7 +88,26 @@ try {
     }
     console.log('✓ Revisión del diagrama comprobada');
 
-    // 5. Pantalla táctil: pellizcar con dos dedos amplía el zoom.
+    // 5. Trazados calculados: el flujo de vuelta del bucle rodea los elementos (por la izquierda, porque a la
+    //    derecha está la otra rama) y la asociación con puntos de paso pasa por ellos.
+    const trazados = async (diagrama) => {
+        await pagina.getByTitle(diagrama, { exact: true }).click();
+        await pagina.waitForTimeout(300);
+        return pagina.evaluate(() => [...document.querySelectorAll('svg g.cursor-pointer')].map(g => ({
+            d: g.querySelectorAll('path')[1]?.getAttribute('d') || '',
+            etiquetas: [...g.querySelectorAll('text')].map(t => t.textContent),
+        })));
+    };
+    const puntosDe = d => d.replace('M', '').split('L').map(p => p.trim().split(' ').map(Number));
+    // En el bucle, todos los elementos empiezan en x = 200: solo el flujo de vuelta puede pasar a su izquierda
+    const vuelta = (await trazados('Bucle de reintento (correcto)')).find(t => puntosDe(t.d).some(([x]) => x < 200));
+    const pv = vuelta ? puntosDe(vuelta.d) : [];
+    if (!(pv.length === 4 && pv[1][0] === pv[2][0])) errores.push(`El flujo de vuelta del bucle no rodea los elementos por la izquierda (trazado: ${vuelta?.d || 'no encontrado'})`);
+    const asociacion = (await trazados('Puntos de paso')).find(t => t.etiquetas.includes('realiza'));
+    if (!asociacion?.d.includes('L 80 180 L 480 180')) errores.push(`La asociación no pasa por sus puntos de paso (trazado: ${asociacion?.d || 'no encontrado'})`);
+    if (!errores.some(e => e.includes('trazado'))) console.log('✓ Trazados calculados (flujo de vuelta y puntos de paso) comprobados');
+
+    // 6. Pantalla táctil: pellizcar con dos dedos amplía el zoom.
     const zoomTactil = await pagina.evaluate(async () => {
         const esperar = ms => new Promise(r => setTimeout(r, ms));
         const zoom = () => [...document.querySelectorAll('span')].find(s => /^\d+%$/.test(s.textContent))?.textContent;

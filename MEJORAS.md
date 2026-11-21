@@ -18,15 +18,13 @@ Contexto que fija el orden: el alumnado usa sobre todo portátiles (algunos, tab
 - **Solución (primera parte):** campo «Condición de la extensión» en el panel de propiedades de las relaciones `<<extend>>`. Se dibuja en cursiva bajo la línea, entre llaves (`{el cliente pulsa Ayuda}`), porque en UML la condición es una restricción; los corchetes quedan para las guardas de los diagramas de actividad. Si el usuario escribe las llaves o corchetes, no se duplican. La revisión sugiere añadir la condición cuando falta.
 - **Segunda parte (con las notas UML, mejora 5):** opción de mostrar la condición con la notación oficial, en una nota unida a la flecha (`Condition: {…}` y, si se quiere, `extension point: …`). Usará el mismo campo, así que no habrá que rehacer los diagramas.
 
-### 8. Puntos de paso en las relaciones
-- **Problema:** el trazado ortogonal siempre sale en horizontal, gira en el punto medio y entra en horizontal. Cuando dos relaciones unen los mismos dos niveles (por ejemplo, la ida y la vuelta de un bucle de reintento en un DA), sus tramos se superponen; en el kit de demostración hubo que usar una diagonal para evitarlo. En diagramas de clases con muchas relaciones aparecen cruces que el alumno no puede deshacer.
-- **Propuesta:** añadir, arrastrar y eliminar puntos intermedios en las relaciones para trazarlas a mano. El modelo de datos ya incluye un campo `waypoints` en `EdgeData` que no se usa todavía.
-- **Alcance:**
-  - Interacción: añadir un punto (por ejemplo, con doble clic sobre la línea), arrastrarlo y eliminarlo, con tiradores que no se confundan con los de redimensionar.
-  - Geometría: trazados recto y ortogonal a través de los puntos; flecha o rombo orientados según el último tramo; posición de etiquetas y multiplicidades; convivencia con las relaciones paralelas y los bucles reflexivos.
-  - Coherencia: mover los puntos con los elementos cuando se mueven ambos extremos; deshacer, copiar, pegar y duplicar; exportaciones y enlaces compartidos (que validan los datos recibidos).
-- **Motivo del orden:** es la mejora con más impacto en la claridad de los diagramas, y un diagrama confuso enseña peor.
-- **Esfuerzo:** medio-alto (varios días).
+### 8. ✅ Puntos de paso en las relaciones (hecho en la rama `v9`, pendiente de publicar en la versión 9.0)
+- **Problema:** el trazado ortogonal siempre sale en horizontal, gira en el punto medio y entra en horizontal (o lo mismo en vertical). Un flujo de vuelta en un DA (por ejemplo, el retorno de un bucle de reintento) unía dos elementos de la misma columna, atravesaba los intermedios o se superponía con el flujo de ida; en diagramas de clases con muchas relaciones aparecían cruces que el alumno no podía deshacer.
+- **Solución:**
+  - **Puntos de paso:** doble clic (o doble toque) sobre la relación seleccionada añade un punto en el tramo más cercano, listo para arrastrar; se ajusta a la alineación de los puntos vecinos. Doble clic sobre un punto lo quita, y el botón **Enderezar** del panel de propiedades los quita todos. En trazado recto, la línea pasa por los puntos en orden; en ortogonal, cada punto es un codo y los codos intermedios se calculan solos.
+  - **Flujos de vuelta automáticos (DA):** un flujo ortogonal sin puntos de paso que sube por la misma columna rodea los elementos intermedios por un lado y entra por el lateral del destino. Va por la derecha, salvo que a esa altura haya más elementos a la derecha (por ejemplo, la otra rama de una decisión).
+  - **Coherencia:** los puntos se mueven con la relación cuando se mueven sus dos extremos (arrastre y flechas), se desplazan al duplicar y pegar, cuentan en deshacer y rehacer, en «Ajustar a pantalla», en las exportaciones y en los enlaces compartidos (que los validan). La versión 8.0 los ignora y dibuja la línea automática.
+- **Código:** `routeWithWaypoints`, `routeReturnFlow` y `renderWaypointHandles` en `index.html`. La prueba automática comprueba ambos trazados con los diagramas «Bucle de reintento» y «Puntos de paso» de [`diagramas-revision.json`](.github/pruebas/diagramas-revision.json).
 
 ### 5. Notas UML
 - Nuevo elemento «Nota» (rectángulo con la esquina doblada) unido con una línea discontinua al elemento que comenta. Útil en enunciados y correcciones. Disponible en los tres tipos de diagrama.
