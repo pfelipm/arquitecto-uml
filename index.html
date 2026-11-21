@@ -972,6 +972,12 @@
         }
 
         // --- COMPONENTES MODALES ---
+        // Cierre al hacer clic en el fondo de un modal (equivale a «Cancelar»). Solo si el clic empieza y termina en
+        // el fondo: así, seleccionar texto dentro del cuadro y soltar fuera no lo cierra
+        const backdropClose = (onClose) => ({
+            onPointerDown: (e) => { e.stopPropagation(); e.currentTarget.dataset.pressed = e.target === e.currentTarget ? '1' : ''; },
+            onClick: (e) => { if (e.target === e.currentTarget && e.currentTarget.dataset.pressed === '1') onClose(); },
+        });
 
         const DiagramOptionButton = ({ type, title, desc, onClick, isDarkMode }) => (
             <button
@@ -1060,7 +1066,7 @@
         const NewDiagramModal = ({ isOpen, onClose, onCreate, isDarkMode }) => {
             if (!isOpen) return null;
             return (
-                <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
+                <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm" {...backdropClose(onClose)}>
                     <div className={`p-8 rounded-xl shadow-2xl max-w-4xl w-full mx-4 ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}`}>
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-2xl font-bold">Crear nuevo diagrama</h2>
@@ -1090,7 +1096,7 @@
             const currentType = validTypes.includes(selectedType) ? selectedType : validTypes[0];
 
             return (
-                <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-20 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
+                <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-20 backdrop-blur-sm" {...backdropClose(onCancel)}>
                     <div className={`p-6 rounded-lg shadow-xl border w-80 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
                         <h3 className="text-lg font-bold mb-4">Nueva conexión</h3>
                         <div className="space-y-2 mb-6">
@@ -1166,7 +1172,7 @@
             if (!isOpen) return null;
             const fieldClass = `w-full p-2 rounded border font-mono text-xs break-all resize-none focus:ring-2 focus:ring-blue-500 outline-none ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-black'}`;
             return (
-                <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
+                <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" {...backdropClose(onClose)}>
                     <div className={`p-6 rounded-lg shadow-xl border w-[28rem] max-w-[95%] ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
                         <h3 className="text-lg font-bold mb-3 flex items-center gap-2"><Link2 size={18} className="text-blue-500"/> Compartir «{diagramName}»</h3>
                         {link === null ? (
