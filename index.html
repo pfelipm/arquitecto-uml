@@ -2078,7 +2078,7 @@
                   { id: 'w', x: -o, y: node.height / 2 - o, cursor: 'w-resize' }
               ];
 
-              return ( <g> {h.map((pos) => ( <rect key={pos.id} x={pos.x} y={pos.y} width={s} height={s} fill="white" stroke={COLORS.selection} strokeWidth={1} style={{ cursor: pos.cursor }} onPointerDown={(e) => { e.stopPropagation(); dragSnapshotRef.current = { nodes, edges }; setIsResizing(true); setResizeHandle(pos.id); setActiveNodeId(node.id); setDragStart(getMousePos(e)); setInitialNodeGeom({ x: node.x, y: node.y, w: node.width, h: node.height }); }} /> ))} </g> );
+              return ( <g> {h.map((pos) => ( <rect key={pos.id} x={pos.x} y={pos.y} width={s} height={s} fill="white" stroke={COLORS.selection} strokeWidth={1} style={{ cursor: pos.cursor }} onPointerDown={(e) => { if (e.button === 1 || e.altKey || tool === 'pan') return; e.stopPropagation(); dragSnapshotRef.current = { nodes, edges }; setIsResizing(true); setResizeHandle(pos.id); setActiveNodeId(node.id); setDragStart(getMousePos(e)); setInitialNodeGeom({ x: node.x, y: node.y, w: node.width, h: node.height }); }} /> ))} </g> );
           };
 
           const renderNode = (node) => {
@@ -2089,6 +2089,9 @@
             const textFill = isDarkMode ? COLORS.textDark : COLORS.text;
 
             const commonProps = { key: node.id, onPointerDown: (e) => {
+                    // Desplazar el lienzo (Alt+arrastrar, botón central o herramienta «Mover lienzo») también empezando
+                    // sobre un elemento: el evento sigue hasta el lienzo, que es quien desplaza
+                    if (!connectingNodeId && (e.button === 1 || e.altKey || tool === 'pan')) return;
                     if (tool !== 'select' && tool !== 'pan' && !connectingNodeId) return;
                     e.stopPropagation();
 
@@ -2448,6 +2451,7 @@
               return wps.map((p, i) => (
                   <circle key={`${edge.id}-wp-${i}`} cx={p.x} cy={p.y} r={r} fill="white" stroke={COLORS.selection} strokeWidth={2} style={{ cursor: 'move' }}
                       onPointerDown={(e) => {
+                          if (e.button === 1 || e.altKey || tool === 'pan') return;
                           e.stopPropagation();
                           const key = `${edge.id}-${i}`, now = Date.now(), last = lastHandleClickRef.current;
                           if (last.key === key && now - last.time < 350) {
@@ -2757,7 +2761,7 @@
                                 <div className="space-y-2">
                                     <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Para trazar la línea a mano, haz doble clic (o doble toque) sobre ella para añadir un punto de paso y arrástralo; doble clic sobre un punto para quitarlo.</p>
                                     {validWaypoints(sE[0]).length > 0 && (
-                                        <button onClick={() => updateDiagramState(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, waypoints: [] } : ed))} className={`w-full py-2 rounded text-sm font-medium ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'}`}>Enderezar (quitar {validWaypoints(sE[0]).length === 1 ? 'el punto' : `los ${validWaypoints(sE[0]).length} puntos`} de paso)</button>
+                                        <button onClick={() => updateDiagramState(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, waypoints: [] } : ed))} title="Quitar todos los puntos de paso de la relación" className="w-full py-2 px-3 rounded text-sm font-medium flex items-center justify-center gap-2 transition-all bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"><Minus size={14}/> Enderezar <span className="opacity-60 text-xs">({validWaypoints(sE[0]).length === 1 ? '1 punto' : `${validWaypoints(sE[0]).length} puntos`})</span></button>
                                     )}
                                 </div>
                             )}
