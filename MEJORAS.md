@@ -95,7 +95,7 @@ Esfuerzo orientativo: **bajo** (unas horas), **medio** (un día aproximadamente)
 - **Contenedores:** al mover un carril (o el límite del sistema en un DCU), con el ratón o con las flechas, se mueven también los elementos cuyo centro está dentro, con los puntos de paso de sus relaciones.
 - **Carriles contiguos:** un carril que se acerca a menos de 15 px de otro se encaja a su lado, alineado arriba y con su altura, para formar la tabla de responsables; si se aleja, recupera su altura.
 - **Cabecera:** el nombre va centrado; la casilla «Es una clase u objeto» lo subraya (notación de objeto, p. ej. «:Pedido»). El panel explica que hay que añadir un carril por responsable y acercarlos.
-- **Revisión:** si hay carriles, avisa de las acciones que quedan fuera de todos. La prueba automática lo comprueba con el diagrama «Carriles».
+- **Revisión:** si hay carriles, sugiere colocar en su carril las acciones que quedan fuera de todos (es una sugerencia, no un aviso: en UML los carriles son opcionales). La prueba automática lo comprueba con el diagrama «Carriles».
 - **Pendiente:** carriles horizontales (botón «Girar», con la cabecera a la izquierda y el nombre en vertical).
 
 ### 14. ✅ Alinear, distribuir e igualar tamaño (hecho, versión 9.1)

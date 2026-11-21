@@ -75,7 +75,7 @@ try {
         'Revisión DA (correcto)': ['No se han encontrado problemas'],
         'Bucle de reintento (correcto)': ['No se han encontrado problemas'],
         'Concurrencia (correcto)': ['No se han encontrado problemas'],
-        'Carriles (con errores)': ['La actividad «Pagar» está fuera de los carriles'],
+        'Carriles (con errores)': ['La actividad «Pagar» no está en ningún carril'],
     };
     let panelAbierto = false;
     for (const [diagrama, mensajes] of Object.entries(esperado)) {

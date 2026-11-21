@@ -887,7 +887,9 @@
                 const lanes = ofType('swimlane');
                 if (lanes.length > 0) {
                     ofType('activity').forEach(a => {
-                        if (!lanes.some(l => centerInside(a, l))) add('warning', 'fuera-carril', `${describeNode(a)} está fuera de los carriles: colócala en el carril de quien la realiza.`, [a.id]);
+                        // En UML los carriles son opcionales: una acción fuera de ellos no es un error, pero si los carriles
+                        // reparten responsabilidades conviene que cada acción tenga la suya
+                        if (!lanes.some(l => centerInside(a, l))) add('suggestion', 'fuera-carril', `${describeNode(a)} no está en ningún carril. Si los carriles representan a los responsables, conviene colocarla en el de quien la realiza.`, [a.id]);
                     });
                 }
 
