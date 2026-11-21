@@ -4,9 +4,27 @@ Ideas para próximas versiones de Arquitecto Simple UML, recogidas a partir de l
 
 Esfuerzo orientativo: **bajo** (unas horas), **medio** (un día aproximadamente), **alto** (varios días).
 
-## Próximas mejoras
+## Próximas mejoras (versión 9.1)
 
-(Ninguna por ahora.)
+### 14. ✅ Alinear, distribuir e igualar tamaño (hecho en la rama `v9.1`, pendiente de publicar)
+- **Solución:** con varios elementos seleccionados, el panel de propiedades muestra tres grupos de botones: **Alinear** (izquierda, centro, derecha, arriba, medio, abajo, respecto al recuadro de la selección), **Repartir** (en horizontal o vertical, con la misma separación entre elementos; con 3 o más) e **Igualar tamaño** (ancho o alto, al del mayor, sin mover los centros). Cada operación es un único paso de deshacer. Al alinear o repartir, los carriles y límites seleccionados arrastran su contenido, y los puntos de paso se mueven cuando sus dos extremos se desplazan lo mismo.
+
+### 15. ✅ Duplicar diagrama (hecho en la rama `v9.1`, pendiente de publicar)
+- **Solución:** botón **Duplicar diagrama** en la barra lateral (junto a renombrar y eliminar). La copia aparece justo debajo del original como «Nombre (copia)», con identificadores nuevos y sin selección, y se abre. Sirve para guardar versiones y para repartir un diagrama de partida.
+
+## Posibles (no para este curso)
+
+### 16. Comparar con una solución
+- El profesorado comparte la solución con un enlace y el alumno la compara con su diagrama: la aplicación lista lo que falta, lo que sobra y lo que difiere (clases, atributos, relaciones, multiplicidades), comparando por nombre. Complementaría «Revisar diagrama», que comprueba la forma, con una comprobación del contenido frente a un enunciado concreto.
+- **Esfuerzo:** medio-alto.
+
+### 17. Exportar a PlantUML o Mermaid
+- Generar el código de texto del diagrama, para pegarlo en documentación, Markdown, wikis o LaTeX y mostrar la notación textual que se usa en la industria. Importar desde PlantUML sería bastante más costoso.
+- **Esfuerzo:** medio.
+
+### 18. Revisión configurable
+- Las ampliaciones anotadas en la mejora 3: comprobar multiplicidades y nombres de asociaciones, y que el profesorado active o desactive reglas concretas según el tema.
+- **Esfuerzo:** medio.
 
 ## Descartadas
 
