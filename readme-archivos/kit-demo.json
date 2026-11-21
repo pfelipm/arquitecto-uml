@@ -26,7 +26,7 @@
             {
               "id": "node_actor_biblio",
               "type": "actor",
-              "x": 700,
+              "x": 830,
               "y": 200,
               "width": 40,
               "height": 80,
@@ -39,7 +39,7 @@
               "type": "boundary",
               "x": 250,
               "y": 50,
-              "width": 354.46428571428567,
+              "width": 500,
               "height": 434.82142857142856,
               "text": "Sistema de Biblioteca",
               "zIndex": 0,
@@ -75,6 +75,17 @@
               "width": 120,
               "height": 80,
               "text": "Autenticarse",
+              "zIndex": 2,
+              "selected": false
+            },
+            {
+              "id": "node_uc_avisar",
+              "type": "usecase",
+              "x": 570,
+              "y": 110,
+              "width": 150,
+              "height": 80,
+              "text": "Avisar disponibilidad",
               "zIndex": 2,
               "selected": false
             }
@@ -115,6 +126,15 @@
               "pathType": "straight",
               "label": "<<include>>",
               "selected": false
+            },
+            {
+              "id": "edge_extend_avisar_reservar",
+              "source": "node_uc_avisar",
+              "target": "node_uc_reservar",
+              "type": "extend",
+              "pathType": "straight",
+              "label": "<<extend>>",
+              "condition": "el libro no está disponible"
             }
           ]
         },
@@ -310,8 +330,8 @@
             {
               "id": "act_error",
               "type": "activity",
-              "x": 550,
-              "y": 100,
+              "x": 520,
+              "y": 280,
               "width": 120,
               "height": 60,
               "text": "Mostrar Error",
@@ -379,7 +399,7 @@
               "source": "node_decision",
               "target": "act_error",
               "type": "control",
-              "pathType": "straight",
+              "pathType": "orthogonal",
               "label": "[No]"
             },
             {
@@ -388,7 +408,13 @@
               "target": "node_merge",
               "type": "control",
               "pathType": "orthogonal",
-              "label": ""
+              "label": "",
+              "waypoints": [
+                {
+                  "x": 580,
+                  "y": 130
+                }
+              ]
             },
             {
               "id": "edge_home_end",
