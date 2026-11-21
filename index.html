@@ -354,7 +354,7 @@
             if (!isOpen) return null;
             const kbd = `inline-block px-1.5 py-0.5 rounded border text-xs font-mono whitespace-nowrap ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-100 border-gray-300'}`;
             return (
-                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()} onClick={onClose}>
+                <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()} onClick={onClose}>
                     <div className={`p-6 rounded-lg shadow-xl border w-[40rem] max-w-[95%] max-h-[90%] overflow-y-auto ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`} onClick={e => e.stopPropagation()}>
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-bold flex items-center gap-2"><Keyboard size={18} className="text-blue-500"/> Atajos de teclado y ratón</h3>
@@ -1006,7 +1006,7 @@
             if (!isOpen) return null;
 
             return (
-                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
+                <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
                     <div className={`p-6 rounded-lg shadow-xl border w-96 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
                         <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                             <Edit2 size={18} className="text-blue-500"/>
@@ -1060,7 +1060,7 @@
         const NewDiagramModal = ({ isOpen, onClose, onCreate, isDarkMode }) => {
             if (!isOpen) return null;
             return (
-                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
+                <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
                     <div className={`p-8 rounded-xl shadow-2xl max-w-4xl w-full mx-4 ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}`}>
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-2xl font-bold">Crear nuevo diagrama</h2>
@@ -1090,7 +1090,7 @@
             const currentType = validTypes.includes(selectedType) ? selectedType : validTypes[0];
 
             return (
-                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-20 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
+                <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-20 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
                     <div className={`p-6 rounded-lg shadow-xl border w-80 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
                         <h3 className="text-lg font-bold mb-4">Nueva conexión</h3>
                         <div className="space-y-2 mb-6">
@@ -1115,7 +1115,7 @@
         const InfoModal = ({ isOpen, onClose, isDarkMode }) => {
             if (!isOpen) return null;
             return (
-                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm" onClick={onClose}>
+                <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm" onClick={onClose}>
                     <div className={`p-8 rounded-xl shadow-2xl max-w-lg w-full mx-4 relative ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-white text-gray-800'}`} onClick={e => e.stopPropagation()}>
                         <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"><X size={20}/></button>
 
@@ -1166,7 +1166,7 @@
             if (!isOpen) return null;
             const fieldClass = `w-full p-2 rounded border font-mono text-xs break-all resize-none focus:ring-2 focus:ring-blue-500 outline-none ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-black'}`;
             return (
-                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
+                <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
                     <div className={`p-6 rounded-lg shadow-xl border w-[28rem] max-w-[95%] ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
                         <h3 className="text-lg font-bold mb-3 flex items-center gap-2"><Link2 size={18} className="text-blue-500"/> Compartir «{diagramName}»</h3>
                         {link === null ? (
@@ -1200,7 +1200,7 @@
             }, [isOpen, initialText]);
             if (!isOpen) return null;
             return (
-                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
+                <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
                     <div className={`p-6 rounded-lg shadow-xl border w-[28rem] max-w-[95%] ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
                         <h3 className="text-lg font-bold mb-3 flex items-center gap-2"><Link2 size={18} className="text-blue-500"/> Abrir diagrama compartido</h3>
                         <p className="text-xs opacity-70 mb-2">Pega el enlace que te han compartido. Se añadirá una copia a la carpeta «{SHARED_FOLDER_NAME}».</p>
@@ -1219,7 +1219,7 @@
             const folderCount = pendingImport.folders.length;
             const diagramCount = pendingImport.folders.reduce((n, f) => n + f.diagrams.length, 0);
             return (
-                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
+                <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
                     <div className={`p-6 rounded-lg shadow-xl border w-[28rem] max-w-[95%] ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
                         <h3 className="text-lg font-bold mb-3 flex items-center gap-2"><Upload size={18} className="text-blue-500"/> Importar copia de seguridad</h3>
                         <p className="text-sm mb-1">El archivo contiene <strong>{diagramCount} {diagramCount === 1 ? 'diagrama' : 'diagramas'}</strong> en {folderCount} {folderCount === 1 ? 'carpeta' : 'carpetas'}.</p>
@@ -2204,6 +2204,25 @@
           useEffect(() => {
             const handleKeyDown = (e) => {
                 const isEditingField = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+                // Con un modal abierto, los atajos no actúan sobre el diagrama que queda detrás: solo Esc, para cerrarlo
+                // (los campos del modal siguen funcionando con normalidad)
+                const modalOpen = showInfoModal || showShortcuts || creatingDiagramInFolderId !== null || editingLabelId !== null || renamingId !== null
+                    || pendingConnection || shareLink !== undefined || openSharedText !== null || pendingImport || deleteConfirm;
+                if (modalOpen) {
+                    if (e.key === 'Escape') {
+                        if (showShortcuts) setShowShortcuts(false);
+                        else if (showInfoModal) setShowInfoModal(false);
+                        else if (pendingConnection) { setPendingConnection(null); setTool('select'); }
+                        else if (creatingDiagramInFolderId !== null) setCreatingDiagramInFolderId(null);
+                        else if (shareLink !== undefined) setShareLink(undefined);
+                        else if (openSharedText !== null) setOpenSharedText(null);
+                        else if (pendingImport) setPendingImport(null);
+                        else if (deleteConfirm) setDeleteConfirm(null);
+                        else if (editingLabelId !== null) setEditingLabelId(null);
+                        else if (renamingId !== null) setRenamingId(null);
+                    }
+                    return;
+                }
                 if (e.key === 'Delete' || e.key === 'Backspace') { if (isEditingField) return; deleteSelection(); }
 
                 // Con Mayús pulsada e.key llega en mayúsculas ('Z')
@@ -3251,7 +3270,7 @@
                 {showReview && renderReviewPanel()}
 
                 {deleteConfirm && (
-                    <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
+                    <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm" onPointerDown={e => e.stopPropagation()}>
                         <div className={`p-6 rounded-lg shadow-xl border w-80 text-center transform transition-all scale-100 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
                             <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4"><AlertTriangle className="h-6 w-6 text-red-600" /></div>
                             <h3 className="text-lg leading-6 font-medium mb-2">¿Eliminar {deleteConfirm.type === 'folder' ? 'carpeta' : 'diagrama'}?</h3>
