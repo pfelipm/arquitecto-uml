@@ -1031,6 +1031,186 @@
        "label": ""
       }
      ]
+    },
+    {
+     "id": "rev-paralelo",
+     "name": "Concurrencia (correcto)",
+     "type": "da",
+     "createdAt": 0,
+     "nodes": [
+      {
+       "id": "s",
+       "type": "start",
+       "x": 285,
+       "y": 0,
+       "width": 30,
+       "height": 30,
+       "text": "",
+       "zIndex": 2
+      },
+      {
+       "id": "a0",
+       "type": "activity",
+       "x": 240,
+       "y": 60,
+       "width": 120,
+       "height": 50,
+       "text": "Recibir pedido",
+       "zIndex": 2
+      },
+      {
+       "id": "f",
+       "type": "fork",
+       "x": 150,
+       "y": 150,
+       "width": 300,
+       "height": 8,
+       "text": "",
+       "zIndex": 2
+      },
+      {
+       "id": "a1",
+       "type": "activity",
+       "x": 100,
+       "y": 200,
+       "width": 120,
+       "height": 50,
+       "text": "Cobrar",
+       "zIndex": 2
+      },
+      {
+       "id": "a2",
+       "type": "activity",
+       "x": 240,
+       "y": 200,
+       "width": 120,
+       "height": 50,
+       "text": "Preparar",
+       "zIndex": 2
+      },
+      {
+       "id": "a3",
+       "type": "activity",
+       "x": 380,
+       "y": 200,
+       "width": 120,
+       "height": 50,
+       "text": "Facturar",
+       "zIndex": 2
+      },
+      {
+       "id": "j",
+       "type": "fork",
+       "x": 150,
+       "y": 300,
+       "width": 300,
+       "height": 8,
+       "text": "",
+       "zIndex": 2
+      },
+      {
+       "id": "a4",
+       "type": "activity",
+       "x": 240,
+       "y": 340,
+       "width": 120,
+       "height": 50,
+       "text": "Enviar",
+       "zIndex": 2
+      },
+      {
+       "id": "e",
+       "type": "end",
+       "x": 285,
+       "y": 430,
+       "width": 30,
+       "height": 30,
+       "text": "",
+       "zIndex": 2
+      }
+     ],
+     "edges": [
+      {
+       "id": "c0",
+       "source": "s",
+       "target": "a0",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c1",
+       "source": "a0",
+       "target": "f",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c2",
+       "source": "f",
+       "target": "a1",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c3",
+       "source": "f",
+       "target": "a2",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c4",
+       "source": "f",
+       "target": "a3",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c5",
+       "source": "a1",
+       "target": "j",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c6",
+       "source": "a2",
+       "target": "j",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c7",
+       "source": "a3",
+       "target": "j",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c8",
+       "source": "j",
+       "target": "a4",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      },
+      {
+       "id": "c9",
+       "source": "a4",
+       "target": "e",
+       "type": "control",
+       "pathType": "orthogonal",
+       "label": ""
+      }
+     ]
     }
    ]
   }

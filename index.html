@@ -65,7 +65,7 @@
           AlertTriangle, X, Link2, ArrowLeftRight, Italic,
           FolderPlus, FilePlus, Layout, Upload, Image as ImageIcon,
           Info, Github, Linkedin, Keyboard, PenTool,
-          ListChecks, XCircle, Lightbulb, CheckCircle2, RouteOff
+          ListChecks, XCircle, Lightbulb, CheckCircle2, RouteOff, RotateCw
         } from 'lucide-react';
 
         // --- CÓDIGO ORIGINAL DE LA APP (Sin modificaciones lógicas) ---
@@ -371,6 +371,22 @@
 
         const calculatePerimeterPoint = (targetNode: NodeData, referencePoint: Point): Point => {
             const targetCenter = { x: targetNode.x + targetNode.width / 2, y: targetNode.y + targetNode.height / 2 };
+            // Barras de bifurcación o unión: cada flujo llega en perpendicular, a lo largo de la barra (no a su centro).
+            // Si el punto de referencia queda más allá de un extremo y a su altura, el flujo entra por ese extremo
+            if (targetNode.type === 'fork' || targetNode.type === 'join') {
+                const { x, y, width: w, height: h } = targetNode, m = 2;
+                const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+                if (w >= h) {
+                    if (referencePoint.x < x || referencePoint.x > x + w) {
+                        if (Math.abs(referencePoint.y - targetCenter.y) <= h) return { x: referencePoint.x < x ? x - m : x + w + m, y: targetCenter.y };
+                    }
+                    return { x: clamp(referencePoint.x, x, x + w), y: referencePoint.y < targetCenter.y ? y - m : y + h + m };
+                }
+                if (referencePoint.y < y || referencePoint.y > y + h) {
+                    if (Math.abs(referencePoint.x - targetCenter.x) <= w) return { x: targetCenter.x, y: referencePoint.y < y ? y - m : y + h + m };
+                }
+                return { x: referencePoint.x < targetCenter.x ? x - m : x + w + m, y: clamp(referencePoint.y, y, y + h) };
+            }
             const dx = referencePoint.x - targetCenter.x;
             const dy = referencePoint.y - targetCenter.y;
             const angle = Math.atan2(dy, dx);
@@ -426,6 +442,7 @@
             ? { ...ed, waypoints: validWaypoints(ed).map(p => ({ x: p.x + dx, y: p.y + dy })) } : ed);
 
         const nodeCenter = (n) => ({ x: n.x + n.width / 2, y: n.y + n.height / 2 });
+        const isBar = (n) => n.type === 'fork' || n.type === 'join';
 
         // Quita los puntos repetidos seguidos (un tramo de longitud cero desorientaría la flecha final)
         const dedupePoints = (pts) => pts.filter((p, i) => i === 0 || Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y) > 0.5);
@@ -437,12 +454,16 @@
             if (!orthogonal) return dedupePoints([calculatePerimeterPoint(s, wps[0]), ...wps, calculatePerimeterPoint(t, wps[wps.length - 1])]);
             const sC = nodeCenter(s), tC = nodeCenter(t), first = wps[0];
             const horizontal = Math.abs(first.x - sC.x) >= Math.abs(first.y - sC.y);
-            const start = calculatePerimeterPoint(s, horizontal ? { x: first.x, y: sC.y } : { x: sC.x, y: first.y });
+            const start = calculatePerimeterPoint(s, isBar(s) ? first : horizontal ? { x: first.x, y: sC.y } : { x: sC.x, y: first.y });
             const pts = [start];
             let cur = start;
             wps.forEach(b => { pts.push(horizontal ? { x: b.x, y: cur.y } : { x: cur.x, y: b.y }, b); cur = b; });
-            // Último tramo: si el punto queda a la altura del destino, entra directamente por su lateral
-            if (horizontal) {
+            // Último tramo: en una barra, perpendicular a ella; si el punto queda a la altura del destino, entra
+            // directamente por su lateral
+            if (isBar(t)) {
+                const e = calculatePerimeterPoint(t, cur);
+                pts.push(t.width >= t.height ? { x: e.x, y: cur.y } : { x: cur.x, y: e.y }, e);
+            } else if (horizontal) {
                 if (cur.y > t.y && cur.y < t.y + t.height) pts.push({ x: cur.x < tC.x ? t.x : t.x + t.width, y: cur.y });
                 else pts.push({ x: tC.x, y: cur.y }, calculatePerimeterPoint(t, { x: tC.x, y: cur.y }));
             } else {
@@ -467,8 +488,8 @@
             });
             const goLeft = onRight > onLeft, sC = nodeCenter(s), tC = nodeCenter(t), dir = goLeft ? -1 : 1;
             const x = goLeft ? minLeft - 30 : maxRight + 30;
-            const start = calculatePerimeterPoint(s, { x: sC.x + dir, y: sC.y });
-            const end = calculatePerimeterPoint(t, { x: tC.x + dir, y: tC.y });
+            const start = calculatePerimeterPoint(s, { x: sC.x + dir * 10000, y: sC.y });
+            const end = calculatePerimeterPoint(t, { x: tC.x + dir * 10000, y: tC.y });
             return [start, { x, y: start.y }, { x, y: end.y }, end];
         };
 
@@ -1747,7 +1768,8 @@
             else if (tool === 'interface') { w = 160; h = 100; txt = "Interfaz"; }
             else if (['boundary', 'swimlane'].includes(tool)) { w = 300; h = 400; z = 0; txt = tool === 'boundary' ? "Sistema" : "Carril"; }
             else if (['start', 'end', 'decision', 'fork', 'join'].includes(tool)) {
-                if (tool === 'fork' || tool === 'join') { w = 10; h = 60; txt = ""; }
+                // Horizontal: en un DA que fluye de arriba abajo, los flujos llegan por arriba y salen por abajo
+                if (tool === 'fork' || tool === 'join') { w = 100; h = 8; txt = ""; }
                 else if (tool === 'start' || tool === 'end') { w = 30; h = 30; txt = ""; }
                 else { w = 40; h = 40; txt = ""; }
             }
@@ -2078,8 +2100,8 @@
 
           // --- RENDERIZADO NODOS ---
           const renderResizeHandles = (node) => {
-              // Con el dedo, tiradores el doble de grandes
-              const s = touchMode ? 16 : 8, o = s / 2;
+              // Con el dedo, tiradores el doble de grandes (y algo mayores en las barras, que solo tienen dos)
+              const s = (touchMode ? 16 : 8) + (isBar(node) ? 4 : 0), o = s / 2;
               const h = [
                   { id: 'nw', x: -o, y: -o, cursor: 'nw-resize' },
                   { id: 'ne', x: node.width - o, y: -o, cursor: 'ne-resize' },
@@ -2090,8 +2112,10 @@
                   { id: 'e', x: node.width - o, y: node.height / 2 - o, cursor: 'e-resize' },
                   { id: 'w', x: -o, y: node.height / 2 - o, cursor: 'w-resize' }
               ];
+              // En una barra de bifurcación o unión solo tiene sentido cambiar la longitud: tiradores en los extremos
+              const handles = isBar(node) ? h.filter(p => node.width >= node.height ? (p.id === 'e' || p.id === 'w') : (p.id === 'n' || p.id === 's')) : h;
 
-              return ( <g> {h.map((pos) => ( <rect key={pos.id} x={pos.x} y={pos.y} width={s} height={s} fill="white" stroke={COLORS.selection} strokeWidth={1} style={{ cursor: pos.cursor }} onPointerDown={(e) => { if (e.button === 1 || e.altKey || tool === 'pan') return; e.stopPropagation(); dragSnapshotRef.current = { nodes, edges }; setIsResizing(true); setResizeHandle(pos.id); setActiveNodeId(node.id); setDragStart(getMousePos(e)); setInitialNodeGeom({ x: node.x, y: node.y, w: node.width, h: node.height }); }} /> ))} </g> );
+              return ( <g> {handles.map((pos) => ( <rect key={pos.id} x={pos.x} y={pos.y} width={s} height={s} fill="white" stroke={COLORS.selection} strokeWidth={1} style={{ cursor: pos.cursor }} onPointerDown={(e) => { if (e.button === 1 || e.altKey || tool === 'pan') return; e.stopPropagation(); dragSnapshotRef.current = { nodes, edges }; setIsResizing(true); setResizeHandle(pos.id); setActiveNodeId(node.id); setDragStart(getMousePos(e)); setInitialNodeGeom({ x: node.x, y: node.y, w: node.width, h: node.height }); }} /> ))} </g> );
           };
 
           const renderNode = (node) => {
@@ -2221,6 +2245,7 @@
                     case 'end': return (<g><circle cx={node.width/2} cy={node.height/2} r={15} fill="transparent" stroke={strokeColor} strokeWidth={2}/><circle cx={node.width/2} cy={node.height/2} r={10} fill="black"/></g>);
                     case 'decision': return (<g><polygon points={`${node.width/2},0 ${node.width},${node.height/2} ${node.width/2},${node.height} 0,${node.height/2}`} fill={fill} stroke={strokeColor} strokeWidth={strokeWidth}/><text x={node.width/2} y={node.height/2+4} textAnchor="middle" fill={textFill} fontSize={10}>{node.text}</text></g>);
                     case 'fork': return (<g>
+                        <rect x={-6} y={-6} width={node.width + 12} height={node.height + 12} fill="transparent" />
                         <rect width={node.width} height={node.height} fill="black" stroke="none" />
                         <text x={node.width/2} y={-10} textAnchor="middle" fill={textFill} fontSize={12}>{node.text}</text>
                     </g>);
@@ -2296,7 +2321,14 @@
                 // Trazado calculado: por los puntos de paso de la relación o, en un DA, rodeando un flujo de vuelta
                 const wps = validWaypoints(edge);
                 const autoReturn = wps.length === 0 && activeDiagram?.type === 'da' && edge.type === 'control' && edge.pathType === 'orthogonal' && count === 1 && isVertical && dy < 0;
-                const poly = wps.length ? routeWithWaypoints(s, t, wps, edge.pathType === 'orthogonal') : autoReturn ? routeReturnFlow(s, t, nodes) : null;
+                // Entre una barra y un elemento que queda dentro de su longitud: tramo recto perpendicular a la barra
+                let barPoly = null;
+                if (wps.length === 0 && isBar(s) !== isBar(t)) {
+                    const bar = isBar(s) ? s : t, other = isBar(s) ? t : s, oc = nodeCenter(other);
+                    const inside = bar.width >= bar.height ? (oc.x >= bar.x && oc.x <= bar.x + bar.width) : (oc.y >= bar.y && oc.y <= bar.y + bar.height);
+                    if (inside) { const p = calculatePerimeterPoint(bar, oc), q = calculatePerimeterPoint(other, p); barPoly = isBar(s) ? [p, q] : [q, p]; }
+                }
+                const poly = wps.length ? routeWithWaypoints(s, t, wps, edge.pathType === 'orthogonal') : autoReturn ? routeReturnFlow(s, t, nodes) : barPoly;
 
                 let refStart = tCenter;
                 let refEnd = sCenter;
@@ -2328,8 +2360,8 @@
                 const shiftNode = (n) => ({ ...n, x: n.x + offv.x, y: n.y + offv.y });
                 const shiftPoint = (p) => ({ x: p.x + offv.x, y: p.y + offv.y });
 
-                const start = poly ? poly[0] : calculatePerimeterPoint(shiftNode(s), shiftPoint(refStart));
-                const end = poly ? poly[poly.length - 1] : calculatePerimeterPoint(shiftNode(t), shiftPoint(refEnd));
+                const start = poly ? poly[0] : calculatePerimeterPoint(shiftNode(s), shiftPoint(isBar(s) ? tCenter : refStart));
+                const end = poly ? poly[poly.length - 1] : calculatePerimeterPoint(shiftNode(t), shiftPoint(isBar(t) ? (isBar(s) ? start : sCenter) : refEnd));
                 // En ortogonales, el tramo intermedio también se desplaza (en el sentido que evita cruces)
                 const midShift = -offset * (Math.sign(end.x - start.x) || 1) * (Math.sign(end.y - start.y) || 1);
 
@@ -2745,6 +2777,12 @@
                                 )}
                                 <div><label className="block text-xs font-medium mb-1">Métodos</label><textarea rows={3} value={sN[0].methods?.join('\n')} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes.map(n => n.id === sN[0].id ? { ...n, methods: e.target.value.split('\n') } : n), edges)} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`} /></div>
                                 <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Escribe <code>static</code> delante de un miembro para subrayarlo o <code>abstract</code> para ponerlo en cursiva (p. ej. <code>+ static total: int</code>).</p> </>
+                            )}
+                            {isBar(sN[0]) && (
+                                <button onClick={() => { const n = sN[0], cx = n.x + n.width / 2, cy = n.y + n.height / 2; updateDiagramState(nodes.map(m => m.id === n.id ? { ...m, width: n.height, height: n.width, x: cx - n.height / 2, y: cy - n.width / 2 } : m), edges); }}
+                                    title="Cambiar entre horizontal y vertical" className="w-full py-2 px-3 rounded text-sm font-medium flex items-center justify-center gap-2 transition-all bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">
+                                    <RotateCw size={14}/> Girar <span className="opacity-60 text-xs">({sN[0].width >= sN[0].height ? 'pasar a vertical' : 'pasar a horizontal'})</span>
+                                </button>
                             )}
                             {sN[0].type !== 'boundary' && sN[0].type !== 'swimlane' && (
                                 <button

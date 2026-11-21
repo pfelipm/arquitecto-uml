@@ -74,6 +74,7 @@ try {
         'Revisión DA (con errores)': ['Falta el nodo inicial', 'De un nodo final no puede salir', 'sin condición de guarda', 'llegan 2 flujos', '1 bifurcación y 0 uniones'],
         'Revisión DA (correcto)': ['No se han encontrado problemas'],
         'Bucle de reintento (correcto)': ['No se han encontrado problemas'],
+        'Concurrencia (correcto)': ['No se han encontrado problemas'],
     };
     let panelAbierto = false;
     for (const [diagrama, mensajes] of Object.entries(esperado)) {
@@ -106,7 +107,10 @@ try {
     const asociacion = (await trazados('Puntos de paso')).find(t => t.etiquetas.includes('realiza'));
     if (!asociacion?.d.includes('L 80 180 L 480 180')) errores.push(`La asociación no pasa por sus puntos de paso (trazado: ${asociacion?.d || 'no encontrado'})`);
     if (!(asociacion?.etiquetas.includes('pedidos') && asociacion?.etiquetas.includes('cliente'))) errores.push('La asociación no muestra sus nombres de rol (pedidos, cliente)');
-    if (!errores.some(e => e.includes('trazado') || e.includes('nombres de rol'))) console.log('✓ Trazados calculados (flujo de vuelta y puntos de paso) y nombres de rol comprobados');
+    // Barras: los flujos hacia acciones dentro de su longitud son tramos rectos perpendiculares (dos puntos, misma x)
+    const rectos = (await trazados('Concurrencia (correcto)')).map(t => puntosDe(t.d)).filter(p => p.length === 2 && Math.abs(p[0][0] - p[1][0]) < 0.5);
+    if (rectos.length < 6) errores.push(`Los flujos de las barras de bifurcación y unión no son perpendiculares (solo ${rectos.length} de 6 tramos rectos; trazado)`);
+    if (!errores.some(e => e.includes('trazado') || e.includes('nombres de rol'))) console.log('✓ Trazados calculados (flujo de vuelta, puntos de paso y barras) y nombres de rol comprobados');
 
     // 6. Pantalla táctil: pellizcar con dos dedos amplía el zoom.
     const zoomTactil = await pagina.evaluate(async () => {

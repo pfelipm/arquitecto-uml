@@ -26,6 +26,11 @@ Contexto que fija el orden: el alumnado usa sobre todo portátiles (algunos, tab
   - **Coherencia:** los puntos se mueven con la relación cuando se mueven sus dos extremos (arrastre y flechas), se desplazan al duplicar y pegar, cuentan en deshacer y rehacer, en «Ajustar a pantalla», en las exportaciones y en los enlaces compartidos (que los validan). La versión 8.0 los ignora y dibuja la línea automática.
 - **Código:** `routeWithWaypoints`, `routeReturnFlow` y `renderWaypointHandles` en `index.html`. La prueba automática comprueba ambos trazados con los diagramas «Bucle de reintento» y «Puntos de paso» de [`diagramas-revision.json`](.github/pruebas/diagramas-revision.json).
 
+### 11. ✅ Barras de bifurcación y unión más usables (DA) (hecho en la rama `v9`, pendiente de publicar en la versión 9.0)
+- **Problema:** la barra se creaba vertical, aunque los DA del editor fluyen de arriba abajo; cambiarla obligaba a rehacerla con los tiradores, y todos los flujos apuntaban al centro de la barra, en abanico.
+- **Solución:** la barra se crea horizontal (100 × 8 px); el botón **Girar** del panel de propiedades la pasa a vertical u horizontal sin moverla de sitio; solo tiene los dos tiradores de los extremos (se cambia la longitud, no el grosor) y una zona de clic más ancha que la barra. Cada flujo llega a la barra en perpendicular, en su propia posición: si el otro elemento queda dentro de la longitud de la barra, con un tramo recto. Las barras de los diagramas existentes no cambian.
+- **Pruebas:** la prueba automática comprueba los flujos perpendiculares con el diagrama «Concurrencia» de [`diagramas-revision.json`](.github/pruebas/diagramas-revision.json).
+
 ### 5. Notas UML
 - Nuevo elemento «Nota» (rectángulo con la esquina doblada) unido con una línea discontinua al elemento que comenta. Útil en enunciados y correcciones. Disponible en los tres tipos de diagrama.
 - **Motivo del orden:** útil sobre todo para el profesorado al preparar enunciados y corregir, pero no limita lo que el alumnado puede modelar.
