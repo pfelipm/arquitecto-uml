@@ -48,6 +48,8 @@ En macOS, usa ⌘ en lugar de Ctrl.
 | **Ctrl+A** | Seleccionar todos los elementos |
 | **Esc** | Cancelar la conexión o la herramienta activa; si no hay ninguna, deseleccionar |
 | **Flechas** / **Mayús+flechas** | Mover la selección 1 px / 10 px |
+| **Ctrl+arrastrar un tirador** | Redimensionar de forma simétrica, sin mover el centro (laterales: ancho; superior e inferior: alto; esquinas: ambos) |
+| **Mayús+arrastrar una esquina** | Redimensionar manteniendo la proporción (con Ctrl, también desde el centro) |
 | **Mayús+clic** | Añadir o quitar un elemento de la selección |
 | **Arrastrar en el fondo** | Seleccionar con un recuadro (con **Mayús**, añadir a la selección) |
 | **Doble clic** | Editar el texto de un elemento |

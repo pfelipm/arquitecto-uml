@@ -302,9 +302,11 @@
                 [`${MOD_KEY}+A`, 'Seleccionar todos los elementos'],
                 ['Esc', 'Cancelar la conexión o la herramienta; si no hay ninguna, deseleccionar'],
             ]},
-            { title: 'Mover', items: [
+            { title: 'Mover y redimensionar', items: [
                 ['Flechas', 'Mover la selección 1 px'],
                 ['Mayús+flechas', 'Mover la selección 10 px'],
+                [`${MOD_KEY}+arrastrar un tirador`, 'Redimensionar de forma simétrica, sin mover el centro'],
+                ['Mayús+arrastrar una esquina', 'Redimensionar manteniendo la proporción (con ' + MOD_KEY + ', también desde el centro)'],
             ]},
             { title: 'Vista', items: [
                 ['Rueda', 'Desplazar el lienzo'],
@@ -1817,63 +1819,52 @@
             }
 
             if (isResizing && activeNodeId && resizeHandle && initialNodeGeom) {
-                let dx = pos.x - dragStart.x;
-                let dy = pos.y - dragStart.y;
-                const node = nodes.find(n => n.id === activeNodeId);
-
-                if (node) {
-                    let nX = initialNodeGeom.x, nY = initialNodeGeom.y, nW = initialNodeGeom.w, nH = initialNodeGeom.h;
-                    let proposedW = nW, proposedH = nH, proposedX = nX, proposedY = nY;
-                    if (resizeHandle.includes('e')) proposedW = Math.max(20, initialNodeGeom.w + dx);
-                    if (resizeHandle.includes('w')) { proposedW = Math.max(20, initialNodeGeom.w - dx); proposedX = initialNodeGeom.x + (initialNodeGeom.w - proposedW); }
-                    if (resizeHandle.includes('s')) proposedH = Math.max(20, initialNodeGeom.h + dy);
-                    if (resizeHandle.includes('n')) { proposedH = Math.max(20, initialNodeGeom.h - dy); proposedY = initialNodeGeom.y + (initialNodeGeom.h - proposedH); }
-
-                    const otherNodes = nodes.filter(n => n.id !== activeNodeId);
-                    const threshold = 5;
-                    const newGuides = [];
-
-                    if (resizeHandle.includes('e') || resizeHandle.includes('w')) {
-                         const edgeToCheck = resizeHandle.includes('e') ? (proposedX + proposedW) : proposedX;
-                         let snapped = false;
-
-                         for (const t of otherNodes) {
-                             const tL = t.x, tR = t.x + t.width, tCx = t.x + t.width/2;
-                             const targets = [tL, tR, tCx];
-                             for (const target of targets) {
-                                 if (Math.abs(edgeToCheck - target) < threshold) {
-                                     if (resizeHandle.includes('e')) { proposedW = target - proposedX; }
-                                     else { const diff = target - proposedX; proposedX = target; proposedW -= diff; }
-                                     newGuides.push({ type: 'x', pos: target }); snapped = true; break;
-                                 }
-                             }
-                             if (snapped) break;
-                         }
-                    }
-
-                    if (resizeHandle.includes('s') || resizeHandle.includes('n')) {
-                         const edgeToCheck = resizeHandle.includes('s') ? (proposedY + proposedH) : proposedY;
-                         let snapped = false;
-                         for (const t of otherNodes) {
-                             const tT = t.y, tB = t.y + t.height, tCy = t.y + t.height/2;
-                             const targets = [tT, tB, tCy];
-                             for (const target of targets) {
-                                 if (Math.abs(edgeToCheck - target) < threshold) {
-                                     if (resizeHandle.includes('s')) { proposedH = target - proposedY; }
-                                     else { const diff = target - proposedY; proposedY = target; proposedH -= diff; }
-                                     newGuides.push({ type: 'y', pos: target }); snapped = true; break;
-                                 }
-                             }
-                             if (snapped) break;
-                         }
-                    }
-
-                    proposedW = Math.max(20, proposedW);
-                    proposedH = Math.max(20, proposedH);
-
-                    setSmartGuides(newGuides);
-                    setNodes(nodes.map(n => n.id === activeNodeId ? { ...n, x: proposedX, y: proposedY, width: proposedW, height: proposedH } : n));
+                // Ctrl/⌘: simétrico respecto al centro. Mayús en una esquina: mantiene la proporción
+                const symmetric = e.ctrlKey || e.metaKey;
+                const hor = resizeHandle.includes('e') ? 1 : resizeHandle.includes('w') ? -1 : 0;
+                const ver = resizeHandle.includes('s') ? 1 : resizeHandle.includes('n') ? -1 : 0;
+                const proportional = e.shiftKey && hor !== 0 && ver !== 0;
+                const { x: iX, y: iY, w: iW, h: iH } = initialNodeGeom;
+                const k = symmetric ? 2 : 1;
+                let dW = hor * (pos.x - dragStart.x) * k, dH = ver * (pos.y - dragStart.y) * k;
+                if (proportional) {
+                    // Manda la dimensión que más cambia en proporción
+                    const f = Math.abs(dW / iW) >= Math.abs(dH / iH) ? (iW + dW) / iW : (iH + dH) / iH;
+                    dW = iW * f - iW; dH = iH * f - iH;
                 }
+                // Mínimo de 20 px solo en las dimensiones que se cambian (las barras miden 8 px de grosor)
+                let W = hor ? Math.max(20, iW + dW) : iW, H = ver ? Math.max(20, iH + dH) : iH;
+                let X = symmetric ? iX + (iW - W) / 2 : (hor === -1 ? iX + iW - W : iX);
+                let Y = symmetric ? iY + (iH - H) / 2 : (ver === -1 ? iY + iH - H : iY);
+
+                // Guías de alineación para el borde que se arrastra (con Ctrl, el opuesto se ajusta en simetría)
+                const newGuides = [];
+                if (!proportional) {
+                    const others = nodes.filter(n => n.id !== activeNodeId), threshold = 5;
+                    if (hor) {
+                        const edge = hor === 1 ? X + W : X;
+                        const target = others.flatMap(t => [t.x, t.x + t.width, t.x + t.width / 2]).find(v => Math.abs(edge - v) < threshold);
+                        if (target !== undefined) {
+                            const delta = target - edge;
+                            if (hor === 1) { W += delta * k; if (symmetric) X -= delta; }
+                            else { W -= delta * k; X = target; }
+                            newGuides.push({ type: 'x', pos: target });
+                        }
+                    }
+                    if (ver) {
+                        const edge = ver === 1 ? Y + H : Y;
+                        const target = others.flatMap(t => [t.y, t.y + t.height, t.y + t.height / 2]).find(v => Math.abs(edge - v) < threshold);
+                        if (target !== undefined) {
+                            const delta = target - edge;
+                            if (ver === 1) { H += delta * k; if (symmetric) Y -= delta; }
+                            else { H -= delta * k; Y = target; }
+                            newGuides.push({ type: 'y', pos: target });
+                        }
+                    }
+                }
+
+                setSmartGuides(newGuides);
+                setNodes(nodes.map(n => n.id === activeNodeId ? { ...n, x: X, y: Y, width: W, height: H } : n));
                 return;
             }
 
