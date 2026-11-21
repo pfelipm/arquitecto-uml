@@ -72,7 +72,7 @@
 
         /**
          * ARQUITECTO SIMPLE UML - SUITE DE MODELADO
-         * Versión 8.0 "Revisión"
+         * Versión 9.0-dev (en desarrollo)
          */
 
         // --- TIPOS Y CONSTANTES ---
@@ -212,6 +212,12 @@
         // Versión en desarrollo (rama v9, publicada en GitHub Pages mientras dura el desarrollo): muestra un aviso.
         // Al publicar la 9.0 se pone a false antes de fusionar en main.
         const IS_DEV_BUILD = true;
+
+        // Versión mostrada en «Acerca de» y guardada en las copias JSON. El nombre se decide al publicar
+        const APP_VERSION = '9.0';
+        const APP_VERSION_NAME = '';
+        const APP_UPDATED = '21 de noviembre de 2026';
+        const APP_VERSION_LABEL = `${APP_VERSION}${IS_DEV_BUILD ? '-dev' : ''}`;
 
         const IS_EPHEMERAL_STORAGE = /-atari-embeds\.googleusercontent\.com$/.test(window.location.hostname);
 
@@ -928,8 +934,8 @@
                             </div>
                             <div>
                                 <h2 className="text-xl font-bold">Arquitecto Simple UML</h2>
-                                <p className="text-xs opacity-60 font-mono">Versión 8.0 "Revisión"</p>
-                                <p className="text-[10px] opacity-50 mt-1">Actualizado: 28 de octubre de 2026</p>
+                                <p className="text-xs opacity-60 font-mono">Versión {APP_VERSION_LABEL}{APP_VERSION_NAME && ` "${APP_VERSION_NAME}"`}{IS_DEV_BUILD && ' (en desarrollo)'}</p>
+                                <p className="text-[10px] opacity-50 mt-1">Actualizado: {APP_UPDATED}</p>
                             </div>
                         </div>
 
@@ -1174,7 +1180,7 @@
 
           // --- PERSISTENCIA JSON (Importar/Exportar) ---
           const handleExportJSON = () => {
-            const dataStr = JSON.stringify({ version: "8.0", folders: foldersWithoutSelection(folders), darkMode: isDarkMode }, null, 2);
+            const dataStr = JSON.stringify({ version: APP_VERSION_LABEL, folders: foldersWithoutSelection(folders), darkMode: isDarkMode }, null, 2);
             const blob = new Blob([dataStr], { type: "application/json" });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -2647,7 +2653,7 @@
             <div className={`flex flex-col h-screen w-full overflow-hidden select-none ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-black'}`}>
               {IS_DEV_BUILD && (
                   <div role="note" className={`px-4 py-1 text-xs text-center border-b ${isDarkMode ? 'bg-amber-900/50 text-amber-100 border-amber-800' : 'bg-amber-100 text-amber-900 border-amber-300'}`}>
-                      <strong>Versión en desarrollo (9.0):</strong> puede contener errores. Para trabajar en clase, usa la versión oficial en <a href={APP_URL} target="_blank" rel="noreferrer" className="underline font-medium">{APP_URL.replace('https://', '')}</a>.
+                      <strong>Versión en desarrollo ({APP_VERSION_LABEL}):</strong> puede contener errores. Para trabajar en clase, usa la versión oficial en <a href={APP_URL} target="_blank" rel="noreferrer" className="underline font-medium">{APP_URL.replace('https://', '')}</a>.
                   </div>
               )}
               {renderToolbar()}
