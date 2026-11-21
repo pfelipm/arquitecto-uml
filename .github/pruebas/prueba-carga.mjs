@@ -105,7 +105,8 @@ try {
     if (!(pv.length === 4 && pv[1][0] === pv[2][0])) errores.push(`El flujo de vuelta del bucle no rodea los elementos por la izquierda (trazado: ${vuelta?.d || 'no encontrado'})`);
     const asociacion = (await trazados('Puntos de paso')).find(t => t.etiquetas.includes('realiza'));
     if (!asociacion?.d.includes('L 80 180 L 480 180')) errores.push(`La asociación no pasa por sus puntos de paso (trazado: ${asociacion?.d || 'no encontrado'})`);
-    if (!errores.some(e => e.includes('trazado'))) console.log('✓ Trazados calculados (flujo de vuelta y puntos de paso) comprobados');
+    if (!(asociacion?.etiquetas.includes('pedidos') && asociacion?.etiquetas.includes('cliente'))) errores.push('La asociación no muestra sus nombres de rol (pedidos, cliente)');
+    if (!errores.some(e => e.includes('trazado') || e.includes('nombres de rol'))) console.log('✓ Trazados calculados (flujo de vuelta y puntos de paso) y nombres de rol comprobados');
 
     // 6. Pantalla táctil: pellizcar con dos dedos amplía el zoom.
     const zoomTactil = await pagina.evaluate(async () => {

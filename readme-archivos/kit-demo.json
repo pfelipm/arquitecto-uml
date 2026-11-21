@@ -247,7 +247,9 @@
               "pathType": "straight",
               "sourceLabel": "1",
               "targetLabel": "0..*",
-              "label": "realiza"
+              "label": "realiza",
+              "sourceRole": "cliente",
+              "targetRole": "pedidos"
             },
             {
               "id": "edge_producto_orden",

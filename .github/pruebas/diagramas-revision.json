@@ -1010,7 +1010,9 @@
          "x": 480,
          "y": 180
         }
-       ]
+       ],
+       "sourceRole": "pedidos",
+       "targetRole": "cliente"
       },
       {
        "id": "w2",

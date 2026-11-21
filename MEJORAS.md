@@ -31,10 +31,10 @@ Contexto que fija el orden: el alumnado usa sobre todo portátiles (algunos, tab
 - **Motivo del orden:** útil sobre todo para el profesorado al preparar enunciados y corregir, pero no limita lo que el alumnado puede modelar.
 - **Esfuerzo:** medio.
 
-### 7. Nombres de rol en los extremos de las asociaciones (DC)
-- Ahora cada asociación tiene multiplicidades y una etiqueta central. UML sitúa además el nombre del rol en cada extremo (por ejemplo, *origen* y *destino* junto a Aeropuerto). Se añadirían dos campos al panel de propiedades y se dibujarían junto a las multiplicidades.
-- **Motivo del orden:** completa la notación del diagrama de clases; mientras tanto, la etiqueta central de la asociación permite distinguir varias asociaciones entre las mismas clases.
-- **Esfuerzo:** bajo-medio.
+### 7. ✅ Nombres de rol en los extremos de las asociaciones (DC) (hecho en la rama `v9`, pendiente de publicar en la versión 9.0)
+- **Solución:** campos «Rol origen» y «Rol destino» en el panel de propiedades de las asociaciones (simples, dirigidas, agregaciones y composiciones). Cada rol se dibuja junto a su extremo, al lado contrario de la multiplicidad, como en UML, y el texto crece alejándose de la clase para no taparla. En asociaciones paralelas, donde el lado interior es estrecho, el rol va en el exterior a continuación de la multiplicidad. También se dibujan bien en relaciones con puntos de paso.
+- **Asociaciones repetidas:** el aviso del panel solo salta si dos asociaciones entre las mismas clases coinciden en etiqueta y roles; con roles distintos (por ejemplo, *origen* y *destino*) ya se distinguen.
+- **Kit y pruebas:** el kit de demostración usa roles en «Cliente realiza Orden», y la prueba automática comprueba que se dibujan.
 
 ## Descartadas
 

@@ -20,7 +20,7 @@ Puedes utilizar el editor sin limitaciones y directamente en tu navegador accedi
     *   **DCU:** Diagramas de Casos de Uso (Actores, Casos de uso, Límites). Las relaciones `<<extend>>` pueden indicar su condición, que se muestra entre llaves junto a la flecha.
         
         ![Ejemplo DCU](readme-archivos/DCU.png)
-    *   **DC:** Diagramas de Clases (Clases, Interfaces, Relaciones). Admite varias asociaciones entre las mismas clases (por ejemplo, *origen* y *destino*), que se dibujan separadas. Los miembros que empiezan por `static` se muestran subrayados y los que empiezan por `abstract`, en cursiva, siguiendo la notación UML (por ejemplo, `+ static total: int`).
+    *   **DC:** Diagramas de Clases (Clases, Interfaces, Relaciones). Las asociaciones admiten multiplicidades y **nombres de rol** en cada extremo. Admite varias asociaciones entre las mismas clases (por ejemplo, *origen* y *destino*), que se dibujan separadas. Los miembros que empiezan por `static` se muestran subrayados y los que empiezan por `abstract`, en cursiva, siguiendo la notación UML (por ejemplo, `+ static total: int`).
         
         ![Ejemplo DC](readme-archivos/DC.png)
     *   **DA:** Diagramas de Actividad (Inicio, Fin, Actividades, Decisión / Fusión, Bifurcación / Unión, Carriles).

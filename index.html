@@ -110,6 +110,8 @@
           pathType: PathType;
           label?: string;
           sourceLabel?: string;
+          sourceRole?: string; // DC: nombre de rol en cada extremo de una asociación
+          targetRole?: string;
           condition?: string; // Solo en <<extend>>: situación en la que se produce la extensión
           targetLabel?: string;
           waypoints?: Point[];
@@ -488,6 +490,17 @@
             const dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy;
             const k = len2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2)) : 0;
             return Math.hypot(p.x - (a.x + dx * k), p.y - (a.y + dy * k));
+        };
+
+        // Nombre de rol junto al extremo «from» de una asociación, en el lado «side» (+1 / -1) de la línea y a «along»
+        // píxeles del extremo. El texto se alinea para crecer alejándose de la clase y no taparla
+        const getRolePos = (from, to, side, along = 10) => {
+            const len = Math.hypot(to.x - from.x, to.y - from.y) || 1;
+            const ux = (to.x - from.x) / len, uy = (to.y - from.y) / len;
+            const px = uy * side, py = -ux * side;
+            const x = from.x + ux * along + px * 12, y = from.y + uy * along + py * 12;
+            const anchor = Math.abs(ux) >= Math.abs(uy) ? (ux > 0 ? 'start' : 'end') : (px > 0 ? 'start' : 'end');
+            return { x, y: y + 4, anchor };
         };
 
         const getValidConnectionTypes = (source: NodeData, target: NodeData, diagramType: DiagramType): EdgeType[] => {
@@ -2436,6 +2449,14 @@
                         {activeDiagram?.type === 'dc' && edge.targetLabel && ['association', 'directed_association', 'aggregation', 'composition'].includes(edge.type) && (
                             <text x={endLabelPos.x} y={endLabelPos.y} textAnchor="middle" dominantBaseline="middle" {...textStyle}>{edge.targetLabel}</text>
                         )}
+
+                        {/* Nombres de rol: en cada extremo, al lado contrario de la multiplicidad. En relaciones paralelas el
+                            lado interior es estrecho: van en el exterior, a continuación de la multiplicidad */}
+                        {activeDiagram?.type === 'dc' && ASSOCIATION_TYPES.includes(edge.type) && [[edge.sourceRole, start, nextPoint, Math.sign(sideOffset(start, nextPoint, 10))], [edge.targetRole, end, prevPoint, Math.sign(sideOffset(end, prevPoint, -10))]].map(([role, from, to, multSide], k) => {
+                            if (!(role || '').trim()) return null;
+                            const rp = offset === 0 ? getRolePos(from, to, -multSide) : getRolePos(from, to, multSide, 26);
+                            return <text key={k} x={rp.x} y={rp.y} textAnchor={rp.anchor} {...textStyle} fontWeight={400}>{role.trim()}</text>;
+                        })}
                     </g>
                 );
             });
@@ -2669,9 +2690,11 @@
 
             const currentEdge = sE[0];
 
-            // En DC, varias asociaciones entre las mismas clases deben distinguirse por su etiqueta
+            // En DC, varias asociaciones entre las mismas clases deben distinguirse por su etiqueta o por sus roles
+            // (el rol se compara por clase, para que A→B y B→A se traten igual)
+            const associationKey = (ed, a, b) => [ed.label, ed.source === a ? ed.sourceRole : ed.targetRole, ed.source === b ? ed.sourceRole : ed.targetRole].map(v => (v || '').trim()).join('|');
             const hasDuplicateAssociationLabel = activeDiagram?.type === 'dc' && currentEdge && ASSOCIATION_TYPES.includes(currentEdge.type) &&
-                getEdgesBetween(edges, currentEdge.source, currentEdge.target).some(ed => ed.id !== currentEdge.id && ASSOCIATION_TYPES.includes(ed.type) && (ed.label || '').trim() === (currentEdge.label || '').trim());
+                getEdgesBetween(edges, currentEdge.source, currentEdge.target).some(ed => ed.id !== currentEdge.id && ASSOCIATION_TYPES.includes(ed.type) && associationKey(ed, currentEdge.source, currentEdge.target) === associationKey(currentEdge, currentEdge.source, currentEdge.target));
             const isReflexive = currentEdge ? currentEdge.source === currentEdge.target : false;
 
             const showMultiplicity = currentEdge && ['association', 'directed_association', 'aggregation', 'composition'].includes(currentEdge.type) && !(currentEdge.type === 'association' && isReflexive);
@@ -2777,7 +2800,7 @@
                             {hasDuplicateAssociationLabel && (
                                 <div className={`p-2 rounded text-xs flex gap-2 ${isDarkMode ? 'bg-amber-900/40 text-amber-200' : 'bg-amber-50 text-amber-800'}`}>
                                     <AlertTriangle size={14} className="flex-shrink-0 mt-0.5"/>
-                                    <span>Hay otra asociación entre estas clases con la misma etiqueta. Usa etiquetas distintas (p. ej. «origen» y «destino») para diferenciarlas.</span>
+                                    <span>Hay otra asociación entre estas clases con la misma etiqueta y los mismos roles. Diferéncialas con una etiqueta o con nombres de rol distintos (p. ej. «origen» y «destino»).</span>
                                 </div>
                             )}
 
@@ -2785,6 +2808,12 @@
                                 <div className="grid grid-cols-2 gap-2">
                                     <div><label className="block text-xs font-medium mb-1">Mult. origen</label><input type="text" placeholder="1" value={sE[0].sourceLabel || ''} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, sourceLabel: e.target.value } : ed))} className={`w-full p-1 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/></div>
                                     <div><label className="block text-xs font-medium mb-1">Mult. destino</label><input type="text" placeholder="*" value={sE[0].targetLabel || ''} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, targetLabel: e.target.value } : ed))} className={`w-full p-1 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/></div>
+                                </div>
+                            )}
+                            {activeDiagram?.type === 'dc' && showMultiplicity && (
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div><label className="block text-xs font-medium mb-1">Rol origen</label><input type="text" placeholder="p. ej. cliente" value={sE[0].sourceRole || ''} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, sourceRole: e.target.value } : ed))} className={`w-full p-1 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/></div>
+                                    <div><label className="block text-xs font-medium mb-1">Rol destino</label><input type="text" placeholder="p. ej. pedidos" value={sE[0].targetRole || ''} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, targetRole: e.target.value } : ed))} className={`w-full p-1 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/></div>
                                 </div>
                             )}
 
