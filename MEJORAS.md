@@ -6,9 +6,7 @@ Esfuerzo orientativo: **bajo** (unas horas), **medio** (un día aproximadamente)
 
 ## Próximas mejoras
 
-### 13. Carriles horizontales (DA)
-- Botón «Girar» en el panel del carril, como en las barras de bifurcación y unión, para usar carriles horizontales (cabecera a la izquierda y nombre en vertical) en procesos que avanzan de izquierda a derecha. Los diagramas de la asignatura fluyen de arriba abajo, así que tiene poca prioridad.
-- **Esfuerzo:** medio.
+(Ninguna por ahora.)
 
 ## Descartadas
 
@@ -16,6 +14,11 @@ Esfuerzo orientativo: **bajo** (unas horas), **medio** (un día aproximadamente)
 - Un cuarto tipo de diagrama: líneas de vida, mensajes síncronos y asíncronos, respuestas y fragmentos combinados (`alt`, `loop`). Es la mejora más costosa, porque su disposición es temporal y distinta de la de los otros tres tipos.
 - **Motivo:** los contenidos oficiales de la asignatura no incluyen diagramas de secuencia. Solo se retomaría si cambia el temario.
 - **Esfuerzo:** alto.
+
+### 13. Carriles horizontales (DA)
+- Botón «Girar» en el panel del carril, como en las barras de bifurcación y unión, para usar carriles horizontales (cabecera a la izquierda y nombre en vertical) en procesos que avanzan de izquierda a derecha.
+- **Motivo:** los diagramas de actividad de la asignatura fluyen de arriba abajo, con carriles verticales.
+- **Esfuerzo:** medio.
 
 ## Hechas
 
