@@ -14,6 +14,14 @@ Puedes utilizar el editor sin limitaciones y directamente en tu navegador accedi
 
 👉 **[https://pfelipm.github.io/arquitecto-uml](https://pfelipm.github.io/arquitecto-uml/)** (GitHub Pages): aquí **el navegador conserva los diagramas** aunque recargues la página o vuelvas otro día, y los enlaces compartidos se abren con un clic.
 
+## Vídeo de novedades
+
+Un recorrido de poco más de un minuto por las novedades de las versiones 8.0 «Revisión» y 9.1 «Notación»: revisar diagrama, mensajes que explican, redimensionado, notación UML 2, puntos de paso, alinear y repartir, compartir por enlace, exportar a SVG y atajos de teclado.
+
+https://github.com/user-attachments/assets/4fdeb98e-ef8e-4cb5-ae17-49d418ba3a72
+
+La locución es sintética (texto a voz de Google Chrome). También puedes [descargar el vídeo](https://github.com/pfelipm/arquitecto-uml/releases/download/v9.1/arquitecto-uml-9.1-novedades.mp4) desde la [versión 9.1](https://github.com/pfelipm/arquitecto-uml/releases/tag/v9.1).
+
 ## Características principales
 
 *   **Tipos de diagramas:**
