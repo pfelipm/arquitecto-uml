@@ -236,6 +236,17 @@
               ],
               "zIndex": 2,
               "selected": false
+            },
+            {
+              "id": "note_pasarela",
+              "type": "note",
+              "x": 870,
+              "y": 150,
+              "width": 190,
+              "height": 70,
+              "text": "Permite añadir otras formas de pago (PayPal, Bizum…) sin cambiar Orden.",
+              "zIndex": 3,
+              "selected": false
             }
           ],
           "edges": [
@@ -274,6 +285,14 @@
               "source": "class_pago_tarjeta",
               "target": "interface_pago",
               "type": "implementation",
+              "pathType": "straight",
+              "label": ""
+            },
+            {
+              "id": "edge_note_pasarela",
+              "source": "note_pasarela",
+              "target": "interface_pago",
+              "type": "note_link",
               "pathType": "straight",
               "label": ""
             }

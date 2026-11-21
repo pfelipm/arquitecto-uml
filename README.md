@@ -17,7 +17,7 @@ Puedes utilizar el editor sin limitaciones y directamente en tu navegador accedi
 ## Características Principales
 
 *   **Tipos de Diagramas Soportados:**
-    *   **DCU:** Diagramas de Casos de Uso (Actores, Casos de uso, Límites). Las relaciones `<<extend>>` pueden indicar su condición, que se muestra entre llaves junto a la flecha.
+    *   **DCU:** Diagramas de Casos de Uso (Actores, Casos de uso, Límites). Las relaciones `<<extend>>` pueden indicar su condición, que se muestra entre llaves junto a la flecha o, con la notación oficial de UML, en una nota (`Condition: {…}` y, opcionalmente, `extension point: …`).
         
         ![Ejemplo DCU](readme-archivos/DCU.png)
     *   **DC:** Diagramas de Clases (Clases, Interfaces, Relaciones). Las asociaciones admiten multiplicidades y **nombres de rol** en cada extremo. Admite varias asociaciones entre las mismas clases (por ejemplo, *origen* y *destino*), que se dibujan separadas. Los miembros que empiezan por `static` se muestran subrayados y los que empiezan por `abstract`, en cursiva, siguiendo la notación UML (por ejemplo, `+ static total: int`).
@@ -27,6 +27,7 @@ Puedes utilizar el editor sin limitaciones y directamente en tu navegador accedi
         
         ![Ejemplo DA](readme-archivos/DA.png)
 *   **Revisar diagrama:** El botón **Revisar** (o **F7**) abre un panel que analiza el diagrama abierto y señala errores UML habituales, con fines didácticos: casos de uso sin actor o fuera del límite del sistema, herencias circulares, clases con métodos abstractos que no están marcadas como abstractas, interfaces sin implementar, diagramas de actividad sin nodo inicial, decisiones sin guardas, nodos inalcanzables, etc. Los problemas se clasifican en errores, avisos y sugerencias de estilo (que se pueden ocultar); al pulsar uno, se seleccionan en el lienzo los elementos afectados. La revisión se actualiza mientras editas y nunca modifica el diagrama.
+*   **Notas UML:** en los tres tipos de diagrama, la herramienta **Nota** añade un comentario (rectángulo con la esquina doblada, con texto de varias líneas) que se une con una línea discontinua al elemento que explica. Útil para enunciados y correcciones; la revisión del diagrama no las tiene en cuenta.
 *   **Trazado de las relaciones:** las relaciones pueden ser rectas u ortogonales (en codo). Para evitar cruces, se les pueden añadir **puntos de paso** con doble clic (o doble toque) sobre la relación seleccionada y arrastrarlos; doble clic sobre un punto lo quita, y el botón **Enderezar** del panel de propiedades los quita todos. En los diagramas de actividad, los **flujos de vuelta** (los que suben a un elemento anterior, como un bucle de reintento) rodean automáticamente los elementos intermedios.
 *   **Gestión de Proyectos:** Organización mediante carpetas y múltiples diagramas.
 *   **Persistencia Local:** Guardado automático en el navegador (`localStorage`); al volver, se reabre el último diagrama abierto. En la versión insertada en Google Sites el navegador no conserva los datos entre visitas, así que la aplicación lo avisa y recuerda exportar una copia JSON antes de salir; en la versión de GitHub Pages sí se conservan.

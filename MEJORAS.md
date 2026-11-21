@@ -16,7 +16,7 @@ Contexto que fija el orden: el alumnado usa sobre todo portátiles (algunos, tab
 ### 10. ✅ Condición de las relaciones `<<extend>>` (DCU) (hecho en la rama `v9`, pendiente de publicar en la versión 9.0)
 - **Necesidad:** en UML 2 una extensión puede indicar la situación en la que el caso de uso extendido se ejecuta (por ejemplo, «el cliente pulsa Ayuda»), y en clase conviene anotarla.
 - **Solución (primera parte):** campo «Condición de la extensión» en el panel de propiedades de las relaciones `<<extend>>`. Se dibuja en cursiva bajo la línea, entre llaves (`{el cliente pulsa Ayuda}`), porque en UML la condición es una restricción; los corchetes quedan para las guardas de los diagramas de actividad. Si el usuario escribe las llaves o corchetes, no se duplican. La revisión sugiere añadir la condición cuando falta.
-- **Segunda parte (con las notas UML, mejora 5):** opción de mostrar la condición con la notación oficial, en una nota unida a la flecha (`Condition: {…}` y, si se quiere, `extension point: …`). Usará el mismo campo, así que no habrá que rehacer los diagramas.
+- **Segunda parte (hecha):** la casilla «Mostrar en una nota (notación oficial de UML)» dibuja la condición en una nota unida con línea discontinua al punto medio de la relación, con `Condition: {…}` y, si se rellena el campo «Punto de extensión», `extension point: …`. La nota aparece por defecto en perpendicular a la relación y se puede arrastrar (cuenta en deshacer). Usa el mismo campo de condición, así que pasar de una notación a otra no exige rehacer nada.
 
 ### 8. ✅ Puntos de paso en las relaciones (hecho en la rama `v9`, pendiente de publicar en la versión 9.0)
 - **Problema:** el trazado ortogonal siempre sale en horizontal, gira en el punto medio y entra en horizontal (o lo mismo en vertical). Un flujo de vuelta en un DA (por ejemplo, el retorno de un bucle de reintento) unía dos elementos de la misma columna, atravesaba los intermedios o se superponía con el flujo de ida; en diagramas de clases con muchas relaciones aparecían cruces que el alumno no podía deshacer.
@@ -31,10 +31,10 @@ Contexto que fija el orden: el alumnado usa sobre todo portátiles (algunos, tab
 - **Solución:** la barra se crea horizontal (100 × 8 px); el botón **Girar** del panel de propiedades la pasa a vertical u horizontal sin moverla de sitio; solo tiene los dos tiradores de los extremos (se cambia la longitud, no el grosor) y una zona de clic más ancha que la barra. Cada flujo llega a la barra en perpendicular, en su propia posición: si el otro elemento queda dentro de la longitud de la barra, con un tramo recto. Las barras de los diagramas existentes no cambian.
 - **Pruebas:** la prueba automática comprueba los flujos perpendiculares con el diagrama «Concurrencia» de [`diagramas-revision.json`](.github/pruebas/diagramas-revision.json).
 
-### 5. Notas UML
-- Nuevo elemento «Nota» (rectángulo con la esquina doblada) unido con una línea discontinua al elemento que comenta. Útil en enunciados y correcciones. Disponible en los tres tipos de diagrama.
-- **Motivo del orden:** útil sobre todo para el profesorado al preparar enunciados y corregir, pero no limita lo que el alumnado puede modelar.
-- **Esfuerzo:** medio.
+### 5. ✅ Notas UML (hecho en la rama `v9`, pendiente de publicar en la versión 9.0)
+- **Solución:** herramienta **Nota** en los tres tipos de diagrama: rectángulo con la esquina doblada y fondo amarillo suave, con texto de varias líneas ajustado al ancho (se edita en un área de texto del panel o con doble clic: Intro, nueva línea; Ctrl/⌘+Intro, guardar). Se une a cualquier elemento con «Conectar con...» mediante un **enlace de nota** (línea discontinua sin flecha, recta por defecto). Una nota no se une a otra nota.
+- **Revisión:** las notas y sus enlaces no cuentan (no son nodos del flujo de un DA ni relaciones que eviten el aviso de clase aislada).
+- **Pruebas:** la prueba automática comprueba que un DA correcto con una nota sigue sin problemas; el kit de demostración incluye una nota en el diagrama de clases.
 
 ### 7. ✅ Nombres de rol en los extremos de las asociaciones (DC) (hecho en la rama `v9`, pendiente de publicar en la versión 9.0)
 - **Solución:** campos «Rol origen» y «Rol destino» en el panel de propiedades de las asociaciones (simples, dirigidas, agregaciones y composiciones). Cada rol se dibuja junto a su extremo, al lado contrario de la multiplicidad, como en UML, y el texto crece alejándose de la clase para no taparla. En asociaciones paralelas, donde el lado interior es estrecho, el rol va en el exterior a continuación de la multiplicidad. También se dibujan bien en relaciones con puntos de paso.

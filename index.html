@@ -65,7 +65,7 @@
           AlertTriangle, X, Link2, ArrowLeftRight, Italic,
           FolderPlus, FilePlus, Layout, Upload, Image as ImageIcon,
           Info, Github, Linkedin, Keyboard, PenTool,
-          ListChecks, XCircle, Lightbulb, CheckCircle2, RouteOff, RotateCw
+          ListChecks, XCircle, Lightbulb, CheckCircle2, RouteOff, RotateCw, StickyNote
         } from 'lucide-react';
 
         // --- CÓDIGO ORIGINAL DE LA APP (Sin modificaciones lógicas) ---
@@ -81,8 +81,9 @@
         type NodeType =
           | 'actor' | 'usecase' | 'boundary' // DCU
           | 'class' | 'interface' // DC
-          | 'start' | 'end' | 'activity' | 'decision' | 'fork' | 'swimlane'; // DA
-        type EdgeType = 'association' | 'directed_association' | 'generalization' | 'implementation' | 'include' | 'extend' | 'aggregation' | 'composition' | 'dependency' | 'control';
+          | 'start' | 'end' | 'activity' | 'decision' | 'fork' | 'swimlane' // DA
+          | 'note'; // Todos: nota UML
+        type EdgeType = 'association' | 'directed_association' | 'generalization' | 'implementation' | 'include' | 'extend' | 'aggregation' | 'composition' | 'dependency' | 'control' | 'note_link';
         type PathType = 'straight' | 'orthogonal';
         type ResizeHandleType = 'nw' | 'ne' | 'sw' | 'se' | 'n' | 's' | 'e' | 'w';
 
@@ -113,6 +114,9 @@
           sourceRole?: string; // DC: nombre de rol en cada extremo de una asociación
           targetRole?: string;
           condition?: string; // Solo en <<extend>>: situación en la que se produce la extensión
+          conditionAsNote?: boolean; // Mostrar la condición en una nota (notación oficial de UML)
+          extensionPoint?: string; // Punto de extensión (opcional, solo en la nota)
+          conditionNoteOffset?: Point; // Posición de la nota respecto al punto medio de la relación
           targetLabel?: string;
           waypoints?: Point[];
           selected?: boolean;
@@ -444,6 +448,19 @@
             ? { ...ed, waypoints: validWaypoints(ed).map(p => ({ x: p.x + dx, y: p.y + dy })) } : ed);
 
         const nodeCenter = (n) => ({ x: n.x + n.width / 2, y: n.y + n.height / 2 });
+        const wrapText = (text, width) => {
+            const max = Math.max(4, Math.floor(width / 6));
+            return (text || '').split('\n').flatMap(par => {
+                const lines = [];
+                let line = '';
+                par.split(/\s+/).forEach(word => {
+                    while (word.length > max) { if (line) { lines.push(line); line = ''; } lines.push(word.slice(0, max)); word = word.slice(max); }
+                    if (!line) line = word; else if ((line + ' ' + word).length <= max) line += ' ' + word; else { lines.push(line); line = word; }
+                });
+                lines.push(line);
+                return lines;
+            });
+        };
         const isBar = (n) => n.type === 'fork' || n.type === 'join';
 
         // Quita los puntos repetidos seguidos (un tramo de longitud cero desorientaría la flecha final)
@@ -527,6 +544,9 @@
         };
 
         const getValidConnectionTypes = (source: NodeData, target: NodeData, diagramType: DiagramType): EdgeType[] => {
+            if (source.type === 'note' || target.type === 'note') {
+                return (source.id === target.id || (source.type === 'note' && target.type === 'note')) ? [] : ['note_link'];
+            }
             // Restricción reflexiva en DC: Solo permitir Clases
             if (source.id === target.id) {
                 if (diagramType === 'dc') {
@@ -807,7 +827,7 @@
                 });
 
                 if (types.length > 1) types.forEach(t => {
-                    if (touching(t.id).length === 0) add('warning', 'aislada', `${describeNode(t)} no tiene ninguna relación con el resto del diagrama.`, [t.id]);
+                    if (touching(t.id).filter(e => e.type !== 'note_link').length === 0) add('warning', 'aislada', `${describeNode(t)} no tiene ninguna relación con el resto del diagrama.`, [t.id]);
                 });
             }
 
@@ -815,7 +835,7 @@
             if (diagram?.type === 'da') {
                 const flows = edgesOfType('control');
                 const starts = ofType('start'), ends = ofType('end');
-                const flowNodes = nodes.filter(n => n.type !== 'swimlane');
+                const flowNodes = nodes.filter(n => n.type !== 'swimlane' && n.type !== 'note');
 
                 if (flowNodes.length > 0 && starts.length === 0) add('error', 'sin-inicio', 'Falta el nodo inicial: todo diagrama de actividad empieza en uno.');
                 if (starts.length > 1) add('warning', 'varios-inicios', `Hay ${starts.length} nodos iniciales; lo habitual es que la actividad empiece en uno solo.`, starts.map(n => n.id));
@@ -875,6 +895,7 @@
                 if (diagramType === 'da') return 'Un flujo no puede salir y volver al mismo elemento. Para repetir una acción, usa una decisión y un nodo de fusión (herramienta «Decisión / Fusión»).';
                 return 'Un elemento no puede relacionarse consigo mismo en un diagrama de casos de uso.';
             }
+            if (source.type === 'note' && target.type === 'note') return 'Una nota se une a los elementos que comenta, no a otras notas.';
             if (source.type === 'boundary' || target.type === 'boundary') return 'El límite del sistema no se conecta con nada: coloca los casos de uso dentro de él y relaciónalos con los actores.';
             if (source.type === 'swimlane' || target.type === 'swimlane') return 'Los carriles no se conectan con flujos: coloca las acciones dentro del carril que las realiza y conecta las acciones entre sí.';
             if (diagramType === 'dc' && source.type === 'interface' && target.type === 'class') return `Una interfaz no puede heredar de una clase ni depender de ella. Si «${target.text}» implementa «${source.text}», crea la relación desde la clase hacia la interfaz.`;
@@ -905,6 +926,7 @@
             if (type === 'composition') return 'Composición';
             if (type === 'aggregation') return 'Agregación';
             if (type === 'dependency') return 'Dependencia';
+            if (type === 'note_link') return 'Enlace de nota';
             if (type === 'control') return 'Flujo de control';
             return type.charAt(0).toUpperCase() + type.slice(1);
         }
@@ -925,7 +947,7 @@
             </button>
         );
 
-        const RenameModal = ({ isOpen, initialText, title, onSave, onClose, isDarkMode }) => {
+        const RenameModal = ({ isOpen, initialText, title, onSave, onClose, isDarkMode, multiline = false }) => {
             const [text, setText] = useState(initialText);
             const inputRef = useRef(null);
 
@@ -950,6 +972,20 @@
                             <Edit2 size={18} className="text-blue-500"/>
                             {title}
                         </h3>
+                        {multiline ? (<>
+                            <textarea
+                                ref={inputRef}
+                                rows={5}
+                                className={`w-full p-2 rounded border mb-1 focus:ring-2 focus:ring-blue-500 outline-none ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-black'}`}
+                                value={text}
+                                onChange={e => setText(e.target.value)}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) onSave(text);
+                                    if (e.key === 'Escape') onClose();
+                                }}
+                            />
+                            <p className="text-xs opacity-60 mb-4">Intro: nueva línea · {MOD_KEY}+Intro: guardar</p>
+                        </>) : (
                         <input
                             ref={inputRef}
                             type="text"
@@ -961,6 +997,7 @@
                                 if (e.key === 'Escape') onClose();
                             }}
                         />
+                        )}
                         <div className="flex justify-end space-x-2">
                             <button
                                 onClick={onClose}
@@ -1240,6 +1277,8 @@
           const touchPointsRef = useRef(new Map());
           // Punto de paso que se está arrastrando ({ edgeId, index }) y últimos clics, para detectar el doble clic
           const [draggingWaypoint, setDraggingWaypoint] = useState(null);
+          // Nota de la condición de un <<extend>> que se está arrastrando ({ edgeId, start, offset })
+          const [draggingCondNote, setDraggingCondNote] = useState(null);
           const lastEdgeClickRef = useRef({ id: '', time: 0 });
           const lastHandleClickRef = useRef({ key: '', time: 0 });
           const gestureRef = useRef(null);
@@ -1776,6 +1815,7 @@
                 else { w = 40; h = 40; txt = ""; }
             }
             else if (tool === 'actor') { w = 40; h = 80; txt = "Actor"; }
+            else if (tool === 'note') { w = 160; h = 70; z = 3; txt = "Nota"; }
 
             const newNode = { id: generateId(), type: tool, x: pos.x - w / 2, y: pos.y - h / 2, width: w, height: h, text: txt, attributes: tool === 'class' ? ['- atributo: tipo'] : [], methods: tool === 'class' ? ['+ metodo(): void'] : [], zIndex: z, selected: true };
             const updatedNodes = nodes.map(n => ({ ...n, selected: false }));
@@ -1802,6 +1842,12 @@
           const handleMouseMove = (e) => {
             if (isDragging && (tool === 'pan' || e.buttons === 4 || e.altKey)) { const dx = e.clientX - dragStart.x, dy = e.clientY - dragStart.y; setPan(prev => ({ x: prev.x + dx, y: prev.y + dy })); setDragStart({ x: e.clientX, y: e.clientY }); return; }
             const pos = getMousePos(e);
+
+            if (draggingCondNote) {
+                const { edgeId, start, offset } = draggingCondNote;
+                setEdges(edges.map(ed => ed.id === edgeId ? { ...ed, conditionNoteOffset: { x: offset.x + pos.x - start.x, y: offset.y + pos.y - start.y } } : ed));
+                return;
+            }
 
             if (draggingWaypoint) {
                 const edge = edges.find(ed => ed.id === draggingWaypoint.edgeId);
@@ -1928,7 +1974,7 @@
                 return o && (o.x !== n.x || o.y !== n.y || o.width !== n.width || o.height !== n.height);
             }) || edges.some(ed => {
                 const o = snap.edges.find(p => p.id === ed.id);
-                return !o || JSON.stringify(validWaypoints(o)) !== JSON.stringify(validWaypoints(ed));
+                return !o || JSON.stringify(validWaypoints(o)) !== JSON.stringify(validWaypoints(ed)) || JSON.stringify(o.conditionNoteOffset || null) !== JSON.stringify(ed.conditionNoteOffset || null);
             });
             if (changed) setHistory(prev => ({ past: [...prev.past, snap].slice(-MAX_HISTORY), future: [] }));
           };
@@ -1943,7 +1989,7 @@
               const snap = dragSnapshotRef.current;
               if (snap) { setNodes(snap.nodes); setEdges(snap.edges); dragSnapshotRef.current = null; }
               setIsDragging(false); setIsResizing(false); setResizeHandle(null); setActiveNodeId(null);
-              setInitialNodeGeom(null); setSelectionBox(null); setSmartGuides([]); setDraggingWaypoint(null);
+              setInitialNodeGeom(null); setSelectionBox(null); setSmartGuides([]); setDraggingWaypoint(null); setDraggingCondNote(null);
           };
 
           const handlePointerDownCapture = (e) => {
@@ -1994,7 +2040,7 @@
               }
           };
 
-          const handleMouseUp = () => { commitDragHistory(); if (draggingWaypoint) { setDraggingWaypoint(null); saveCurrentDiagram(nodes, edges); } setIsDragging(false); setIsResizing(false); setResizeHandle(null); setActiveNodeId(null); setInitialNodeGeom(null); setSelectionBox(null); setSmartGuides([]); if (isDragging || isResizing) saveCurrentDiagram(nodes, edges); };
+          const handleMouseUp = () => { commitDragHistory(); if (draggingWaypoint || draggingCondNote) { setDraggingWaypoint(null); setDraggingCondNote(null); saveCurrentDiagram(nodes, edges); } setIsDragging(false); setIsResizing(false); setResizeHandle(null); setActiveNodeId(null); setInitialNodeGeom(null); setSelectionBox(null); setSmartGuides([]); if (isDragging || isResizing) saveCurrentDiagram(nodes, edges); };
           // Listener nativo no pasivo: el onWheel de React es pasivo y no puede impedir el zoom de la página con Ctrl+rueda
           // Copia de zoom y desplazamiento accesible desde el listener (que se registra una sola vez)
           const viewRef = useRef({ scale: 1, pan: { x: 0, y: 0 } });
@@ -2153,7 +2199,7 @@
                         if (defaultType === 'extend') label = '<<extend>>';
                         if (activeDiagram?.type === 'dcu' && (defaultType === 'association' || defaultType === 'generalization')) label = '';
 
-                        const defaultPathType = activeDiagram?.type === 'da' ? 'orthogonal' : 'straight';
+                        const defaultPathType = activeDiagram?.type === 'da' && defaultType !== 'note_link' ? 'orthogonal' : 'straight';
 
                         updateDiagramState(nodes, [...edges, { id: generateId(), source: connectingNodeId, target: node.id, type: defaultType, pathType: defaultPathType, label }]);
                         setConnectingNodeId(null); setTool('select');
@@ -2235,6 +2281,17 @@
                     case 'start': return <circle cx={node.width/2} cy={node.height/2} r={15} fill="black" />;
                     case 'end': return (<g><circle cx={node.width/2} cy={node.height/2} r={15} fill="transparent" stroke={strokeColor} strokeWidth={2}/><circle cx={node.width/2} cy={node.height/2} r={10} fill="black"/></g>);
                     case 'decision': return (<g><polygon points={`${node.width/2},0 ${node.width},${node.height/2} ${node.width/2},${node.height} 0,${node.height/2}`} fill={fill} stroke={strokeColor} strokeWidth={strokeWidth}/><text x={node.width/2} y={node.height/2+4} textAnchor="middle" fill={textFill} fontSize={10}>{node.text}</text></g>);
+                    case 'note': {
+                        const fold = 12, lines = wrapText(node.text, node.width - 16);
+                        const maxLines = Math.max(1, Math.floor((node.height - 10) / 13));
+                        return (<g>
+                            <path d={`M0,0 H${node.width - fold} L${node.width},${fold} V${node.height} H0 Z`} fill={isDarkMode ? '#3a351c' : '#fefce8'} stroke={strokeColor} strokeWidth={strokeWidth}/>
+                            <path d={`M${node.width - fold},0 V${fold} H${node.width}`} fill="none" stroke={strokeColor} strokeWidth={strokeWidth}/>
+                            {lines.slice(0, maxLines).map((l, i) => (
+                                <text key={i} x={8} y={17 + i * 13} fill={textFill} fontSize={11} style={{ pointerEvents: 'none' }}>{i === maxLines - 1 && lines.length > maxLines ? l.replace(/.?$/, '…') : l}</text>
+                            ))}
+                        </g>);
+                    }
                     case 'fork': return (<g>
                         <rect x={-6} y={-6} width={node.width + 12} height={node.height + 12} fill="transparent" />
                         <rect width={node.width} height={node.height} fill="black" stroke="none" />
@@ -2247,6 +2304,8 @@
             return ( <g transform={`translate(${node.x},${node.y})`} {...commonProps}> {renderNodeContent()} {isSelected && tool === 'select' && renderResizeHandles(node)} </g> );
           };
 
+          // Notas de condición de los <<extend>>: se preparan al dibujar las relaciones y se pintan encima de los elementos
+          const conditionNotes = [];
           const renderEdges = () => {
             // Posición de cada relación dentro de su grupo (mismo par de nodos), para dibujar separadas las paralelas
             const groupIndex = {}, groupSize = {};
@@ -2389,8 +2448,9 @@
                 if (edge.type === 'include' || edge.type === 'extend') marker = `url(#arrow-dependency${edgeSelected ? '-selected' : ''})`;
                 if (edge.type === 'implementation') marker = `url(#arrow-generalization${edgeSelected ? '-selected' : ''})`;
                 if (edge.type === 'control') marker = `url(#arrow-directed_association${edgeSelected ? '-selected' : ''})`;
+                if (edge.type === 'note_link') marker = '';
 
-                const dashed = ['include', 'extend', 'dependency', 'implementation'].includes(edge.type) ? "5,5" : "";
+                const dashed = ['include', 'extend', 'dependency', 'implementation'].includes(edge.type) ? "5,5" : edge.type === 'note_link' ? "3,3" : "";
                 const showLabel = activeDiagram?.type === 'dcu' ? (edge.type === 'include' || edge.type === 'extend') : (edge.label || edge.type === 'include' || edge.type === 'extend');
 
                 const strokeColor = edgeSelected ? COLORS.selection : (isDarkMode ? '#9ca3af' : '#4b5563');
@@ -2460,7 +2520,34 @@
                         <path d={d} fill="none" stroke="transparent" strokeWidth={touchMode ? 28 : 15} />
                         <path d={d} fill="none" stroke={strokeColor} strokeWidth={2} markerEnd={marker} strokeDasharray={dashed} />
                         {showLabel && <text x={labelPos.x} y={labelPos.y} textAnchor={labelAnchor} {...textStyle} strokeWidth="4px" style={{}}>{edge.label}</text>}
-                        {edge.type === 'extend' && extendCondition(edge) && (
+                        {edge.type === 'extend' && extendCondition(edge) && edge.conditionAsNote && void conditionNotes.push((() => {
+                            // Notación oficial de UML: nota unida a la relación con «Condition: {…}» y, si lo hay, «extension point: …»
+                            const lines = [`Condition: {${extendCondition(edge)}}`, ...((edge.extensionPoint || '').trim() ? [`extension point: ${edge.extensionPoint.trim()}`] : [])].flatMap(l => wrapText(l, 184));
+                            // Por defecto, a 90 px del punto medio en perpendicular a la relación, por su lado derecho
+                            const len = Math.hypot(end.x - start.x, end.y - start.y) || 1;
+                            let px = -(end.y - start.y) / len, py = (end.x - start.x) / len;
+                            if (px < 0 || (px === 0 && py < 0)) { px = -px; py = -py; }
+                            const co = edge.conditionNoteOffset, off = (co && Number.isFinite(co.x) && Number.isFinite(co.y)) ? co : { x: px * 110, y: py * 90 }, w = 200, h = 12 + lines.length * 13, fold = 10;
+                            const nx = mid.x + off.x - w / 2, ny = mid.y + off.y - h / 2;
+                            const anchor = calculatePerimeterPoint({ type: 'note', x: nx, y: ny, width: w, height: h }, mid);
+                            return (
+                                <g key={`cond-${edge.id}`} onPointerDown={(e) => {
+                                    if (tool !== 'select' || e.button !== 0 || e.altKey) return;
+                                    e.stopPropagation();
+                                    setNodes(nodes.map(n => ({ ...n, selected: false })));
+                                    setEdges(edges.map(ed => ({ ...ed, selected: ed.id === edge.id })));
+                                    dragSnapshotRef.current = { nodes, edges };
+                                    setDraggingCondNote({ edgeId: edge.id, start: getMousePos(e), offset: off });
+                                }} style={{ cursor: 'move' }}>
+                                    <line x1={anchor.x} y1={anchor.y} x2={mid.x} y2={mid.y} stroke={strokeColor} strokeWidth={1.5} strokeDasharray="3,3"/>
+                                    <path d={`M${nx},${ny} H${nx + w - fold} L${nx + w},${ny + fold} V${ny + h} H${nx} Z`} fill={isDarkMode ? '#3a351c' : '#fefce8'} stroke={strokeColor} strokeWidth={1}/>
+                                    <path d={`M${nx + w - fold},${ny} V${ny + fold} H${nx + w}`} fill="none" stroke={strokeColor} strokeWidth={1}/>
+                                    {lines.map((l, i) => <text key={i} x={nx + 8} y={ny + 16 + i * 13} fill={isDarkMode ? COLORS.textDark : COLORS.text} fontSize={11}>{l}</text>)}
+                                    <title>Arrastra para colocar la nota</title>
+                                </g>
+                            );
+                        })())}
+                        {edge.type === 'extend' && extendCondition(edge) && !edge.conditionAsNote && (
                             // Condición de la extensión (en UML, una restricción: va entre llaves), bajo la línea; en relaciones paralelas, bajo el estereotipo
                             <text x={offset === 0 && !polyMid?.vertical ? mid.x : labelPos.x} y={offset === 0 && !polyMid?.vertical ? mid.y + 16 : labelPos.y + 13} textAnchor={offset === 0 && !polyMid?.vertical ? 'middle' : labelAnchor} {...textStyle} fontWeight={400} fontStyle="italic" strokeWidth="4px">{`{${extendCondition(edge)}}`}</text>
                         )}
@@ -2633,7 +2720,7 @@
                     ))}
                 </div>
 
-                <div className="flex-1 p-2 overflow-y-auto border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"> <h3 className="text-xs font-semibold uppercase tracking-wider mb-2 opacity-50 ml-2">Herramientas</h3> <div className="grid grid-cols-2 gap-2"> <button onClick={() => setTool('select')} title="Seleccionar (Esc)" className={`p-2 rounded flex flex-col items-center justify-center border ${tool === 'select' ? 'bg-blue-50 border-blue-500 text-blue-600' : 'border-transparent hover:bg-gray-200 dark:hover:bg-gray-800'}`}> <MousePointer2 size={20} /> <span className="text-[10px] mt-1">Seleccionar</span> </button> <button onClick={() => setTool('pan')} title="Mover el lienzo (también con botón central o Alt+arrastrar)" className={`p-2 rounded flex flex-col items-center justify-center border ${tool === 'pan' ? 'bg-blue-50 border-blue-500 text-blue-600' : 'border-transparent hover:bg-gray-200 dark:hover:bg-gray-800'}`}> <Move size={20} /> <span className="text-[10px] mt-1">Mover Lienzo</span> </button> </div> <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4"> {activeDiagram ? ( <> <p className="text-xs text-center mb-2 font-mono opacity-50">{activeDiagram.type === 'dcu' ? 'Casos de Uso' : activeDiagram.type === 'dc' ? 'Clases' : 'Actividad'}</p> <div className="grid grid-cols-2 gap-2"> {activeDiagram.type === 'dcu' && ( <> <ToolBtn icon={<User/>} label="Actor" onClick={() => setTool('actor')} active={tool === 'actor'} /> <ToolBtn icon={<Circle/>} label="Caso Uso" onClick={() => setTool('usecase')} active={tool === 'usecase'} /> <ToolBtn icon={<Square/>} label="Límite" onClick={() => setTool('boundary')} active={tool === 'boundary'} /> </> )} {activeDiagram.type === 'dc' && ( <> <ToolBtn icon={<ClassToolIcon/>} label="Clase" onClick={() => setTool('class')} active={tool === 'class'} /> <ToolBtn icon={<InterfaceToolIcon/>} label="Interfaz" onClick={() => setTool('interface')} active={tool === 'interface'} /> </> )} {activeDiagram.type === 'da' && ( <> <ToolBtn icon={<Circle className="fill-current"/>} label="Inicio" onClick={() => setTool('start')} active={tool === 'start'} /> <ToolBtn icon={<Circle className="border-2"/>} label="Fin" onClick={() => setTool('end')} active={tool === 'end'} /> <ToolBtn icon={<Square className="rounded-lg"/>} label="Actividad" onClick={() => setTool('activity')} active={tool === 'activity'} /> <ToolBtn icon={<Diamond/>} label="Decisión / Fusión" title="Decisión: una entrada y varias salidas, cada una con su guarda ([sí] / [no]). Fusión: varias entradas y una salida, sin guardas." onClick={() => setTool('decision')} active={tool === 'decision'} /> <ToolBtn icon={<Minus className="rotate-90"/>} label="Bifurcación / Unión" title="Bifurcación: una entrada y varias salidas que se ejecutan a la vez. Unión: varias entradas; espera a que lleguen todas." onClick={() => setTool('fork')} active={tool === 'fork'} /> <ToolBtn icon={<GripVertical/>} label="Carril" onClick={() => setTool('swimlane')} active={tool === 'swimlane'} /> </> )} </div> </> ) : ( <p className="text-sm text-center opacity-50 mt-10">Selecciona o crea un diagrama para ver las herramientas.</p> )} </div> </div>
+                <div className="flex-1 p-2 overflow-y-auto border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"> <h3 className="text-xs font-semibold uppercase tracking-wider mb-2 opacity-50 ml-2">Herramientas</h3> <div className="grid grid-cols-2 gap-2"> <button onClick={() => setTool('select')} title="Seleccionar (Esc)" className={`p-2 rounded flex flex-col items-center justify-center border ${tool === 'select' ? 'bg-blue-50 border-blue-500 text-blue-600' : 'border-transparent hover:bg-gray-200 dark:hover:bg-gray-800'}`}> <MousePointer2 size={20} /> <span className="text-[10px] mt-1">Seleccionar</span> </button> <button onClick={() => setTool('pan')} title="Mover el lienzo (también con botón central o Alt+arrastrar)" className={`p-2 rounded flex flex-col items-center justify-center border ${tool === 'pan' ? 'bg-blue-50 border-blue-500 text-blue-600' : 'border-transparent hover:bg-gray-200 dark:hover:bg-gray-800'}`}> <Move size={20} /> <span className="text-[10px] mt-1">Mover Lienzo</span> </button> </div> <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4"> {activeDiagram ? ( <> <p className="text-xs text-center mb-2 font-mono opacity-50">{activeDiagram.type === 'dcu' ? 'Casos de Uso' : activeDiagram.type === 'dc' ? 'Clases' : 'Actividad'}</p> <div className="grid grid-cols-2 gap-2"> {activeDiagram.type === 'dcu' && ( <> <ToolBtn icon={<User/>} label="Actor" onClick={() => setTool('actor')} active={tool === 'actor'} /> <ToolBtn icon={<Circle/>} label="Caso Uso" onClick={() => setTool('usecase')} active={tool === 'usecase'} /> <ToolBtn icon={<Square/>} label="Límite" onClick={() => setTool('boundary')} active={tool === 'boundary'} /> </> )} {activeDiagram.type === 'dc' && ( <> <ToolBtn icon={<ClassToolIcon/>} label="Clase" onClick={() => setTool('class')} active={tool === 'class'} /> <ToolBtn icon={<InterfaceToolIcon/>} label="Interfaz" onClick={() => setTool('interface')} active={tool === 'interface'} /> </> )} {activeDiagram.type === 'da' && ( <> <ToolBtn icon={<Circle className="fill-current"/>} label="Inicio" onClick={() => setTool('start')} active={tool === 'start'} /> <ToolBtn icon={<Circle className="border-2"/>} label="Fin" onClick={() => setTool('end')} active={tool === 'end'} /> <ToolBtn icon={<Square className="rounded-lg"/>} label="Actividad" onClick={() => setTool('activity')} active={tool === 'activity'} /> <ToolBtn icon={<Diamond/>} label="Decisión / Fusión" title="Decisión: una entrada y varias salidas, cada una con su guarda ([sí] / [no]). Fusión: varias entradas y una salida, sin guardas." onClick={() => setTool('decision')} active={tool === 'decision'} /> <ToolBtn icon={<Minus className="rotate-90"/>} label="Bifurcación / Unión" title="Bifurcación: una entrada y varias salidas que se ejecutan a la vez. Unión: varias entradas; espera a que lleguen todas." onClick={() => setTool('fork')} active={tool === 'fork'} /> <ToolBtn icon={<GripVertical/>} label="Carril" onClick={() => setTool('swimlane')} active={tool === 'swimlane'} /> </> )} <ToolBtn icon={<StickyNote/>} label="Nota" title="Nota UML: un comentario que se une con línea discontinua al elemento que explica" onClick={() => setTool('note')} active={tool === 'note'} /> </div> </> ) : ( <p className="text-sm text-center opacity-50 mt-10">Selecciona o crea un diagrama para ver las herramientas.</p> )} </div> </div>
             </div>
           );
 
@@ -2755,7 +2842,12 @@
 
                     {sN.length === 1 && (
                         <div className="space-y-4">
-                            <div> <label className="block text-xs font-medium mb-1">Texto / Nombre</label> <input type="text" value={sN[0].text} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes.map(n => n.id === sN[0].id ? { ...n, text: e.target.value } : n), edges)} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/> </div>
+                            {sN[0].type === 'note' ? (
+                                <div> <label className="block text-xs font-medium mb-1">Texto de la nota</label> <textarea rows={4} value={sN[0].text} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes.map(n => n.id === sN[0].id ? { ...n, text: e.target.value } : n), edges)} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/>
+                                    <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Únela al elemento que comenta con «Conectar con...» (línea discontinua).</p> </div>
+                            ) : (
+                                <div> <label className="block text-xs font-medium mb-1">Texto / Nombre</label> <input type="text" value={sN[0].text} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes.map(n => n.id === sN[0].id ? { ...n, text: e.target.value } : n), edges)} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/> </div>
+                            )}
                             {(sN[0].type === 'class' || sN[0].type === 'interface') && ( <>
                                 {sN[0].type === 'class' && (
                                     <div className="flex items-center space-x-2">
@@ -2799,7 +2891,7 @@
                         <div className="space-y-4">
                             {activeDiagram?.type === 'da' ? (
                                 <div className={`p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600 text-gray-400' : 'bg-gray-50 border-gray-300 text-gray-600'}`}>
-                                    Tipo: <span className="font-semibold">Flujo de control</span>
+                                    Tipo: <span className="font-semibold">{sE[0].type === 'note_link' ? 'Enlace de nota' : 'Flujo de control'}</span>
                                 </div>
                             ) : (
                                 <div> <label className="block text-xs font-medium mb-1">Tipo de conexión</label> <select value={sE[0].type} onChange={(e) => { const nt = e.target.value; let nl = sE[0].label; if (nt === 'include') nl = '<<include>>'; else if (nt === 'extend') nl = '<<extend>>'; else if (activeDiagram?.type === 'dcu' && (nt === 'association' || nt === 'generalization')) nl = ''; else if (sE[0].type === 'include' || sE[0].type === 'extend') nl = ''; updateDiagramState(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, type: nt, label: nl } : ed)) }} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}> {allowed.map(t => ( <option key={t.value} value={t.value}>{t.label}</option> ))} </select> </div>
@@ -2823,6 +2915,17 @@
                                     <label className="block text-xs font-medium mb-1">Condición de la extensión</label>
                                     <input type="text" placeholder="p. ej. el cliente pulsa Ayuda" value={sE[0].condition || ''} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, condition: e.target.value } : ed))} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/>
                                     <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Situación en la que el caso de uso extendido se ejecuta. Se muestra entre llaves junto a la relación, como las restricciones de UML.</p>
+                                    <label className="flex items-center gap-2 text-xs mt-2 cursor-pointer">
+                                        <input type="checkbox" checked={!!sE[0].conditionAsNote} onChange={(e) => updateDiagramState(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, conditionAsNote: e.target.checked } : ed))} className="rounded text-blue-600 focus:ring-blue-500"/>
+                                        Mostrar en una nota (notación oficial de UML)
+                                    </label>
+                                    {sE[0].conditionAsNote && (
+                                        <div className="mt-2">
+                                            <label className="block text-xs font-medium mb-1">Punto de extensión (opcional)</label>
+                                            <input type="text" placeholder="p. ej. Comprobar disponibilidad" value={sE[0].extensionPoint || ''} onFocus={beginTextEdit} onChange={(e) => updateFromTextEdit(nodes, edges.map(ed => ed.id === sE[0].id ? { ...ed, extensionPoint: e.target.value } : ed))} className={`w-full p-2 rounded text-sm border ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-300'}`}/>
+                                            <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Lugar del caso base donde se inserta la extensión. Arrastra la nota para colocarla.</p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -2923,6 +3026,7 @@
                             {nodes.filter(n => n.zIndex === 0).map(renderNode)}
                             {renderEdges()}
                             {nodes.filter(n => n.zIndex > 0).map(renderNode)}
+                            {conditionNotes}
                             {renderWaypointHandles()}
                             {smartGuides.map((guide, i) => ( guide.type === 'x' ? <line key={i} x1={guide.pos} y1={-10000} x2={guide.pos} y2={10000} stroke="#ef4444" strokeWidth={1} strokeDasharray="4,2"/> : <line key={i} x1={-10000} y1={guide.pos} x2={10000} y2={guide.pos} stroke="#ef4444" strokeWidth={1} strokeDasharray="4,2"/> ))}
                             {selectionBox && ( <rect x={Math.min(selectionBox.start.x, selectionBox.end.x)} y={Math.min(selectionBox.start.y, selectionBox.end.y)} width={Math.abs(selectionBox.end.x - selectionBox.start.x)} height={Math.abs(selectionBox.end.y - selectionBox.start.y)} fill={COLORS.selection} fillOpacity={0.1} stroke={COLORS.selection} /> )}
@@ -2945,6 +3049,7 @@
                     <RenameModal
                         isOpen={editingLabelId !== null}
                         initialText={editingLabelText}
+                        multiline={nodes.find(n => n.id === editingLabelId)?.type === 'note'}
                         title="Editar Texto"
                         onClose={() => setEditingLabelId(null)}
                         onSave={(newText) => {

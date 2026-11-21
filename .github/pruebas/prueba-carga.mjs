@@ -107,6 +107,9 @@ try {
     const asociacion = (await trazados('Puntos de paso')).find(t => t.etiquetas.includes('realiza'));
     if (!asociacion?.d.includes('L 80 180 L 480 180')) errores.push(`La asociación no pasa por sus puntos de paso (trazado: ${asociacion?.d || 'no encontrado'})`);
     if (!(asociacion?.etiquetas.includes('pedidos') && asociacion?.etiquetas.includes('cliente'))) errores.push('La asociación no muestra sus nombres de rol (pedidos, cliente)');
+    // Notas: la condición del <<extend>> en una nota con la notación oficial
+    const textosDCU = (await trazados('Revisión DCU (con errores)')).flatMap(t => t.etiquetas).concat(await pagina.evaluate(() => [...document.querySelectorAll('svg text')].map(t => t.textContent)));
+    if (!textosDCU.some(t => t.startsWith('Condition: {el cliente')) || !textosDCU.some(t => t.startsWith('extension point: Pagar'))) errores.push('La condición del <<extend>> no se muestra en una nota (trazado)');
     // Barras: los flujos hacia acciones dentro de su longitud son tramos rectos perpendiculares (dos puntos, misma x)
     const rectos = (await trazados('Concurrencia (correcto)')).map(t => puntosDe(t.d)).filter(p => p.length === 2 && Math.abs(p[0][0] - p[1][0]) < 0.5);
     if (rectos.length < 6) errores.push(`Los flujos de las barras de bifurcación y unión no son perpendiculares (solo ${rectos.length} de 6 tramos rectos; trazado)`);

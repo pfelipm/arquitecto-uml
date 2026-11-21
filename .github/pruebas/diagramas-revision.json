@@ -498,7 +498,9 @@
        "type": "extend",
        "pathType": "straight",
        "label": "<<extend>>",
-       "condition": "el cliente tiene un cupón"
+       "condition": "el cliente tiene un cupón",
+       "conditionAsNote": true,
+       "extensionPoint": "Pagar"
       }
      ]
     },
@@ -739,6 +741,16 @@
        "height": 30,
        "text": "",
        "zIndex": 2
+      },
+      {
+       "id": "nota",
+       "type": "note",
+       "x": 200,
+       "y": 90,
+       "width": 160,
+       "height": 60,
+       "text": "La cita se pide por teléfono o en la web.",
+       "zIndex": 3
       }
      ],
      "edges": [
@@ -795,6 +807,14 @@
        "source": "m",
        "target": "z",
        "type": "control",
+       "pathType": "straight",
+       "label": ""
+      },
+      {
+       "id": "nl",
+       "source": "nota",
+       "target": "o1",
+       "type": "note_link",
        "pathType": "straight",
        "label": ""
       }
