@@ -67,14 +67,16 @@
           AlertTriangle, X, Link2, ArrowLeftRight, Italic,
           FolderPlus, FilePlus, Layout, Upload, Image as ImageIcon,
           Info, Github, Linkedin, Keyboard, PenTool,
-          ListChecks, XCircle, Lightbulb, CheckCircle2, RouteOff, RotateCw, StickyNote
+          ListChecks, XCircle, Lightbulb, CheckCircle2, RouteOff, RotateCw, StickyNote,
+          AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal,
+          AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, StretchHorizontal, StretchVertical, CopyPlus
         } from 'lucide-react';
 
         // --- CÓDIGO ORIGINAL DE LA APP (Sin modificaciones lógicas) ---
 
         /**
          * ARQUITECTO SIMPLE UML - SUITE DE MODELADO
-         * Versión 9.0 "Notación"
+         * Versión 9.1 "Notación"
          */
 
         // --- TIPOS Y CONSTANTES ---
@@ -234,7 +236,7 @@
         const IS_DEV_BUILD = false;
 
         // Versión mostrada en «Acerca de» y guardada en las copias JSON. El nombre se decide al publicar
-        const APP_VERSION = '9.0';
+        const APP_VERSION = '9.1';
         const APP_VERSION_NAME = 'Notación';
         const APP_UPDATED = '21 de noviembre de 2026';
         const APP_VERSION_LABEL = `${APP_VERSION}${IS_DEV_BUILD ? '-dev' : ''}`;
@@ -1673,6 +1675,21 @@
               setDeleteConfirm({ type: 'diagram', folderId, diagramId: diagram.id, name: diagram.name });
           };
 
+          // Copia completa de un diagrama en la misma carpeta, justo debajo del original (ids nuevos)
+          const handleDuplicateDiagram = (folderId, diagram) => {
+              const idMap = {};
+              const nodesCopy = withoutSelection(diagram.nodes || []).map(n => { const id = generateId(); idMap[n.id] = id; return { ...n, id }; });
+              const edgesCopy = withoutSelection(diagram.edges || []).filter(e => idMap[e.source] && idMap[e.target]).map(e => ({ ...e, id: generateId(), source: idMap[e.source], target: idMap[e.target] }));
+              const copy = { ...diagram, id: generateId(), name: `${diagram.name} (copia)`, nodes: nodesCopy, edges: edgesCopy, createdAt: Date.now() };
+              setFolders(prev => prev.map(f => {
+                  if (f.id !== folderId) return f;
+                  const i = f.diagrams.findIndex(d => d.id === diagram.id);
+                  return { ...f, isOpen: true, diagrams: [...f.diagrams.slice(0, i + 1), copy, ...f.diagrams.slice(i + 1)] };
+              }));
+              setActiveDiagramId(copy.id);
+              showToast(`«${copy.name}» creado`, 'success');
+          };
+
           const handleRenameDiagramRequest = (diagram) => {
               setRenamingId({ type: 'diagram', id: diagram.id, initialText: diagram.name });
           };
@@ -1792,6 +1809,53 @@
             const newEdges = shiftWaypoints(clip.edges, new Set(clip.nodes.map(n => n.id)), offset, offset).map(ed => ({ ...ed, id: generateId(), source: idMap[ed.source], target: idMap[ed.target] }));
             updateDiagramState([...nodes.map(n => ({ ...n, selected: false })), ...newNodes], [...edges.map(ed => ({ ...ed, selected: false })), ...newEdges]);
             showToast(`${newNodes.length} elemento(s) pegado(s)`, 'success');
+          };
+
+          // Alinear, repartir e igualar el tamaño de los elementos seleccionados. Al alinear o repartir, los carriles
+          // y límites seleccionados arrastran su contenido, y los puntos de paso se mueven si sus dos extremos se
+          // desplazan lo mismo
+          const arrangeSelection = (op) => {
+              const sel = nodes.filter(n => n.selected);
+              if (sel.length < 2 || ((op === 'hdistribute' || op === 'vdistribute') && sel.length < 3)) return;
+              const minX = Math.min(...sel.map(n => n.x)), maxX = Math.max(...sel.map(n => n.x + n.width));
+              const minY = Math.min(...sel.map(n => n.y)), maxY = Math.max(...sel.map(n => n.y + n.height));
+              const geo = new Map();
+              const set = (n, g) => geo.set(n.id, { x: n.x, y: n.y, width: n.width, height: n.height, ...g });
+              const distribute = (axis) => {
+                  const [pos, size, min, max] = axis === 'x' ? ['x', 'width', minX, maxX] : ['y', 'height', minY, maxY];
+                  const sorted = [...sel].sort((a, b) => (a[pos] + a[size] / 2) - (b[pos] + b[size] / 2));
+                  const gap = (max - min - sorted.reduce((sum, n) => sum + n[size], 0)) / (sorted.length - 1);
+                  let p = min;
+                  sorted.forEach(n => { set(n, { [pos]: p }); p += n[size] + gap; });
+              };
+              const maxW = Math.max(...sel.map(n => n.width)), maxH = Math.max(...sel.map(n => n.height));
+              switch (op) {
+                  case 'left': sel.forEach(n => set(n, { x: minX })); break;
+                  case 'hcenter': sel.forEach(n => set(n, { x: (minX + maxX) / 2 - n.width / 2 })); break;
+                  case 'right': sel.forEach(n => set(n, { x: maxX - n.width })); break;
+                  case 'top': sel.forEach(n => set(n, { y: minY })); break;
+                  case 'vcenter': sel.forEach(n => set(n, { y: (minY + maxY) / 2 - n.height / 2 })); break;
+                  case 'bottom': sel.forEach(n => set(n, { y: maxY - n.height })); break;
+                  case 'hdistribute': distribute('x'); break;
+                  case 'vdistribute': distribute('y'); break;
+                  // Igualar al mayor, sin mover el centro
+                  case 'samewidth': sel.forEach(n => set(n, { width: maxW, x: n.x + (n.width - maxW) / 2 })); break;
+                  case 'sameheight': sel.forEach(n => set(n, { height: maxH, y: n.y + (n.height - maxH) / 2 })); break;
+                  default: return;
+              }
+              const delta = new Map();
+              sel.forEach(n => { const g = geo.get(n.id); delta.set(n.id, { x: g.x - n.x, y: g.y - n.y }); });
+              if (op !== 'samewidth' && op !== 'sameheight') {
+                  const selIds = new Set(sel.map(n => n.id));
+                  sel.filter(isContainer).forEach(c => containedIds([c], nodes, selIds).forEach(id => delta.set(id, delta.get(c.id))));
+              }
+              const newNodes = nodes.map(n => geo.has(n.id) ? { ...n, ...geo.get(n.id) } : delta.has(n.id) ? { ...n, x: n.x + delta.get(n.id).x, y: n.y + delta.get(n.id).y } : n);
+              const newEdges = edges.map(ed => {
+                  const a = delta.get(ed.source), b = delta.get(ed.target), wps = validWaypoints(ed);
+                  if (!a || !b || a.x !== b.x || a.y !== b.y || (!a.x && !a.y) || wps.length === 0) return ed;
+                  return { ...ed, waypoints: wps.map(p => ({ x: p.x + a.x, y: p.y + a.y })) };
+              });
+              updateDiagramState(newNodes, newEdges);
           };
 
           const deleteSelection = useCallback(() => {
@@ -2768,6 +2832,7 @@
 
                                             <div className="flex opacity-0 group-hover:opacity-100 ml-2 space-x-1">
                                                 <button className="hover:text-blue-500" onClick={(e) => { e.stopPropagation(); handleRenameDiagramRequest(d); }} title="Renombrar diagrama"><Edit2 size={12}/></button>
+                                                <button className="hover:text-blue-500" onClick={(e) => { e.stopPropagation(); handleDuplicateDiagram(f.id, d); }} title="Duplicar diagrama"><CopyPlus size={12}/></button>
                                                 <button className="hover:text-red-500" onClick={(e) => { e.stopPropagation(); handleDeleteDiagramRequest(f.id, d); }} title="Eliminar diagrama"><Trash2 size={12}/></button>
                                             </div>
                                         </div>
@@ -2887,6 +2952,25 @@
                                 <span className="text-2xl font-bold block">{sN.length}</span>
                                 <span className="text-xs opacity-75">elementos seleccionados</span>
                             </div>
+
+                            {(() => {
+                                const btn = `p-2 rounded flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed ${isDarkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`;
+                                const groups = [
+                                    ['Alinear', [['left', AlignStartVertical, 'Alinear a la izquierda'], ['hcenter', AlignCenterVertical, 'Centrar en horizontal'], ['right', AlignEndVertical, 'Alinear a la derecha'], ['top', AlignStartHorizontal, 'Alinear arriba'], ['vcenter', AlignCenterHorizontal, 'Centrar en vertical'], ['bottom', AlignEndHorizontal, 'Alinear abajo']]],
+                                    ['Repartir', [['hdistribute', AlignHorizontalDistributeCenter, 'Repartir en horizontal con la misma separación (3 o más elementos)'], ['vdistribute', AlignVerticalDistributeCenter, 'Repartir en vertical con la misma separación (3 o más elementos)']]],
+                                    ['Igualar tamaño', [['samewidth', StretchHorizontal, 'Igualar el ancho (al mayor)'], ['sameheight', StretchVertical, 'Igualar el alto (al mayor)']]],
+                                ];
+                                return groups.map(([title, items]) => (
+                                    <div key={title}>
+                                        <label className="block text-xs font-medium mb-1">{title}</label>
+                                        <div className="grid grid-cols-6 gap-1">
+                                            {items.map(([op, Icon, tip]) => (
+                                                <button key={op} onClick={() => arrangeSelection(op)} title={tip} aria-label={tip} disabled={(op === 'hdistribute' || op === 'vdistribute') && sN.length < 3} className={btn}><Icon size={16}/></button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ));
+                            })()}
 
                             <button onClick={duplicateSelection} className={`w-full py-2 rounded text-sm font-medium flex items-center justify-center gap-2 transition-all ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'}`}>
                                 <Copy size={14}/> Duplicar Selección <span className="opacity-60 text-xs">({MOD_KEY}+D)</span>

@@ -1,12 +1,26 @@
 # Mejoras propuestas
 
-Ideas para próximas versiones de Arquitecto Simple UML, recogidas a partir de la versión 7.7 "Compartir" y actualizadas tras la versión 9.0 "Notación" (21 de noviembre de 2026). Todas son compatibles con la distribución en un único archivo `index.html` insertado en Google Sites, salvo que se indique lo contrario. Los números identifican cada mejora y no cambian aunque cambie el orden.
+Ideas para próximas versiones de Arquitecto Simple UML, recogidas a partir de la versión 7.7 "Compartir" y actualizadas tras la versión 9.1 "Notación" (21 de noviembre de 2026). Todas son compatibles con la distribución en un único archivo `index.html` insertado en Google Sites, salvo que se indique lo contrario. Los números identifican cada mejora y no cambian aunque cambie el orden.
 
 Esfuerzo orientativo: **bajo** (unas horas), **medio** (un día aproximadamente), **alto** (varios días).
 
 ## Próximas mejoras
 
 (Ninguna por ahora.)
+
+## Posibles (no para este curso)
+
+### 16. Comparar con una solución
+- El profesorado comparte la solución con un enlace y el alumno la compara con su diagrama: la aplicación lista lo que falta, lo que sobra y lo que difiere (clases, atributos, relaciones, multiplicidades), comparando por nombre. Complementaría «Revisar diagrama», que comprueba la forma, con una comprobación del contenido frente a un enunciado concreto.
+- **Esfuerzo:** medio-alto.
+
+### 17. Exportar a PlantUML o Mermaid
+- Generar el código de texto del diagrama, para pegarlo en documentación, Markdown, wikis o LaTeX y mostrar la notación textual que se usa en la industria. Importar desde PlantUML sería bastante más costoso.
+- **Esfuerzo:** medio.
+
+### 18. Revisión configurable
+- Las ampliaciones anotadas en la mejora 3: comprobar multiplicidades y nombres de asociaciones, y que el profesorado active o desactive reglas concretas según el tema.
+- **Esfuerzo:** medio.
 
 ## Descartadas
 
@@ -83,6 +97,12 @@ Esfuerzo orientativo: **bajo** (unas horas), **medio** (un día aproximadamente)
 - **Cabecera:** el nombre va centrado; la casilla «Es una clase u objeto» lo subraya (notación de objeto, p. ej. «:Pedido»). El panel explica que hay que añadir un carril por responsable y acercarlos.
 - **Revisión:** si hay carriles, avisa de las acciones que quedan fuera de todos. La prueba automática lo comprueba con el diagrama «Carriles».
 - **Pendiente:** carriles horizontales (botón «Girar», con la cabecera a la izquierda y el nombre en vertical).
+
+### 14. ✅ Alinear, distribuir e igualar tamaño (hecho, versión 9.1)
+- **Solución:** con varios elementos seleccionados, el panel de propiedades muestra tres grupos de botones: **Alinear** (izquierda, centro, derecha, arriba, medio, abajo, respecto al recuadro de la selección), **Repartir** (en horizontal o vertical, con la misma separación entre elementos; con 3 o más) e **Igualar tamaño** (ancho o alto, al del mayor, sin mover los centros). Cada operación es un único paso de deshacer. Al alinear o repartir, los carriles y límites seleccionados arrastran su contenido, y los puntos de paso se mueven cuando sus dos extremos se desplazan lo mismo.
+
+### 15. ✅ Duplicar diagrama (hecho, versión 9.1)
+- **Solución:** botón **Duplicar diagrama** en la barra lateral (junto a renombrar y eliminar). La copia aparece justo debajo del original como «Nombre (copia)», con identificadores nuevos y sin selección, y se abre. Sirve para guardar versiones y para repartir un diagrama de partida.
 
 ## Publicación en GitHub Pages (hecho)
 
